@@ -28,8 +28,8 @@ from typing import Optional
 from adapters.base import DisplayAdapter
 
 # Load environment variables from config.env if it exists
-config_file = Path(__file__).parent / "config.env"
-if config_file.exists():
+config_file = "./config.env"
+if os.path.exists(config_file):
     with open(config_file) as f:
         for line in f:
             line = line.strip()

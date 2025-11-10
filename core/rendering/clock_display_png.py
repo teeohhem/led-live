@@ -12,9 +12,9 @@ from pathlib import Path
 def load_custom_themes():
     """Load custom themes from custom_themes.json if it exists"""
     custom_themes = {}
-    themes_file = Path(__file__).parent / "custom_themes.json"
-    
-    if themes_file.exists():
+    themes_file = "./custom_themes.json"
+
+    if os.path.exists(themes_file):
         try:
             with open(themes_file, 'r') as f:
                 custom_themes = json.load(f)

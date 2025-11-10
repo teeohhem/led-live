@@ -24,7 +24,7 @@ class AdapterRegistry:
             registry_path: Path to adapters.json file. If None, uses default location.
         """
         if registry_path is None:
-            registry_path = Path(__file__).parent.parent / "adapters.json"
+            registry_path = Path("./adapters.json")
 
         self.registry_path = registry_path
         self._registry: Optional[Dict[str, Any]] = None
