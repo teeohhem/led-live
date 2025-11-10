@@ -8,11 +8,152 @@ import os
 
 # --- Team colors ---
 TEAM_COLORS = {
-    "DET": (0, 0, 255),
-    "MSU": (0, 128, 0),
-    "ARK": (255, 0, 0),
-    "MICH": (128, 128, 0),
+    "NBA": {
+        "ATL": (204, 0, 0),      # Atlanta Hawks
+        "BOS": (0, 122, 51),     # Boston Celtics
+        "BKN": (0, 0, 0),        # Brooklyn Nets
+        "CHA": (29, 17, 96),     # Charlotte Hornets
+        "CHI": (206, 17, 65),    # Chicago Bulls
+        "CLE": (134, 0, 56),     # Cleveland Cavaliers
+        "DAL": (0, 83, 188),     # Dallas Mavericks
+        "DEN": (13, 34, 64),     # Denver Nuggets
+        "DET": (200, 16, 46),    # Detroit Pistons
+        "GSW": (0, 107, 182),    # Golden State Warriors
+        "HOU": (206, 17, 65),    # Houston Rockets
+        "IND": (0, 39, 93),      # Indiana Pacers
+        "LAC": (200, 16, 46),    # LA Clippers
+        "LAL": (85, 37, 130),    # LA Lakers
+        "MEM": (93, 118, 169),   # Memphis Grizzlies
+        "MIA": (152, 0, 46),     # Miami Heat
+        "MIL": (0, 71, 27),      # Milwaukee Bucks
+        "MIN": (0, 80, 131),     # Minnesota Timberwolves
+        "NOP": (0, 22, 65),      # New Orleans Pelicans
+        "NYK": (0, 107, 182),    # New York Knicks
+        "OKC": (0, 125, 195),    # Oklahoma City Thunder
+        "ORL": (0, 125, 197),    # Orlando Magic
+        "PHI": (0, 43, 92),      # Philadelphia 76ers
+        "PHX": (229, 96, 32),    # Phoenix Suns
+        "POR": (224, 58, 62),    # Portland Trail Blazers
+        "SAC": (91, 43, 130),    # Sacramento Kings
+        "SAS": (196, 206, 211),  # San Antonio Spurs
+        "TOR": (206, 17, 65),    # Toronto Raptors
+        "UTA": (0, 43, 92),      # Utah Jazz
+        "WAS": (0, 34, 68),      # Washington Wizards
+    },
+    "NFL": {
+        "ARI": (151, 35, 63),    # Arizona Cardinals
+        "ATL": (167, 25, 48),    # Atlanta Falcons
+        "BAL": (26, 25, 95),     # Baltimore Ravens
+        "BUF": (0, 51, 160),     # Buffalo Bills
+        "CAR": (0, 133, 202),    # Carolina Panthers
+        "CHI": (11, 22, 42),     # Chicago Bears
+        "CIN": (255, 60, 0),     # Cincinnati Bengals
+        "CLE": (49, 29, 0),      # Cleveland Browns
+        "DAL": (0, 53, 148),     # Dallas Cowboys
+        "DEN": (255, 90, 31),    # Denver Broncos
+        "DET": (0, 118, 182),    # Detroit Lions
+        "GB": (24, 48, 40),      # Green Bay Packers
+        "HOU": (3, 32, 47),      # Houston Texans
+        "IND": (0, 44, 95),      # Indianapolis Colts
+        "JAX": (0, 103, 120),    # Jacksonville Jaguars
+        "KC": (141, 144, 149),   # Kansas City Chiefs
+        "LAC": (0, 128, 198),    # LA Chargers
+        "LAR": (79, 38, 131),    # LA Rams
+        "LVR": (0, 0, 0),        # Las Vegas Raiders
+        "MIA": (0, 142, 151),    # Miami Dolphins
+        "MIN": (79, 38, 131),    # Minnesota Vikings
+        "NE": (0, 34, 68),       # New England Patriots
+        "NO": (162, 170, 173),   # New Orleans Saints
+        "NYG": (1, 35, 82),      # New York Giants
+        "NYJ": (18, 87, 64),     # New York Jets
+        "PHI": (0, 76, 84),      # Philadelphia Eagles
+        "PIT": (255, 182, 18),   # Pittsburgh Steelers
+        "SEA": (0, 34, 68),      # Seattle Seahawks
+        "SF": (170, 0, 0),       # San Francisco 49ers
+        "TB": (213, 10, 10),     # Tampa Bay Buccaneers
+        "TEN": (12, 35, 64),     # Tennessee Titans
+        "WSH": (90, 20, 0),      # Washington Commanders
+    },
+    "NHL": {
+        "ANA": (247, 73, 2),     # Anaheim Ducks
+        "ARI": (140, 38, 51),    # Arizona Coyotes
+        "BOS": (252, 181, 20),   # Boston Bruins
+        "BUF": (0, 38, 84),      # Buffalo Sabres
+        "CGY": (200, 16, 46),    # Calgary Flames
+        "CAR": (226, 24, 54),    # Carolina Hurricanes
+        "CHI": (207, 10, 44),    # Chicago Blackhawks
+        "CBJ": (0, 38, 84),      # Columbus Blue Jackets
+        "COL": (111, 38, 61),    # Colorado Avalanche
+        "DAL": (0, 104, 71),     # Dallas Stars
+        "DET": (200, 16, 46),    # Detroit Red Wings
+        "EDM": (4, 30, 66),      # Edmonton Oilers
+        "FLA": (200, 16, 46),    # Florida Panthers
+        "LAK": (0, 0, 0),        # Los Angeles Kings
+        "MIN": (21, 71, 52),     # Minnesota Wild
+        "MTL": (173, 216, 230),  # Montreal Canadiens
+        "NSH": (255, 184, 28),   # Nashville Predators
+        "NJD": (206, 17, 38),    # New Jersey Devils
+        "NYI": (0, 83, 155),     # New York Islanders
+        "NYR": (0, 56, 168),     # New York Rangers
+        "OTT": (200, 16, 46),    # Ottawa Senators
+        "PHI": (247, 73, 2),     # Philadelphia Flyers
+        "PIT": (252, 181, 20),   # Pittsburgh Penguins
+        "SEA": (111, 38, 51),    # Seattle Kraken
+        "SJS": (0, 108, 182),    # San Jose Sharks
+        "STL": (0, 47, 135),     # St. Louis Blues
+        "TBL": (0, 32, 91),      # Tampa Bay Lightning
+        "TOR": (0, 32, 91),      # Toronto Maple Leafs
+        "VAN": (0, 32, 91),      # Vancouver Canucks
+        "VGK": (185, 151, 91),   # Vegas Golden Knights
+        "WPG": (4, 30, 66),      # Winnipeg Jets
+        "WSH": (4, 30, 66),      # Washington Capitals
+    },
+    "MLB": {
+        "ARI": (167, 25, 48),    # Arizona Diamondbacks
+        "ATL": (206, 17, 38),    # Atlanta Braves
+        "BAL": (223, 70, 1),     # Baltimore Orioles
+        "BOS": (189, 48, 57),    # Boston Red Sox
+        "CHC": (14, 51, 134),    # Chicago Cubs
+        "CIN": (198, 1, 31),     # Cincinnati Reds
+        "CLE": (134, 38, 51),    # Cleveland Guardians
+        "COL": (51, 0, 114),     # Colorado Rockies
+        "CWS": (0, 0, 0),        # Chicago White Sox
+        "DET": (12, 35, 64),     # Detroit Tigers
+        "HOU": (0, 45, 98),      # Houston Astros
+        "KC": (0, 70, 135),      # Kansas City Royals
+        "LAA": (186, 0, 33),     # LA Angels
+        "LAD": (0, 90, 156),     # LA Dodgers
+        "MIA": (0, 163, 224),    # Miami Marlins
+        "MIL": (19, 41, 75),     # Milwaukee Brewers
+        "MIN": (0, 43, 92),      # Minnesota Twins
+        "NYM": (0, 45, 114),     # New York Mets
+        "NYY": (0, 48, 135),     # New York Yankees
+        "OAK": (0, 56, 49),      # Oakland Athletics
+        "PHI": (232, 24, 40),    # Philadelphia Phillies
+        "PIT": (253, 184, 39),   # Pittsburgh Pirates
+        "SD": (0, 45, 98),       # San Diego Padres
+        "SEA": (0, 92, 92),      # Seattle Mariners
+        "SF": (253, 90, 30),     # San Francisco Giants
+        "STL": (196, 30, 58),    # St. Louis Cardinals
+        "TB": (9, 44, 92),       # Tampa Bay Rays
+        "TEX": (0, 50, 120),     # Texas Rangers
+        "TOR": (19, 74, 142),    # Toronto Blue Jays
+        "WSH": (171, 0, 3),      # Washington Nationals
+    },
+    "COLLEGE": {
+        "MSU": (0, 128, 0),      # Michigan State
+        "ARK": (255, 0, 0),      # Arkansas
+        "MICH": (128, 128, 0),   # Michigan
+    }
 }
+
+def get_team_color(team_name, league, default_color=(255, 0, 0)):
+    """
+    Get team color by league and team name.
+    Falls back to default_color if team/league not found.
+    """
+    league_colors = TEAM_COLORS.get(league, {})
+    return league_colors.get(team_name, default_color)
 
 # --- Logo Loading ---
 def load_team_logo(team_name, league, max_size=(16, 16)):
@@ -97,8 +238,8 @@ def render_game_with_logos(img, game, width=64, height=40):
         away_color = (150, 150, 150)
         time_color = (150, 150, 150)
     else:
-        home_color = TEAM_COLORS.get(home_name, (255, 0, 0))
-        away_color = TEAM_COLORS.get(away_name, (0, 255, 0))
+        home_color = get_team_color(home_name, league, (255, 0, 0))
+        away_color = get_team_color(away_name, league, (0, 255, 0))
         time_color = (255, 255, 0)
     
     # --- AWAY TEAM (top half, y=0-19) ---
@@ -179,10 +320,10 @@ def render_game_expanded(draw, game, offset=(0,0), width=64, font=None, small_fo
         away_color = (150, 150, 150)
         time_color = (150, 150, 150)
     else:
-        home_color = TEAM_COLORS.get(home_name, (255,0,0))
-        away_color = TEAM_COLORS.get(away_name, (0,255,0))
+        home_color = get_team_color(home_name, league, (255,0,0))
+        away_color = get_team_color(away_name, league, (0,255,0))
         time_color = (255, 255, 0)
-    
+
     x_start, y_start = offset
     
     # Get font size for dynamic spacing
@@ -249,9 +390,9 @@ def render_game_compact(draw, game, offset=(0,0), width=64, font=None):
         home_color = (150, 150, 150)
         away_color = (150, 150, 150)
     else:
-        home_color = TEAM_COLORS.get(home_name, (255,0,0))
-        away_color = TEAM_COLORS.get(away_name, (0,255,0))
-    
+        home_color = get_team_color(home_name, league, (255,0,0))
+        away_color = get_team_color(away_name, league, (0,255,0))
+
     x_start, y_start = offset
     y_center = y_start + 1
     
