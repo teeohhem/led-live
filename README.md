@@ -1,9 +1,10 @@
 # LED Live Panel Display System
 
-A Python-based display system for dual iPixel 64x20 LED panels (total 64x40 pixels) featuring instant PNG rendering, themed displays, and intelligent mode switching.
+A Python-based display system featuring instant PNG rendering, themed displays, and intelligent mode switching. Supports **any LED panel** through a plugin-based adapter architecture.
 
 ## Features
 
+- **🔌 Plugin Architecture** - Support for any LED panel via extensible adapters
 - **⚡ Instant Display Updates** - PNG upload for sub-second full-frame rendering
 - **🏀 Sports Scoreboards** - Live scores from Detroit teams (NHL, NBA, NFL, MLB)
   - Single game: Full-screen with team logos
@@ -24,15 +25,22 @@ A Python-based display system for dual iPixel 64x20 LED panels (total 64x40 pixe
   - Configurable wake/sleep schedule
 - **🔄 Intelligent Mode Switching** - Auto-switches between sports, clock, weather, and stocks
 
-## Hardware
+## Hardware Support
 
-This project targets LED panels from iPixel, compatible with these BLE characteristics:
-- **Service UUID**: `0000fa02-0000-1000-8000-00805f9b34fb`
-- **Panel Size**: 64x20 pixels per panel
-- **Configuration**: Dual panels stacked vertically (64x40 total)
+This system supports **any LED panel** through a plugin-based adapter architecture. Simply create an adapter for your hardware!
 
+### Included Adapters
 
-## Tips for incompatible panels
+- **iPixel 20x64 LED Panels** (BLE) - Default adapter
+  - Service UUID: `0000fa02-0000-1000-8000-00805f9b34fb`
+  - Panel Size: 64x20 pixels per panel
+  - Configuration: Dual panels stacked vertically (64x40 total)
+
+### Adding New Hardware
+
+Want to use different LED panels? Create a new adapter! See **[Adding New Adapters](#adding-new-adapters)** below.
+
+**For reverse-engineering incompatible panels:**
 Follow this guide to install a developer bluetooth profile to your iOS device and sniff bluetooth packets from your device manufacturer and the app that controls it:
 https://www.bluetooth.com/blog/a-new-way-to-debug-iosbluetooth-applications/
 
@@ -104,39 +112,47 @@ python display_manager.py
 
 ```
 led_panel/
-├── display_manager.py          # Main application
-├── panel_core.py                # BLE + PNG/GIF core + power control
-├── sports_display_png.py        # Sports rendering
-├── sports_data.py               # ESPN API integration
-├── stocks_display_png.py        # Stock market rendering
-├── stocks_data.py               # Yahoo Finance integration
-├── weather_display_png.py       # Weather rendering
-├── weather_data.py              # OpenWeatherMap API
-├── clock_display_png.py         # Themed clock
-├── test_new_features.py         # Test GIF animations & power control
-├── create_test_gif.py           # Generate test GIF animations
-├── fonts/                       # Font files
-├── animations/                  # GIF animation files
-│   ├── test.gif                 # Bouncing ball test
-│   └── rainbow_wave.gif         # Rainbow wave test
-├── logos/                       # Team logos + weather icons
-│   ├── nhl/                     # NHL team logos
-│   ├── nba/                     # NBA team logos
-│   ├── nfl/                     # NFL team logos
-│   ├── mlb/                     # MLB team logos
-│   ├── NOT_FOUND.png            # Fallback logo
-│   └── *.png                    # Weather icons
-├── docs/                        # Documentation
-│   ├── configuration.md         # Config reference
-│   ├── setup.md                 # Setup guide
-│   └── clock_themes.md          # Clock theme guide
-├── legacy/                      # Archived code
-│   ├── legacy_utils.py          # Old pixel-by-pixel rendering
+├── adapters/                    # Display protocol adapters
+│   ├── base.py                 # Abstract DisplayAdapter interface
+│   ├── loader.py               # Dynamic adapter loading system
+│   ├── adapters.json           # Adapter registry
+│   └── ipixel20x64/            # iPixel 20x64 adapter (BLE)
+│       ├── __init__.py
+│       ├── adapter.py          # BLE adapter implementation
+│       └── protocol.py         # BLE protocol handling
+├── core/                       # Core business logic
+│   ├── data/                   # Data fetching modules
+│   │   ├── __init__.py
+│   │   ├── sports_data.py      # ESPN API integration
+│   │   ├── weather_data.py     # OpenWeatherMap API
+│   │   └── stocks_data.py      # Yahoo Finance integration
+│   └── rendering/              # Display rendering modules
+│       ├── __init__.py
+│       ├── sports_display_png.py   # Sports scoreboard renderer
+│       ├── weather_display_png.py  # Weather display renderer
+│       ├── clock_display_png.py    # Themed clock renderer
+│       └── stocks_display_png.py   # Stock market renderer
+├── display_manager.py          # Main application & mode coordinator
+├── panel_core.py               # Display adapter management
+├── fonts/                      # Font files
+├── logos/                      # Team logos + weather icons
+│   ├── nhl/                    # NHL team logos
+│   ├── nba/                    # NBA team logos
+│   ├── nfl/                    # NFL team logos
+│   ├── mlb/                    # MLB team logos
+│   ├── NOT_FOUND.png           # Fallback logo
+│   └── *.png                   # Weather icons
+├── docs/                       # Documentation
+│   ├── configuration.md        # Config reference
+│   ├── setup.md                # Setup guide
+│   └── clock_themes.md         # Clock theme guide
+├── legacy/                     # Archived code
+│   ├── legacy_utils.py         # Old pixel-by-pixel rendering
 │   └── README.md
-├── config.env                   # Your configuration (gitignored)
-├── config.env.example           # Example configuration
-├── custom_themes.json           # Custom clock themes (gitignored)
-└── custom_themes.json.example   # Example themes
+├── config.env                  # Your configuration (gitignored)
+├── config.env.example          # Example configuration
+├── custom_themes.json          # Custom clock themes (gitignored)
+└── custom_themes.json.example  # Example themes
 ```
 
 ## Display Modes
@@ -418,11 +434,19 @@ Benefits:
 
 ### Core Components
 
+**adapters/**
+- **base.py**: Abstract `DisplayAdapter` interface for all hardware
+- **loader.py**: Dynamic adapter loading and registry management
+- **adapters.json**: Registry of available adapters
+- **ipixel20x64/**: iPixel BLE adapter implementation
+
+**core/**
+- **data/**: Data fetching modules (sports, weather, stocks APIs)
+- **rendering/**: Display rendering modules (PNG generation)
+
 **panel_core.py**
-- BLE connection management
-- PNG packet creation and upload
-- Dual-panel routing
-- Screen clearing and initialization
+- Display adapter lifecycle management
+- Global adapter state coordination
 
 **display_manager.py**
 - Mode coordinator and switcher
@@ -430,20 +454,177 @@ Benefits:
 - Live game detection
 - Automatic mode priorities
 
-**Rendering Modules**
-- `sports_display_png.py`: Sports scoreboard renderer
-- `weather_display_png.py`: Weather display renderer
-- `clock_display_png.py`: Themed clock renderer
+### Plugin Architecture
 
-**Data Modules**
-- `sports_data.py`: ESPN API client
-- `weather_data.py`: OpenWeatherMap API client
+The system uses a plugin-based adapter architecture that separates **hardware communication** from **content rendering**:
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Data APIs     │ -> │  Content        │ -> │  Display        │
+│   (ESPN, Yahoo, │    │  Rendering      │    │  Adapter        │
+│    Weather)     │    │  (PIL Images)   │    │  (BLE/WiFi/etc) │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+**Benefits:**
+- **Hardware Independence**: Add support for any LED panel by creating a new adapter
+- **Protocol Flexibility**: Support BLE, WiFi, USB, serial, or any communication method
+- **Content Portability**: Same rendering logic works on all hardware
+- **Easy Extension**: No core changes needed for new hardware support
 
 ### Display Pipeline
 
 ```
-Data APIs → Render to PIL Image → Convert to PNG → Upload via BLE → Display!
+Data APIs → Render to PIL Image → Adapter Protocol → Hardware Display!
 ```
+
+## Adding New Adapters
+
+Want to use different LED panels? Create a new adapter! The system is designed to be easily extensible.
+
+### Step 1: Create Adapter Directory
+
+```bash
+mkdir adapters/your_panel_name
+```
+
+### Step 2: Implement the Adapter
+
+Create `adapters/your_panel_name/adapter.py`:
+
+```python
+from ..base import DisplayAdapter, ConnectionError, UploadError
+
+class YourPanelAdapter(DisplayAdapter):
+    def __init__(self):
+        self.connection = None
+
+    async def connect(self) -> None:
+        """Establish connection to your panels"""
+        try:
+            # Your connection logic here
+            # e.g., BLE, WiFi, USB, serial, etc.
+            self.connection = "your_connection_object"
+        except Exception as e:
+            raise ConnectionError(f"Failed to connect: {e}")
+
+    async def disconnect(self) -> None:
+        """Close connection"""
+        if self.connection:
+            # Your disconnect logic
+            self.connection = None
+
+    async def upload_image(self, image, clear_first=False) -> None:
+        """Upload PIL Image to your panels"""
+        if not self.connection:
+            raise ConnectionError("Not connected")
+
+        try:
+            # Convert PIL Image to your panel format
+            # Send via your protocol (BLE, WiFi, etc.)
+            pass
+        except Exception as e:
+            raise UploadError(f"Upload failed: {e}")
+
+    async def clear_screen(self) -> None:
+        """Clear the display"""
+        # Send clear command via your protocol
+        pass
+
+    async def power_on(self) -> None:
+        """Turn display on"""
+        # Send power-on command
+        pass
+
+    async def power_off(self) -> None:
+        """Turn display off"""
+        # Send power-off command
+        pass
+
+    @property
+    def display_width(self) -> int:
+        """Return your panel width"""
+        return 64  # Adjust for your hardware
+
+    @property
+    def display_height(self) -> int:
+        """Return your panel height"""
+        return 32  # Adjust for your hardware
+
+    @property
+    def is_connected(self) -> bool:
+        """Check connection status"""
+        return self.connection is not None
+
+    async def get_info(self) -> dict:
+        """Return adapter information"""
+        return {
+            "adapter_type": "your_panel_name",
+            "device_count": 1,
+            "panel_width": self.display_width,
+            "panel_height": self.display_height,
+            "total_width": self.display_width,
+            "total_height": self.display_height,
+            "protocol": "Your Protocol",
+            "features": ["png_upload", "fast_refresh"]
+        }
+```
+
+### Step 3: Create Protocol Module (Optional)
+
+If you have complex protocol logic, create `adapters/your_panel_name/protocol.py` to separate concerns.
+
+### Step 4: Register the Adapter
+
+Add to `adapters.json`:
+
+```json
+{
+  "adapters": {
+    "your_panel_name": {
+      "name": "Your Panel Brand/Model",
+      "module": "adapters.your_panel_name.adapter",
+      "class": "YourPanelAdapter",
+      "description": "Description of your panels",
+      "default": false
+    }
+  }
+}
+```
+
+### Step 5: Use Your Adapter
+
+Use programmatically by passing the adapter to the main function:
+
+```python
+from adapters import get_adapter
+from display_manager import main
+
+# Get your custom adapter
+adapter = get_adapter('your_panel_name')
+
+# Run with your adapter
+await main(display_adapter=adapter)
+```
+
+### Adapter Interface Requirements
+
+Your adapter must implement these methods:
+- `connect()` / `disconnect()` - Connection management
+- `upload_image(image, clear_first)` - Display PIL images
+- `clear_screen()` - Clear display
+- `power_on()` / `power_off()` - Power management
+- Properties: `display_width`, `display_height`, `is_connected`
+- `get_info()` - Return adapter metadata
+
+### Example Adapters
+
+- **BLE**: `adapters/ipixel20x64/` - iPixel BLE panels
+- **WiFi**: Create `adapters/wifi_panel/` for WiFi-connected displays
+- **USB**: Create `adapters/usb_panel/` for USB-connected displays
+- **Serial**: Create `adapters/serial_panel/` for serial-connected displays
+
+The rendering system automatically adapts to your panel dimensions!
 
 ## Performance
 
@@ -484,12 +665,26 @@ Old pixel-by-pixel rendering code has been archived to `legacy/`:
 ## Contributing
 
 Contributions welcome! Areas of interest:
-- New clock themes
-- Additional team logos
-- Support for more LED panel types
+
+### 🎨 Content & Themes
+- New clock themes (`custom_themes.json`)
+- Additional team logos (`logos/` directory)
+- Weather icons and graphics
+
+### 🔌 Hardware Support
+- **New LED Panel Adapters** - See [Adding New Adapters](#adding-new-adapters)
+- Support for different panel sizes and configurations
+- Protocol implementations (BLE, WiFi, USB, serial)
+
+### ⚡ Performance & Features
 - Performance optimizations
-- New display modes
-- Support for different LED panels
+- New display modes (animations, special effects)
+- API integrations (new sports leagues, data sources)
+
+### 🛠️ Development
+- Bug fixes and improvements
+- Documentation updates
+- Testing and CI improvements
 
 ## License
 
