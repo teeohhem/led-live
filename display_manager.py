@@ -23,7 +23,9 @@ import asyncio
 import os
 from datetime import datetime
 from pathlib import Path
-from bleak import BleakClient
+from typing import Optional
+
+from adapters.base import DisplayAdapter
 
 # Load environment variables from config.env if it exists
 config_file = Path(__file__).parent / "config.env"
@@ -36,18 +38,8 @@ if config_file.exists():
                 os.environ.setdefault(key.strip(), value.strip())
 
 # Import shared modules
-from panel_core import (
-    DualPanelClient, BLE_ADDRESS_TOP, BLE_ADDRESS_BOTTOM,
-    clear_screen_completely, init_panels,
-    upload_png
-)
-from sports_data import fetch_all_games
-from sports_display_png import render_scoreboard
-from weather_data import fetch_current_weather, fetch_hourly_forecast, fetch_daily_forecast, CITY
-from weather_display_png import render_weather, render_weather_bottom_panel
-from clock_display_png import render_clock_with_weather_split
-from stocks_data import fetch_stock_quotes, STOCKS_CHECK_INTERVAL
-from stocks_display_png import render_stocks
+from panel_core import set_display_adapter, get_display_adapter
+from adapters import get_adapter
 
 # --- Settings (from environment variables) ---
 SPORTS_CHECK_INTERVAL = int(os.getenv("SPORTS_CHECK_INTERVAL", "10"))
@@ -123,7 +115,13 @@ def filter_live_games(games):
 
 
 # --- Main Application ---
-async def main():
+async def main(display_adapter: Optional[DisplayAdapter] = None):
+    """
+    Main display manager function.
+
+    Args:
+        display_adapter: DisplayAdapter instance to use. If None, uses BLE adapter for backward compatibility.
+    """
     # Validate configuration
     valid_modes = {DisplayMode.SPORTS, DisplayMode.CLOCK, DisplayMode.WEATHER, DisplayMode.STOCKS}
     invalid_modes = [m for m in DISPLAY_CYCLE_MODES if m not in valid_modes]
@@ -131,40 +129,71 @@ async def main():
         print(f"❌ Invalid display modes in config: {invalid_modes}")
         print(f"   Valid modes: sports, clock, weather, stocks")
         return
-    
+
     if not DISPLAY_CYCLE_MODES:
         print(f"❌ No display modes configured! Set DISPLAY_CYCLE_MODES in config.env")
         return
-    
+
+    # Use provided adapter or default to iPixel 20x64 adapter
+    if display_adapter is None:
+        from adapters import get_adapter
+        display_adapter = get_adapter('ipixel20x64')
+
+    # Set the adapter in panel_core for backward compatibility
+    set_display_adapter(display_adapter)
+
+    # Import data modules early (needed for configuration display)
+    from core.data import CITY, STOCKS_SYMBOLS, STOCKS_CHECK_INTERVAL
+
+    # Get adapter info for display
+    try:
+        adapter_info = await display_adapter.get_info()
+        adapter_type = adapter_info.get('adapter_type', 'unknown')
+        panel_count = adapter_info.get('device_count', 1)
+        width = display_adapter.display_width
+        height = display_adapter.display_height
+    except:
+        adapter_type = 'unknown'
+        panel_count = 1
+        width = 64
+        height = 40
+
     print("🚀 Starting ALL-IN-ONE Display Manager...")
-    print(f"📺 Display: 40x64 (2 panels stacked)")
+    print(f"📺 Display: {height}x{width} ({panel_count} panels) via {adapter_type}")
     print(f"🔄 Cycle Modes: {' → '.join(DISPLAY_CYCLE_MODES)}")
     print(f"⏱️  Cycle Duration: {DISPLAY_CYCLE_SECONDS}s per mode")
-    
+
     # Show config for each mode in cycle
     if DisplayMode.SPORTS in DISPLAY_CYCLE_MODES:
         print(f"🏀 Sports Priority: {'ON' if DISPLAY_SPORTS_PRIORITY else 'OFF'}")
     if DisplayMode.STOCKS in DISPLAY_CYCLE_MODES:
-        from stocks_data import STOCKS_SYMBOLS
         print(f"📈 Stocks: {', '.join(STOCKS_SYMBOLS)}")
     if DisplayMode.WEATHER in DISPLAY_CYCLE_MODES or DisplayMode.CLOCK in DISPLAY_CYCLE_MODES:
         print(f"🌍 Weather: {CITY}")
     if DisplayMode.CLOCK in DISPLAY_CYCLE_MODES:
         print(f"🕐 Clock Theme: {CLOCK_THEME}")
-    
+
     print("\n⚠️  Keep this running! Disconnecting will clear the panels.\n")
-    
-    # Connect to both panels
-    async with BleakClient(BLE_ADDRESS_TOP) as top_client, BleakClient(BLE_ADDRESS_BOTTOM) as bottom_client:
-        print("🔗 Connected to both panels!")
-        
-        # Create dual panel wrapper
-        client = DualPanelClient(top_client, bottom_client)
-        
-        # Initialize panels
-        await init_panels(client)
-        
-        try:
+
+    # Connect to display using adapter
+    await display_adapter.connect()
+    print(f"🔗 Connected to display via {adapter_type}!")
+
+    # Initialize panels
+    await display_adapter.power_on()
+
+    # Import data and rendering modules (lazy import to avoid dependency issues)
+    from core.data import (
+        fetch_all_games, get_league_letter,
+        fetch_current_weather, fetch_hourly_forecast, fetch_daily_forecast,
+        fetch_stock_quotes
+    )
+    from core.rendering import (
+        render_scoreboard, render_weather, render_weather_bottom_panel,
+        render_clock_with_weather_split, render_stocks
+    )
+
+    try:
             
             # State tracking
             current_mode = None
@@ -249,7 +278,7 @@ async def main():
                     print(f"\n🔄 Switching mode: {current_mode} → {target_mode}")
                     
                     # ALWAYS clear screen when switching modes to ensure clean slate
-                    await clear_screen_completely(client)
+                    await display_adapter.clear_screen()
                     
                     current_mode = target_mode
                     
@@ -299,10 +328,10 @@ async def main():
                         for g in display_games[:2]:
                             print(f"    {g['away']} {g['away_score']} @ {g['home']} {g['home_score']}")
                         
-                        scoreboard_img = render_scoreboard(display_games, width=64, height=40)
+                        scoreboard_img = render_scoreboard(display_games, width=display_adapter.display_width, height=display_adapter.display_height)
                         
                         # Upload as PNG - DON'T clear first (screen was already cleared during mode switch)
-                        await upload_png(client, scoreboard_img, clear_first=False)
+                        await display_adapter.upload_image(scoreboard_img, clear_first=False)
                         print("✅ Scoreboard displayed!")
                         
                         # Update state
@@ -332,14 +361,16 @@ async def main():
                         else:
                             print("🔄 Refreshing clock + weather display...")
                         
-                        # Render full 64x40 image: clock (top 20px) + weather (bottom 20px)
+                        # Render full image: clock (top half) + weather (bottom half)
                         clock_weather_img = render_clock_with_weather_split(
-                            current_weather, weather_forecasts, 
+                            current_weather, weather_forecasts,
+                            total_width=display_adapter.display_width,
+                            total_height=display_adapter.display_height,
                             theme=CLOCK_THEME, hour24=CLOCK_24H
                         )
                         
                         # Upload as PNG
-                        await upload_png(client, clock_weather_img, clear_first=False)
+                        await display_adapter.upload_image(clock_weather_img, clear_first=False)
                         
                         if last_clock_weather_render is None:
                             print(f"✅ Themed clock + weather displayed!")
@@ -373,10 +404,10 @@ async def main():
                             print("🔄 Refreshing weather display (keeping PNG alive)...")
                         
                         if current_weather:
-                            weather_img = render_weather(current_weather, weather_forecasts, width=64, height=40)
+                            weather_img = render_weather(current_weather, weather_forecasts, width=display_adapter.display_width, height=display_adapter.display_height)
                             
                             # Upload as PNG - DON'T clear first (screen was already cleared during mode switch)
-                            await upload_png(client, weather_img, clear_first=False)
+                            await display_adapter.upload_image(weather_img, clear_first=False)
                             print("✅ Weather displayed!")
                         
                         prev_current_weather = current_weather.copy() if current_weather else None
@@ -422,10 +453,10 @@ async def main():
                         
                         print(f"  Quotes: {', '.join([q['symbol'] for q in stock_quotes])}")
                         
-                        stocks_img = render_stocks(stock_quotes, width=64, height=40)
+                        stocks_img = render_stocks(stock_quotes, width=display_adapter.display_width, height=display_adapter.display_height)
                         
                         # Upload as PNG - DON'T clear first (screen was already cleared during mode switch)
-                        await upload_png(client, stocks_img, clear_first=False)
+                        await display_adapter.upload_image(stocks_img, clear_first=False)
                         print("✅ Stocks displayed!")
                         
                         # Update state
@@ -434,13 +465,20 @@ async def main():
                 
                 # Wait before next check
                 await asyncio.sleep(MODE_CHECK_INTERVAL)
-        except KeyboardInterrupt:
-            print("\n\n👋 Shutting down gracefully...")
+    except KeyboardInterrupt:
+        print("\n\n👋 Shutting down gracefully...")
+    except Exception as e:
+        print(f"\n❌ Error in main loop: {e}")
+        import traceback
+        traceback.print_exc()
+        print("\n⚠️  Keeping connection open, will retry...")
+    finally:
+        # Ensure we disconnect the adapter
+        try:
+            await display_adapter.disconnect()
+            print("🔌 Disconnected from display")
         except Exception as e:
-            print(f"\n❌ Error in main loop: {e}")
-            import traceback
-            traceback.print_exc()
-            print("\n⚠️  Keeping connection open, will retry...")
+            print(f"⚠️  Error disconnecting: {e}")
 
 
 if __name__ == "__main__":

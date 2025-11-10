@@ -133,31 +133,37 @@ def render_clock(width=64, height=20, theme="stranger_things", hour24=False):
     return img
 
 
-def render_clock_with_weather_split(current_weather, forecasts, theme="stranger_things", hour24=False):
+def render_clock_with_weather_split(current_weather, forecasts, total_width=64, total_height=40, theme="stranger_things", hour24=False):
     """
-    Render clock on top panel (20px) and weather on bottom panel (20px).
-    
+    Render clock on top panel and weather on bottom panel.
+
     Args:
         current_weather: Current weather dict from weather_data
         forecasts: List of forecast dicts from weather_data
+        total_width: Total display width (default 64)
+        total_height: Total display height (default 40 for dual panels)
         theme: Clock theme name
         hour24: Use 24-hour format
-    
+
     Returns:
-        PIL Image (RGB mode, 64x40)
+        PIL Image (RGB mode)
     """
-    from weather_display_png import render_weather_bottom_panel
-    
-    # Create full 64x40 image
-    img = Image.new('RGB', (64, 40), color=(0, 0, 0))
-    
-    # Render clock on top (64x20)
-    clock_img = render_clock(width=64, height=20, theme=theme, hour24=hour24)
+    from .weather_display_png import render_weather_bottom_panel
+
+    # Calculate panel dimensions (assume dual panels stacked vertically)
+    panel_height = total_height // 2
+    panel_width = total_width
+
+    # Create full image
+    img = Image.new('RGB', (total_width, total_height), color=(0, 0, 0))
+
+    # Render clock on top panel
+    clock_img = render_clock(width=panel_width, height=panel_height, theme=theme, hour24=hour24)
     img.paste(clock_img, (0, 0))
-    
-    # Render weather on bottom (64x20)
-    weather_img = render_weather_bottom_panel(current_weather, forecasts, width=64, height=20)
-    img.paste(weather_img, (0, 20))
-    
+
+    # Render weather on bottom panel
+    weather_img = render_weather_bottom_panel(current_weather, forecasts, width=panel_width, height=panel_height)
+    img.paste(weather_img, (0, panel_height))
+
     return img
 

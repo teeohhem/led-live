@@ -3,7 +3,7 @@ Sports display rendering using PNG upload (FAST!)
 Renders entire scoreboard as PIL Image for instant upload
 """
 from PIL import Image, ImageDraw, ImageFont
-from sports_data import get_league_letter
+from core.data.sports_data import get_league_letter
 import os
 
 # --- Team colors ---

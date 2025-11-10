@@ -23,6 +23,7 @@ OPENWEATHER_API_KEY = os.getenv(
     "OPENWEATHER_API_KEY",
     "your-api-key-here"  # Replace or set in config.env
 )
+WEATHER_API_KEY = OPENWEATHER_API_KEY  # Alias for backward compatibility
 CITY = os.getenv("WEATHER_CITY", "Detroit,US")  # Format: "City,CountryCode"
 UNITS = os.getenv("WEATHER_UNITS", "imperial")  # imperial = Fahrenheit, metric = Celsius
 
@@ -40,14 +41,14 @@ WEATHER_COLORS = {
 
 # --- Weather condition icons ---
 WEATHER_ICONS = {
-    "clear": "./logos/sun.png",
-    "clouds": "./logos/clouds.png",
-    "rain": "./logos/rain.png",
-    "drizzle": "./logos/rain.png",
-    "thunderstorm": "./logos/thunderstorm.png",
-    "snow": "./logos/snow.png",
-    "mist": "./logos/clouds.png",
-    "default": "./logos/sun.png"
+    "clear": "./logos/weather/sun.png",
+    "clouds": "./logos/weather/clouds.png",
+    "rain": "./logos/weather/rain.png",
+    "drizzle": "./logos/weather/rain.png",
+    "thunderstorm": "./logos/weather/thunderstorm.png",
+    "snow": "./logos/weather/snow.png",
+    "mist": "./logos/weather/clouds.png",
+    "default": "./logos/weather/sun.png"
 }
 
 

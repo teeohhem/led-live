@@ -1,0 +1,13 @@
+{
+  "adapters": {
+    "ipixel20x64": {
+      "name": "iPixel 20x64 LED Panels",
+      "module": "adapters.ipixel20x64.adapter",
+      "class": "BLEDisplayAdapter",
+      "description": "iPixel BLE LED panels (64x20 per panel, dual panel support)",
+      "default": true
+    }
+  },
+  "schema_version": "1.0",
+  "description": "Registry of available display adapters for LED panel system"
+}

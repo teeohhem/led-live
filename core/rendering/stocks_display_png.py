@@ -22,11 +22,9 @@ def render_stocks(quotes, width=64, height=40):
     draw = ImageDraw.Draw(img)
     
     # Load fonts
-    font_path = Path(__file__).parent / "fonts" / "PixelOperator.ttf"
-    
     try:
-        font_main = ImageFont.truetype(str(font_path), 9)
-        font_small = ImageFont.truetype(str(font_path), 8)
+        font_main = ImageFont.truetype("./fonts/PixelOperator.ttf", 9)
+        font_small = ImageFont.truetype("./fonts/PixelOperator.ttf", 8)
     except:
         font_main = ImageFont.load_default()
         font_small = ImageFont.load_default()
@@ -38,24 +36,26 @@ def render_stocks(quotes, width=64, height=40):
     
     # Determine layout based on number of stocks
     num_stocks = len(quotes)
-    
+
     if num_stocks == 1:
         # Single stock - large display
         render_single_stock(draw, quotes[0], width, height, font_main, font_small)
     elif num_stocks == 2:
-        # Two stocks - one per panel (20px each)
+        # Two stocks - split vertically
+        panel_height = height // 2
         render_stock_compact(draw, quotes[0], y_offset=2, font_main=font_main, font_small=font_small)
-        render_stock_compact(draw, quotes[1], y_offset=22, font_main=font_main, font_small=font_small)
-    elif num_stocks == 3:
-        # Three stocks - compact layout
-        render_stock_compact(draw, quotes[0], y_offset=2, font_main=font_main, font_small=font_small)
-        render_stock_compact(draw, quotes[1], y_offset=14, font_main=font_main, font_small=font_small)
-        render_stock_compact(draw, quotes[2], y_offset=26, font_main=font_main, font_small=font_small)
+        render_stock_compact(draw, quotes[1], y_offset=panel_height + 2, font_main=font_main, font_small=font_small)
     else:
-        # Four or more stocks - very compact
-        y_positions = [2, 12, 22, 32]
-        for i, quote in enumerate(quotes[:4]):  # Show max 4
-            render_stock_mini(draw, quote, y_offset=y_positions[i], font_small=font_small)
+        # Multiple stocks - distribute evenly
+        max_stocks = min(num_stocks, 4)  # Show max 4
+        spacing = height // max_stocks
+
+        for i, quote in enumerate(quotes[:max_stocks]):
+            y_offset = i * spacing + 2
+            if max_stocks <= 2:
+                render_stock_compact(draw, quote, y_offset=y_offset, font_main=font_main, font_small=font_small)
+            else:
+                render_stock_mini(draw, quote, y_offset=y_offset, font_small=font_small)
     
     return img
 

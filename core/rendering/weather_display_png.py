@@ -3,7 +3,7 @@ Weather display rendering using PNG upload (FAST!)
 Renders weather info as PIL Image for instant upload
 """
 from PIL import Image, ImageDraw, ImageFont
-from weather_data import WEATHER_COLORS, load_weather_icon
+from core.data.weather_data import WEATHER_COLORS, load_weather_icon
 
 
 def get_temp_color(temp):
@@ -91,26 +91,48 @@ def render_weather_compact(draw, forecast, offset=(0,0), width=64):
 def render_weather(current, forecasts, width=64, height=40):
     """
     Render complete weather display as PIL Image.
-    Layout for 40 rows:
-    - Top panel (rows 0-19): Current weather
-    - Bottom panel (rows 20-39): 2 hourly forecasts
-    
+    Layout adapts to panel height:
+    - Top half: Current weather
+    - Bottom half: Hourly forecasts (spaced evenly)
+
     Returns:
-        PIL Image (RGB mode, 64xheight)
+        PIL Image (RGB mode)
     """
     # Create black background
     img = Image.new('RGB', (width, height), color=(0, 0, 0))
     draw = ImageDraw.Draw(img)
-    
+
     if current:
         # Current weather at top
         render_weather_current(draw, current, offset=(0, 0), width=width)
-        
-        # Show up to 2 hourly forecasts in bottom panel
-        forecast_positions = [20, 28]  # rows 20-27, 28-35
-        
-        for i, forecast in enumerate(forecasts[:2]):
-            render_weather_compact(draw, forecast, offset=(0, forecast_positions[i]), width=width)
+
+        # Position forecasts in bottom half
+        top_half_height = height // 2
+        bottom_half_height = height - top_half_height
+        num_forecasts = min(len(forecasts), 2)  # Show up to 2 forecasts
+
+        if num_forecasts > 0:
+            # Each forecast needs 8 pixels height
+            forecast_height = 8
+            total_forecast_space_needed = num_forecasts * forecast_height
+
+            # Ensure we don't exceed available space
+            if total_forecast_space_needed <= bottom_half_height:
+                # Position forecasts starting from top of bottom half
+                forecast_positions = []
+                for i in range(num_forecasts):
+                    y_pos = top_half_height + (i * forecast_height)
+                    forecast_positions.append(y_pos)
+            else:
+                # Distribute evenly in available space
+                spacing = bottom_half_height // num_forecasts
+                forecast_positions = []
+                for i in range(num_forecasts):
+                    y_pos = top_half_height + (i * spacing)
+                    forecast_positions.append(y_pos)
+
+            for i, forecast in enumerate(forecasts[:num_forecasts]):
+                render_weather_compact(draw, forecast, offset=(0, forecast_positions[i]), width=width)
     
     return img
 
@@ -118,16 +140,16 @@ def render_weather(current, forecasts, width=64, height=40):
 def render_weather_bottom_panel(current, forecasts, width=64, height=20):
     """
     Render simplified weather for bottom panel only (when clock is on top).
-    Shows current temp + 2 upcoming forecasts side by side.
-    
-    Layout: [Current] [Forecast1] [Forecast2]
-    
+    Shows current temp + upcoming forecasts.
+
+    Layout adapts to width: [Current] [Forecast1] [Forecast2...]
+
     Returns:
-        PIL Image (RGB mode, 64x20)
+        PIL Image (RGB mode)
     """
     img = Image.new('RGB', (width, height), color=(0, 0, 0))
     draw = ImageDraw.Draw(img)
-    
+
     try:
         font = ImageFont.truetype("./fonts/PixelOperator.ttf", 8)
         forecast_font = ImageFont.truetype("./fonts/PixelOperator.ttf", 10)  # Bigger for forecasts!
@@ -136,54 +158,44 @@ def render_weather_bottom_panel(current, forecasts, width=64, height=20):
         font = ImageFont.load_default()
         forecast_font = font
         small_font = font
-    
-    # --- LEFT: Current Weather (0-20) ---
+
+    # Calculate section widths based on available space
+    num_sections = 1 + len(forecasts[:2])  # Current + up to 2 forecasts
+    section_width = width // num_sections
+
+    # --- Current Weather (leftmost section) ---
     if current:
         temp_color = get_temp_color(current['temp'])
-        
+        x_offset = 0
+
         # Small icon
         icon = load_weather_icon(current["condition"], size=(10, 10))
         if icon:
-            draw._image.paste(icon, (1, 1), icon if icon.mode == 'RGBA' else None)
-        
+            draw._image.paste(icon, (x_offset + 1, 1), icon if icon.mode == 'RGBA' else None)
+
         # Current temp
         temp_text = f"{current['temp']}"
-        draw.text((13, 1), temp_text, fill=temp_color, font=font)
-        
+        draw.text((x_offset + 13, 1), temp_text, fill=temp_color, font=font)
+
         # "NOW" label
-        draw.text((2, 11), "NOW", fill=(100, 100, 100), font=small_font)
-    
-    # --- MIDDLE: Forecast 1 (22-41) ---
-    if forecasts and len(forecasts) > 0:
-        fc1 = forecasts[0]
-        
+        draw.text((x_offset + 2, 11), "NOW", fill=(100, 100, 100), font=small_font)
+
+    # --- Forecasts ---
+    for i, forecast in enumerate(forecasts[:2]):
+        x_offset = (i + 1) * section_width
+
         # Tiny icon
-        icon = load_weather_icon(fc1["condition"], size=(8, 8))
+        icon = load_weather_icon(forecast["condition"], size=(8, 8))
         if icon:
-            draw._image.paste(icon, (22, 2), icon if icon.mode == 'RGBA' else None)
-        
-        temp_text = f"{fc1['temp']}"
-        draw.text((32, 0), temp_text, fill=(200, 200, 200), font=forecast_font)
-        
+            draw._image.paste(icon, (x_offset + 2, 2), icon if icon.mode == 'RGBA' else None)
+
+        # Temperature
+        temp_text = f"{forecast['temp']}"
+        draw.text((x_offset + 12, 0), temp_text, fill=(200, 200, 200), font=forecast_font)
+
         # Time (hour only)
-        time_text = fc1['time'][:5]  # "HH:MM" -> show as is
-        draw.text((23, 11), time_text, fill=(100, 100, 100), font=small_font)
-    
-    # --- RIGHT: Forecast 2 (44-63) ---
-    if forecasts and len(forecasts) > 1:
-        fc2 = forecasts[1]
-        
-        # Tiny icon
-        icon = load_weather_icon(fc2["condition"], size=(8, 8))
-        if icon:
-            draw._image.paste(icon, (44, 2), icon if icon.mode == 'RGBA' else None)
-        
-        temp_text = f"{fc2['temp']}"
-        draw.text((54, 0), temp_text, fill=(200, 200, 200), font=forecast_font)
-        
-        # Time (hour only)
-        time_text = fc2['time'][:5]  # "HH:MM"
-        draw.text((45, 11), time_text, fill=(100, 100, 100), font=small_font)
-    
+        time_text = forecast['time'][:5]  # "HH:MM"
+        draw.text((x_offset + 3, 11), time_text, fill=(100, 100, 100), font=small_font)
+
     return img
 
