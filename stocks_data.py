@@ -5,6 +5,7 @@ No API key required!
 import os
 from pathlib import Path
 from datetime import datetime
+import asyncio
 
 # Load environment variables from config.env if it exists
 config_file = Path(__file__).parent / "config.env"
@@ -19,6 +20,86 @@ if config_file.exists():
 # --- Settings ---
 STOCKS_SYMBOLS = [s.strip() for s in os.getenv("STOCKS_SYMBOLS", "AAPL,GOOGL,MSFT,TSLA").split(",") if s.strip()]
 STOCKS_CHECK_INTERVAL = int(os.getenv("STOCKS_CHECK_INTERVAL", "300"))  # 5 minutes default
+
+
+def _fetch_quote_sync(symbol):
+    """
+    Synchronous function to fetch a single stock quote.
+    Called from thread pool to avoid blocking async event loop.
+    """
+    import yfinance as yf  # Import here to avoid issues with thread pool
+    from datetime import datetime as dt
+    try:
+        ticker = yf.Ticker(symbol)
+        info = ticker.info
+        
+        # Debug: print timestamp and what we're fetching
+        fetch_time = dt.now().strftime('%H:%M:%S')
+        print(f"  [{fetch_time}] Fetching {symbol}...")
+        
+        # Check market state to determine which price to use
+        market_state = info.get('marketState', 'REGULAR')
+        
+        # Debug: show what's available
+        pre_price = info.get('preMarketPrice')
+        reg_price = info.get('regularMarketPrice')
+        cur_price = info.get('currentPrice')
+        
+        if market_state == 'PRE' and pre_price:
+            # Use pre-market data
+            current_price = pre_price
+            change = info.get('preMarketChange', 0)
+            change_percent = info.get('preMarketChangePercent', 0)
+            source = "PRE"
+        elif reg_price:
+            # Use regular market data
+            current_price = reg_price
+            change = info.get('regularMarketChange', 0)
+            change_percent = info.get('regularMarketChangePercent', 0)
+            source = "REG"
+        elif cur_price:
+            # Fallback to current price
+            current_price = cur_price
+            change = info.get('regularMarketChange', 0)
+            change_percent = info.get('regularMarketChangePercent', 0)
+            source = "CUR"
+        else:
+            current_price = 0
+            change = 0
+            change_percent = 0
+            source = "NONE"
+        
+        # Get company name
+        name = info.get('shortName') or info.get('longName') or symbol
+        
+        quote = {
+            'symbol': symbol,
+            'price': current_price,
+            'change': change,
+            'change_percent': change_percent,
+            'is_up': change >= 0,
+            'name': name,
+            'market_state': market_state
+        }
+        
+        # Debug print with source and available prices
+        print(f"  {symbol}: ${current_price:.2f} ({change_percent:+.2f}%) [state={market_state}, source={source}]")
+        if pre_price and reg_price and pre_price != reg_price:
+            print(f"    Available: PRE=${pre_price:.2f}, REG=${reg_price:.2f}")
+        
+        return quote
+    except Exception as e:
+        print(f"  ⚠️  Error fetching {symbol}: {e}")
+        # Return placeholder data
+        return {
+            'symbol': symbol,
+            'price': 0,
+            'change': 0,
+            'change_percent': 0,
+            'is_up': False,
+            'name': symbol,
+            'market_state': 'CLOSED'
+        }
 
 
 async def fetch_stock_quotes():
@@ -39,93 +120,26 @@ async def fetch_stock_quotes():
         ]
     """
     try:
-        import yfinance as yf
+        import yfinance as yf  # Just to check it's installed
     except ImportError:
         print("❌ yfinance not installed. Run: pip install yfinance")
         return []
     
-    quotes = []
-    
     print(f"📈 Fetching stock quotes for: {', '.join(STOCKS_SYMBOLS)}")
     
-    for symbol in STOCKS_SYMBOLS:
-        try:
-            ticker = yf.Ticker(symbol)
-            
-            # Try fast_info first (faster, more reliable)
-            try:
-                fast_info = ticker.fast_info
-                current_price = fast_info.get('lastPrice', 0)
-                
-                # Get more details from history for change calculation
-                if current_price == 0:
-                    # Fallback to history
-                    hist = ticker.history(period='2d')
-                    if not hist.empty:
-                        current_price = hist['Close'].iloc[-1]
-                        if len(hist) > 1:
-                            prev_close = hist['Close'].iloc[-2]
-                            change = current_price - prev_close
-                            change_percent = (change / prev_close) * 100
-                        else:
-                            change = 0
-                            change_percent = 0
-                    else:
-                        current_price = 0
-                        change = 0
-                        change_percent = 0
-                else:
-                    # Calculate change from previous close
-                    prev_close = fast_info.get('previousClose', current_price)
-                    change = current_price - prev_close
-                    change_percent = (change / prev_close * 100) if prev_close != 0 else 0
-                
-            except Exception as e:
-                print(f"  ⚠️  Fast info failed for {symbol}, trying full info: {e}")
-                # Fallback to full info (slower but more complete)
-                info = ticker.info
-                
-                if info.get('marketState') == 'PRE':
-                    current_price = info.get('preMarketPrice', 0)
-                    change_percent = info.get('preMarketChangePercent', 0)
-                    change = info.get('preMarketChange', 0)
-                else:
-                    current_price = info.get('regularMarketPrice') or info.get('currentPrice', 0)
-                    change = info.get('regularMarketChange', 0)
-                    change_percent = info.get('regularMarketChangePercent', 0)
-            
-            # Get name (this requires full info, but it's optional)
-            try:
-                name = ticker.info.get('shortName', symbol)
-            except:
-                name = symbol
-            
-            quote = {
-                'symbol': symbol,
-                'price': current_price,
-                'change': change,
-                'change_percent': change_percent,
-                'is_up': change >= 0,
-                'name': name
-            }
-            
-            quotes.append(quote)
-            print(f"  {symbol}: ${current_price:.2f} ({change_percent:+.2f}%)")
-            
-        except Exception as e:
-            print(f"  ⚠️  Error fetching {symbol}: {e}")
-            # Add placeholder data so display doesn't break
-            quotes.append({
-                'symbol': symbol,
-                'price': 0,
-                'change': 0,
-                'change_percent': 0,
-                'is_up': True,
-                'name': symbol,
-                'error': True
-            })
+    # Run synchronous yfinance calls in thread pool to avoid blocking async event loop
+    loop = asyncio.get_event_loop()
+    tasks = []
     
-    return quotes
+    for symbol in STOCKS_SYMBOLS:
+        # Run each stock fetch in a thread pool
+        task = loop.run_in_executor(None, _fetch_quote_sync, symbol)
+        tasks.append(task)
+    
+    # Wait for all fetches to complete (runs in parallel)
+    quotes = await asyncio.gather(*tasks)
+    
+    return list(quotes)
 
 
 def get_market_status():

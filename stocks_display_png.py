@@ -126,7 +126,7 @@ def render_stock_mini(draw, quote, y_offset, font_small):
     elif price >= 100:
         price_text = f"${price:.0f}"
     else:
-        price_text = f"${price:.1f}"
+        price_text = f"${price:.2f}"
     draw.text((18, y_offset), price_text, fill=color, font=font_small)
     
     # Change
