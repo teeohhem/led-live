@@ -51,17 +51,54 @@ async def fetch_stock_quotes():
     for symbol in STOCKS_SYMBOLS:
         try:
             ticker = yf.Ticker(symbol)
-            info = ticker.info
-
-            if info.get('marketState') == 'PRE':
-                current_price = info.get('preMarketPrice', 0)
-                change_percent = info.get('preMarketChangePercent', 0)
-                change = info.get('preMarketChange', 0)
-            else:
-                # Get current price
-                cur_price = info.get('currentPrice', current_price)
-                change = info.get('regularMarketChange', 0)
-                change_percent = info.get('regularMarketChangePercent', 0)
+            
+            # Try fast_info first (faster, more reliable)
+            try:
+                fast_info = ticker.fast_info
+                current_price = fast_info.get('lastPrice', 0)
+                
+                # Get more details from history for change calculation
+                if current_price == 0:
+                    # Fallback to history
+                    hist = ticker.history(period='2d')
+                    if not hist.empty:
+                        current_price = hist['Close'].iloc[-1]
+                        if len(hist) > 1:
+                            prev_close = hist['Close'].iloc[-2]
+                            change = current_price - prev_close
+                            change_percent = (change / prev_close) * 100
+                        else:
+                            change = 0
+                            change_percent = 0
+                    else:
+                        current_price = 0
+                        change = 0
+                        change_percent = 0
+                else:
+                    # Calculate change from previous close
+                    prev_close = fast_info.get('previousClose', current_price)
+                    change = current_price - prev_close
+                    change_percent = (change / prev_close * 100) if prev_close != 0 else 0
+                
+            except Exception as e:
+                print(f"  ⚠️  Fast info failed for {symbol}, trying full info: {e}")
+                # Fallback to full info (slower but more complete)
+                info = ticker.info
+                
+                if info.get('marketState') == 'PRE':
+                    current_price = info.get('preMarketPrice', 0)
+                    change_percent = info.get('preMarketChangePercent', 0)
+                    change = info.get('preMarketChange', 0)
+                else:
+                    current_price = info.get('regularMarketPrice') or info.get('currentPrice', 0)
+                    change = info.get('regularMarketChange', 0)
+                    change_percent = info.get('regularMarketChangePercent', 0)
+            
+            # Get name (this requires full info, but it's optional)
+            try:
+                name = ticker.info.get('shortName', symbol)
+            except:
+                name = symbol
             
             quote = {
                 'symbol': symbol,
@@ -69,7 +106,7 @@ async def fetch_stock_quotes():
                 'change': change,
                 'change_percent': change_percent,
                 'is_up': change >= 0,
-                'name': info.get('shortName', symbol)
+                'name': name
             }
             
             quotes.append(quote)
