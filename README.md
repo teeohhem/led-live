@@ -1,6 +1,6 @@
-# LED Panel Display System
+# LED Live Panel Display System
 
-A Python-based display system for dual 64x20 LED panels (total 64x40 pixels) featuring instant PNG rendering, themed displays, and intelligent mode switching.
+A Python-based display system for dual iPixel 64x20 LED panels (total 64x40 pixels) featuring instant PNG rendering, themed displays, and intelligent mode switching.
 
 ## Features
 
