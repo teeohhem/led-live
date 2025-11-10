@@ -1,0 +1,16 @@
+# LED Panel Display System Requirements
+
+# BLE Communication
+bleak>=0.21.0
+
+# Image Processing
+Pillow>=10.0.0
+
+# HTTP Requests (for API calls)
+httpx>=0.24.0
+
+# Stock Market Data (Yahoo Finance)
+yfinance>=0.2.0
+
+# Note: Python 3.7+ required
+
