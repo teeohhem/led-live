@@ -9,12 +9,20 @@ A Python-based display system for dual 64x20 LED panels (total 64x40 pixels) fea
   - Single game: Full-screen with team logos
   - Multiple games: Compact layouts with intelligent panel boundary handling
   - Live game priority filtering
+- **📈 Stock Market Display** - Real-time stock quotes with Yahoo Finance
+  - Multiple symbols support
+  - Color-coded price changes (red/green)
+  - Pre-market price display
 - **🕐 Themed Clock** - Customizable clock themes (Stranger Things, Matrix, Classic)
+  - JSON-based custom themes
 - **🌤️ Weather Display** - Current conditions + forecasts (hourly or daily)
   - Temperature color coding
   - Weather icons
   - Configurable forecast mode
-- **🔄 Intelligent Mode Switching** - Auto-switches between sports, clock, and weather
+- **🔋 Power Management** - Scheduled on/off times
+  - Automatic night-time display off
+  - Configurable wake/sleep schedule
+- **🔄 Intelligent Mode Switching** - Auto-switches between sports, clock, weather, and stocks
 
 ## Hardware
 
@@ -97,20 +105,38 @@ python display_manager.py
 ```
 led_panel/
 ├── display_manager.py          # Main application
-├── panel_core.py                # BLE + PNG core
+├── panel_core.py                # BLE + PNG/GIF core + power control
 ├── sports_display_png.py        # Sports rendering
 ├── sports_data.py               # ESPN API integration
+├── stocks_display_png.py        # Stock market rendering
+├── stocks_data.py               # Yahoo Finance integration
 ├── weather_display_png.py       # Weather rendering
 ├── weather_data.py              # OpenWeatherMap API
 ├── clock_display_png.py         # Themed clock
+├── test_new_features.py         # Test GIF animations & power control
+├── create_test_gif.py           # Generate test GIF animations
 ├── fonts/                       # Font files
+├── animations/                  # GIF animation files
+│   ├── test.gif                 # Bouncing ball test
+│   └── rainbow_wave.gif         # Rainbow wave test
 ├── logos/                       # Team logos + weather icons
 │   ├── nhl/                     # NHL team logos
 │   ├── nba/                     # NBA team logos
 │   ├── nfl/                     # NFL team logos
 │   ├── mlb/                     # MLB team logos
+│   ├── NOT_FOUND.png            # Fallback logo
 │   └── *.png                    # Weather icons
-└── legacy/                      # Archived code
+├── docs/                        # Documentation
+│   ├── configuration.md         # Config reference
+│   ├── setup.md                 # Setup guide
+│   └── clock_themes.md          # Clock theme guide
+├── legacy/                      # Archived code
+│   ├── legacy_utils.py          # Old pixel-by-pixel rendering
+│   └── README.md
+├── config.env                   # Your configuration (gitignored)
+├── config.env.example           # Example configuration
+├── custom_themes.json           # Custom clock themes (gitignored)
+└── custom_themes.json.example   # Example themes
 ```
 
 ## Display Modes
@@ -142,6 +168,48 @@ led_panel/
   - Blue: ≤45°F
   - Orange: 46-60°F
   - Yellow: ≥61°F
+
+### GIF Animation Mode ⚠️ HARDWARE-DEPENDENT
+- Upload animated GIFs using iPixel-CLI windowed protocol
+- **Hardware Support**: Works on 96x16 iPixel displays, NOT confirmed working on 64x20 panels
+- Protocol fully implemented with ACK handling per iPixel-CLI specs
+
+**Known Compatible Hardware:**
+- ✅ 96x16 iPixel displays (per iPixel-CLI documentation)
+- ❌ 64x20 dual-panel setup (tested - protocol works but no visual output)
+
+**Implementation includes:**
+- ACK-based windowed protocol (12KB windows)
+- Proper CRC32 checksums
+- Multi-window support for large GIFs
+- Notification handling for device acknowledgments
+
+**Usage (on compatible hardware):**
+```python
+from panel_core import upload_gif
+await upload_gif(client, "animations/test.gif")
+```
+
+**Note**: GIF animation support varies by hardware model. If animations don't display on your device, your hardware likely doesn't support this feature. Use PNG rendering instead - it's faster and works on all models!
+
+### Power Management
+- Schedule automatic display on/off times
+- Save power during night hours
+- Configurable wake/sleep schedule
+
+**Configuration:**
+```bash
+DISPLAY_AUTO_OFF=true
+DISPLAY_OFF_TIME=23:00  # Turn off at 11 PM
+DISPLAY_ON_TIME=07:00   # Turn on at 7 AM
+```
+
+**Manual control:**
+```python
+from panel_core import led_on, led_off
+await led_off(client)  # Turn display off
+await led_on(client)   # Turn display on
+```
 
 ## Configuration
 

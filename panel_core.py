@@ -260,3 +260,21 @@ async def write_cmd_single(client, data: bytes):
         await client.write_gatt_char(UUID_WRITE_DATA, data[i:i+chunk_size], response=False)
     await asyncio.sleep(0.01)
 
+
+# --- Power Control ---
+async def led_on(client):
+    """Turn the LED display on"""
+    print("💡 Turning display ON...")
+    await write_cmd(client, SCREEN_ON)
+    await asyncio.sleep(0.2)
+    print("✅ Display is ON")
+
+
+async def led_off(client):
+    """Turn the LED display off"""
+    print("🌙 Turning display OFF...")
+    await write_cmd(client, SCREEN_OFF)
+    await asyncio.sleep(0.2)
+    print("✅ Display is OFF")
+
+
