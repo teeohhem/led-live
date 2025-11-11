@@ -4,26 +4,17 @@ Sports data fetching from ESPN APIs
 import httpx
 import os
 from pathlib import Path
+import logging
+logger = logging.getLogger(__name__)
 
-# Load environment variables from config.env if it exists
-config_file = "./config.env"
-if os.path.exists(config_file):
-    with open(config_file) as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith('#') and '=' in line:
-                key, value = line.split('=', 1)
-                os.environ.setdefault(key.strip(), value.strip())
-
-# --- Settings ---
-# Test mode: pick 2 random live games (useful for testing layouts)
-TEST_MODE_RANDOM_2 = os.getenv("SPORTS_TEST_MODE", "false").lower() == "true"
-
-# Teams to follow (from environment variables)
-TEAMS_NHL = [t.strip() for t in os.getenv("SPORTS_NHL_TEAMS", "DET").split(",") if t.strip()]
-TEAMS_NBA = [t.strip() for t in os.getenv("SPORTS_NBA_TEAMS", "DET").split(",") if t.strip()]
-TEAMS_NFL = [t.strip() for t in os.getenv("SPORTS_NFL_TEAMS", "DET").split(",") if t.strip()]
-TEAMS_MLB = [t.strip() for t in os.getenv("SPORTS_MLB_TEAMS", "DET").split(",") if t.strip()]
+# Import configuration (loaded at startup via config.py)
+from config import (
+    SPORTS_TEST_MODE as TEST_MODE_RANDOM_2,
+    SPORTS_NHL_TEAMS as TEAMS_NHL,
+    SPORTS_NBA_TEAMS as TEAMS_NBA,
+    SPORTS_NFL_TEAMS as TEAMS_NFL,
+    SPORTS_MLB_TEAMS as TEAMS_MLB,
+)
 
 
 def get_teams_for_league(league):
@@ -69,7 +60,7 @@ async def fetch_games_from_endpoint(url):
     next_events = data.get("events", [])
     total_games_found = len(next_events)
     league = url.split('/')[-2].upper()
-    print(f"📊 Found {total_games_found} total games in {league} scoreboard")
+    logger.debug(f"Found{total_games_found}totalgamesin{league}scoreboard")
 
     for game in next_events:
         try:
@@ -135,7 +126,7 @@ async def fetch_games_from_endpoint(url):
             # Filter for your teams (unless in test mode)
             if TEST_MODE_RANDOM_2:
                 should_include = True
-                print(f"🧪 Game found: {away_abbr} @ {home_abbr} (TEST MODE - including)")
+                logger.info(f"Gamefound:{away_abbr}@{home_abbr}(TESTMODE-including)")
             else:
                 # Get teams for THIS league only (prevents cross-league matches)
                 league_teams = get_teams_for_league(league)
@@ -146,9 +137,9 @@ async def fetch_games_from_endpoint(url):
                 )
                 should_include = team_match
                 if team_match:
-                    print(f"✅ {league} Game: {away_abbr} @ {home_abbr} - Matched!")
+                    logger.info(f"{league}Game:{away_abbr}@{home_abbr}-Matched!")
                 else:
-                    print(f"⏭️  {league} Game: {away_abbr} @ {home_abbr} - Not following")
+                    logger.info(f"⏭{league}Game:{away_abbr}@{home_abbr}-Notfollowing")
 
             if should_include:
                 games.append({
@@ -162,25 +153,25 @@ async def fetch_games_from_endpoint(url):
                     "league": league
                 })
         except Exception as e:
-            print(f"❌ Exception processing game {short_name}: {e}")
+            logger.error(f"Exceptionprocessinggame{short_name}:{e}")
             continue
 
     games_count = len(games)
     if TEST_MODE_RANDOM_2:
-        print(f"🧪 Found {games_count} games total (TEST MODE - all games included)")
+        logger.info(f"Found{games_count}gamestotal(TESTMODE-allgamesincluded)")
     else:
-        print(f"🏙️ Kept {games_count} Detroit games (filtered from {total_games_found} found)")
+        logger.info(f"Kept{games_count}Detroitgames(filteredfrom{total_games_found}found)")
     return games
 
 
 async def fetch_all_games():
-    print(f"🌐 Starting to fetch games from {len(API_ENDPOINTS)} endpoints...")
+    logger.info(f"🌐Startingtofetchgamesfrom{len(API_ENDPOINTS)}endpoints...")
     all_games = []
     for i, url in enumerate(API_ENDPOINTS):
-        print(f"📡 [{i+1}/{len(API_ENDPOINTS)}] Fetching from {url.split('/')[-2].upper()}...")
+        logger.info(f"📡[{i+1}/{len(API_ENDPOINTS)}]Fetchingfrom{url.split('/')[-2].upper()}...")
         games = await fetch_games_from_endpoint(url)
         all_games.extend(games)
     
-    print(f"📈 Total games fetched: {len(all_games)}")
+    logger.debug(f"Totalgamesfetched:{len(all_games)}")
     return all_games
 

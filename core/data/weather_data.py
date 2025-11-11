@@ -6,26 +6,14 @@ import os
 from datetime import datetime
 from pathlib import Path
 from PIL import Image
+import logging
+logger = logging.getLogger(__name__)
 
-# Load environment variables from config.env if it exists
-config_file = "./config.env"
-if os.path.exists(config_file):
-    with open(config_file) as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith('#') and '=' in line:
-                key, value = line.split('=', 1)
-                os.environ.setdefault(key.strip(), value.strip())
+# Import configuration (loaded at startup via config.py)
+from config import WEATHER_API_KEY, WEATHER_CITY as CITY, WEATHER_UNITS as UNITS
 
-# --- Settings ---
-# Get your free API key from: https://openweathermap.org/api
-OPENWEATHER_API_KEY = os.getenv(
-    "OPENWEATHER_API_KEY",
-    "your-api-key-here"  # Replace or set in config.env
-)
-WEATHER_API_KEY = OPENWEATHER_API_KEY  # Alias for backward compatibility
-CITY = os.getenv("WEATHER_CITY", "Detroit,US")  # Format: "City,CountryCode"
-UNITS = os.getenv("WEATHER_UNITS", "imperial")  # imperial = Fahrenheit, metric = Celsius
+# Alias for backward compatibility
+OPENWEATHER_API_KEY = WEATHER_API_KEY
 
 # --- Weather condition colors ---
 WEATHER_COLORS = {
@@ -60,7 +48,7 @@ def load_weather_icon(condition, size=(12, 12)):
         icon = icon.resize(size, Image.Resampling.LANCZOS)
         return icon
     except FileNotFoundError:
-        print(f"⚠️ Icon not found: {icon_path}")
+        logger.warning(f"Iconnotfound:{icon_path}")
         return None
 
 
@@ -88,7 +76,7 @@ async def fetch_current_weather():
             data = resp.json()
             
             if resp.status_code != 200:
-                print(f"❌ Weather API error: {data.get('message', 'Unknown error')}")
+                logger.error(f"WeatherAPIerror:{data.get('message','Unknownerror')}")
                 return None
             
             weather = {
@@ -103,11 +91,11 @@ async def fetch_current_weather():
                 "city": data["name"]
             }
             
-            print(f"☀️ Weather: {weather['temp']}°F, {weather['description']}")
+            logger.info(f"☀Weather:{weather['temp']}°F,{weather['description']}")
             return weather
             
         except Exception as e:
-            print(f"❌ Error fetching weather: {e}")
+            logger.error(f"Errorfetchingweather:{e}")
             return None
 
 
@@ -121,7 +109,7 @@ async def fetch_hourly_forecast():
             data = resp.json()
             
             if resp.status_code != 200:
-                print(f"❌ Forecast API error: {data.get('message', 'Unknown error')}")
+                logger.error(f"ForecastAPIerror:{data.get('message','Unknownerror')}")
                 return []
             
             forecasts = []
@@ -134,11 +122,11 @@ async def fetch_hourly_forecast():
                     "description": item["weather"][0]["description"]
                 })
             
-            print(f"📅 Fetched {len(forecasts)} hour forecast")
+            logger.info(f"📅Fetched{len(forecasts)}hourforecast")
             return forecasts
             
         except Exception as e:
-            print(f"❌ Error fetching forecast: {e}")
+            logger.error(f"Errorfetchingforecast:{e}")
             return []
 
 
@@ -156,7 +144,7 @@ async def fetch_daily_forecast():
             data = resp.json()
             
             if resp.status_code != 200:
-                print(f"❌ Forecast API error: {data.get('message', 'Unknown error')}")
+                logger.error(f"ForecastAPIerror:{data.get('message','Unknownerror')}")
                 return []
             
             # Group forecasts by day
@@ -191,10 +179,10 @@ async def fetch_daily_forecast():
                     "description": condition.title()
                 })
             
-            print(f"📅 Fetched {len(forecasts)} day forecast")
+            logger.info(f"📅Fetched{len(forecasts)}dayforecast")
             return forecasts[:2]  # Return only 2 days
             
         except Exception as e:
-            print(f"❌ Error fetching daily forecast: {e}")
+            logger.error(f"Errorfetchingdailyforecast:{e}")
             return []
 

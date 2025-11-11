@@ -6,20 +6,11 @@ import os
 from pathlib import Path
 from datetime import datetime
 import asyncio
+import logging
+logger = logging.getLogger(__name__)
 
-# Load environment variables from config.env if it exists
-config_file = "./config.env"
-if os.path.exists(config_file):
-    with open(config_file) as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith('#') and '=' in line:
-                key, value = line.split('=', 1)
-                os.environ.setdefault(key.strip(), value.strip())
-
-# --- Settings ---
-STOCKS_SYMBOLS = [s.strip() for s in os.getenv("STOCKS_SYMBOLS", "AAPL,GOOGL,MSFT,TSLA").split(",") if s.strip()]
-STOCKS_CHECK_INTERVAL = int(os.getenv("STOCKS_CHECK_INTERVAL", "300"))  # 5 minutes default
+# Import configuration (loaded at startup via config.py)
+from config import STOCKS_SYMBOLS, STOCKS_CHECK_INTERVAL
 
 
 def _fetch_quote_sync(symbol):
@@ -35,7 +26,7 @@ def _fetch_quote_sync(symbol):
         
         # Debug: print timestamp and what we're fetching
         fetch_time = dt.now().strftime('%H:%M:%S')
-        print(f"  [{fetch_time}] Fetching {symbol}...")
+        logger.info(f"[{fetch_time}]Fetching{symbol}...")
         
         # Check market state to determine which price to use
         market_state = info.get('marketState', 'REGULAR')
@@ -83,13 +74,13 @@ def _fetch_quote_sync(symbol):
         }
         
         # Debug print with source and available prices
-        print(f"  {symbol}: ${current_price:.2f} ({change_percent:+.2f}%) [state={market_state}, source={source}]")
+        logger.info(f"{symbol}:${current_price:.2f}({change_percent:+.2f}%)[state={market_state},source={source}]")
         if pre_price and reg_price and pre_price != reg_price:
-            print(f"    Available: PRE=${pre_price:.2f}, REG=${reg_price:.2f}")
+            logger.info(f"Available:PRE=${pre_price:.2f},REG=${reg_price:.2f}")
         
         return quote
     except Exception as e:
-        print(f"  ⚠️  Error fetching {symbol}: {e}")
+        logger.warning(f"Errorfetching{symbol}:{e}")
         # Return placeholder data
         return {
             'symbol': symbol,
@@ -122,10 +113,10 @@ async def fetch_stock_quotes():
     try:
         import yfinance as yf  # Just to check it's installed
     except ImportError:
-        print("❌ yfinance not installed. Run: pip install yfinance")
+        logger.error("yfinancenotinstalled.Run:pipinstallyfinance")
         return []
     
-    print(f"📈 Fetching stock quotes for: {', '.join(STOCKS_SYMBOLS)}")
+    logger.debug(f"Fetchingstockquotesfor:{','.join(STOCKS_SYMBOLS)}")
     
     # Run synchronous yfinance calls in thread pool to avoid blocking async event loop
     loop = asyncio.get_event_loop()
@@ -182,13 +173,13 @@ if __name__ == "__main__":
     
     async def test():
         quotes = await fetch_stock_quotes()
-        print(f"\n📊 Fetched {len(quotes)} quotes:")
+        logger.debug(f"\nFetched{len(quotes)}quotes:")
         for q in quotes:
             status = "▲" if q['is_up'] else "▼"
             color = "green" if q['is_up'] else "red"
-            print(f"  {q['symbol']:6} ${q['price']:8.2f}  {status} {q['change_percent']:+.2f}%")
+            logger.info(f"{q['symbol']:6}${q['price']:8.2f}{status}{q['change_percent']:+.2f}%")
         
-        print(f"\n🕐 Market status: {get_market_status()}")
+        logger.debug(f"\nMarketstatus:{get_market_status()}")
     
     asyncio.run(test())
 

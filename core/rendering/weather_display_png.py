@@ -4,7 +4,8 @@ Renders weather info as PIL Image for instant upload
 """
 from PIL import Image, ImageDraw, ImageFont
 from core.data.weather_data import WEATHER_COLORS, load_weather_icon
-
+import logging
+logger = logging.getLogger(__name__)
 
 def get_temp_color(temp):
     """

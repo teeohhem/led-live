@@ -1,5 +1,52 @@
 # Changelog
 
+## [2.2.0] - YAML Configuration & Multi-Panel System - 2024-11-11
+
+### Added
+- **YAML Configuration System**
+  - Replaced `.env` files with `config.yml` (cleaner, hierarchical)
+  - Configuration loader with type helpers (`get_bool`, `get_int`, `get_list`)
+  - Support for nested configurations by feature
+  - Clock themes now embedded in `config.yml` under `clock_themes` section
+  - Easy-to-extend structure for future adapters
+
+- **Flexible Multi-Panel System**
+  - Panel count determined by number of BLE addresses (no separate config needed)
+  - Support for 1, 2, 3, or more panels (fully scalable)
+  - `MultiPanelClient` replaces `DualPanelClient` (backward compatible)
+  - Panel targeting by 0-based indices: `panels=[0]`, `panels=[0, 1]`, `panels=None` (all)
+  - Smart image splitting across panel boundaries
+
+- **GIF Animation Support**
+  - Frame-by-frame animation playback with proper timing
+  - Automatic image resizing to panel dimensions
+  - Working windowed GIF transmission (from iPixel-CLI)
+  - Panel-specific animation targeting
+
+### Changed
+- **Configuration Migration**
+  - `config.env` → `config.yml` (more readable, better organized)
+  - All settings now organized by feature (display, weather, sports, etc.)
+  - Custom clock themes moved from `custom_themes.json` to `config.yml`
+  - Adapter selection is now explicit (`display.adapter: ipixel`)
+
+- **Panel Targeting**
+  - Changed from string-based (`"top"`, `"bottom"`, `"both"`) to list-based (`[0]`, `[1]`, `None`)
+  - More intuitive for multi-panel systems
+  - Cleaner API in all display functions
+
+### Removed
+- `config.env` and `config.env.example` (replaced by `config.yml`)
+- `custom_themes.json.example` (themes now in `config.yml`)
+- `PANEL_WIDTH` and `PANEL_HEIGHT` env vars (hardcoded for iPixel panels)
+- `PANEL_COUNT` env var (derived from BLE address count)
+- Old string-based panel targeting system
+
+### Fixed
+- Multi-panel image splitting now correctly handles panel boundaries
+- GIF animation resizing to correct panel dimensions (64x20 per panel)
+- BLE UUID is now adapter-specific (not global)
+
 ## [2.1.0] - Documentation Reorganization & Stocks Mode - 2024-11-10
 
 ### Added

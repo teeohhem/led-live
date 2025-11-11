@@ -6,6 +6,8 @@ from datetime import datetime
 import json
 import os
 from pathlib import Path
+import logging
+logger = logging.getLogger(__name__)
 
 
 # --- LOAD CUSTOM THEMES ---
@@ -18,9 +20,9 @@ def load_custom_themes():
         try:
             with open(themes_file, 'r') as f:
                 custom_themes = json.load(f)
-            print(f"✅ Loaded {len(custom_themes)} custom clock theme(s) from custom_themes.json")
+            logger.info(f"Loaded{len(custom_themes)}customclocktheme(s)fromcustom_themes.json")
         except Exception as e:
-            print(f"⚠️  Error loading custom_themes.json: {e}")
+            logger.warning(f"Errorloadingcustom_themes.json:{e}")
     
     return custom_themes
 

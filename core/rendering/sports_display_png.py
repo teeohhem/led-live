@@ -5,6 +5,8 @@ Renders entire scoreboard as PIL Image for instant upload
 from PIL import Image, ImageDraw, ImageFont
 from core.data.sports_data import get_league_letter
 import os
+import logging
+logger = logging.getLogger(__name__)
 
 # --- Team colors ---
 TEAM_COLORS = {
@@ -195,7 +197,7 @@ def load_team_logo(team_name, league, max_size=(16, 16)):
         
         return logo
     except Exception as e:
-        print(f"⚠️  Error loading logo for {team_name} ({league}): {e}")
+        logger.warning(f"Errorloadinglogofor{team_name}({league}):{e}")
         return None
 
 

@@ -7,16 +7,8 @@ of the system to work with different display types (BLE, WiFi, serial, etc.) thr
 a common interface.
 """
 from abc import ABC, abstractmethod
-from typing import Optional
-
-try:
-    from PIL import Image
-    PIL_AVAILABLE = True
-except ImportError:
-    PIL_AVAILABLE = False
-    # Create a dummy Image class for type hints when PIL is not available
-    class Image:
-        pass
+from typing import Optional, Union
+from PIL import Image
 
 
 class DisplayAdapter(ABC):
@@ -53,17 +45,20 @@ class DisplayAdapter(ABC):
         pass
 
     @abstractmethod
-    async def upload_image(self, image: Image, clear_first: bool = False) -> None:
+    async def upload_image(self, image: Image, clear_first: bool = False, panels: list = None) -> None:
         """
         Upload a PIL Image to the display device(s).
 
         Args:
             image: PIL Image to display (RGB mode)
             clear_first: If True, clear screen before uploading
+            panels: List of panel indices (0-based). None or [] = all panels.
+                    Example: [0] = panel 0, [0, 1] = panels 0 and 1
 
         The adapter should handle:
         - Image format conversion if needed
         - Splitting large images across multiple panels
+        - Targeting specific panels when requested
         - Protocol-specific packet formatting
         - Error handling and retries
 
@@ -71,6 +66,31 @@ class DisplayAdapter(ABC):
             DisplayError: If upload fails
         """
         pass
+
+    @abstractmethod
+    async def upload_gif(self, gif_path_or_data: Union[str, bytes], clear_first: bool = False, max_frames: Optional[int] = None, panels: list = None) -> None:
+        """
+        Upload a GIF animation to the display device(s).
+
+        Args:
+            gif_path_or_data: Path to GIF file (str) or GIF data (bytes)
+            clear_first: If True, clear screen before uploading
+            max_frames: Maximum number of frames to include (optional)
+            panels: List of panel indices (0-based). None or [] = all panels.
+                    Example: [0] = panel 0, [0, 1] = panels 0 and 1
+
+        The adapter should handle:
+        - GIF format parsing and frame extraction
+        - Image format conversion if needed
+        - Targeting specific panels when requested
+        - Protocol-specific packet formatting
+        - Error handling and retries
+
+        Raises:
+            DisplayError: If upload fails
+        """
+        pass
+
 
     @abstractmethod
     async def clear_screen(self) -> None:

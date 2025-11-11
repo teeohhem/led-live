@@ -1,0 +1,166 @@
+# LED Panel Display Configuration
+# Copy this file to config.yml and fill in your values
+
+# === Display Adapter Settings ===
+display:
+  # Which adapter to use (see adapters.json for available options)
+  adapter: ipixel
+  
+  # iPixel-specific panel settings
+  ipixel:
+    # Panel dimensions (width x height per panel)
+    # Common sizes:
+    #   64x20  - Standard (default)
+    #   64x32  - Tall variant
+    #   64x64  - Large square
+    #   32x16  - Small
+    #   20x20  - Minimal
+    size_width: 64
+    size_height: 20
+    
+    # Panel BLE addresses (list of addresses, find using a BLE scanner app)
+    # Number of addresses determines panel count automatically
+    # Examples:
+    #   - Single panel:  ["ADDR-1"]
+    #   - Dual panel:    ["ADDR-1", "ADDR-2"]
+    #   - Triple panel:  ["ADDR-1", "ADDR-2", "ADDR-3"]
+    ble_addresses:
+      - "YOUR-PANEL-1-ADDRESS"
+      - "YOUR-PANEL-2-ADDRESS"
+    
+    # BLE characteristic UUID (optional)
+    # Default works for most iPixel LED panels
+    # Only change if your panels use a different UUID
+    ble_uuid_write: "0000fa02-0000-1000-8000-00805f9b34fb"
+
+# === Weather Settings ===
+weather:
+  # Get free API key from: https://openweathermap.org/api
+  api_key: "your-api-key-here"
+  
+  # City for weather display (format: "City,CountryCode")
+  city: "Detroit,US"
+  
+  # Temperature units (imperial or metric)
+  units: "imperial"
+  
+  # Weather forecast mode (daily or hourly)
+  forecast_mode: "daily"
+  
+  # Show weather icons (true/false)
+  show_icons: true
+  
+  # How often to check weather API (seconds, default: 1800 = 30min)
+  check_interval: 1800
+  
+  # PNG refresh interval (seconds, keeps display visible)
+  refresh_interval: 2
+
+# === Stocks Settings ===
+stocks:
+  # Stock symbols to track (comma-separated)
+  # Examples: AAPL, GOOGL, MSFT, TSLA, SPY, QQQ, AMZN
+  symbols: "AAPL,GOOGL,MSFT,TSLA"
+  
+  # How often to check stock prices (seconds, default: 300 = 5min)
+  check_interval: 300
+  
+  # PNG refresh interval (seconds, keeps display visible)
+  refresh_interval: 2
+
+# === Sports Settings ===
+sports:
+  # Teams to follow (by league and abbreviation)
+  # Note: Teams are league-specific, so ATL in MLB won't match ATL in NBA
+  # Examples: DET, BOS, NYR, CHI, ATL, etc.
+  teams:
+    nhl: ["DET"]
+    nba: ["DET"]
+    nfl: ["DET"]
+    mlb: ["DET"]
+  
+  # Test mode: Pick 2 random live games (useful for testing layouts)
+  # Set to true to test layouts when your teams aren't playing
+  test_mode: false
+  
+  # How often to check for score updates (seconds, default: 10)
+  check_interval: 10
+  
+  # Show team logos in sports mode (true/false)
+  show_logos: true
+  
+  # PNG refresh interval (seconds, keeps display visible)
+  refresh_interval: 2
+
+# === Display Settings ===
+display_modes:
+  # Auto-switch to sports when live games detected (true/false)
+  sports_priority: true
+  
+  # Modes to cycle through (list: sports, clock, weather, stocks)
+  cycle_modes:
+    - clock
+    - weather
+    - stocks
+  
+  # How long to show each mode before cycling (seconds)
+  cycle_seconds: 15
+  
+  # Clock theme (stranger_things, classic, or matrix)
+  clock_theme: "stranger_things"
+  
+  # 24-hour clock format (true/false)
+  clock_24h: false
+  
+  # How often to check for mode changes (seconds, default: 2)
+  mode_check_interval: 2
+
+# === Clock Themes ===
+# Define custom clock display themes
+# Available built-in themes: stranger_things, classic, matrix
+# Add custom themes below to override or extend the built-in ones
+clock_themes:
+  my_custom_theme:
+    bg_color: [0, 0, 0]              # Background color (RGB)
+    time_color: [255, 100, 0]        # Time display color (RGB)
+    date_color: [200, 150, 100]      # Date display color (RGB)
+    font_time: "./fonts/PixelOperator.ttf"  # Font file for time
+    font_date: "./fonts/PixelOperator.ttf"  # Font file for date
+    time_size: 16                    # Time font size
+    date_size: 8                     # Date font size
+    glow: true                       # Enable glow effect
+    glow_color: [50, 20, 0]          # Glow color (RGB)
+  
+  neon_blue:
+    bg_color: [0, 0, 0]
+    time_color: [0, 200, 255]
+    date_color: [0, 150, 200]
+    font_time: "./fonts/PixelOperator.ttf"
+    font_date: "./fonts/PixelOperator.ttf"
+    time_size: 16
+    date_size: 8
+    glow: true
+    glow_color: [0, 0, 100]
+  
+  fire:
+    bg_color: [0, 0, 0]
+    time_color: [255, 100, 0]
+    date_color: [200, 50, 0]
+    font_time: "./fonts/PixelOperator.ttf"
+    font_date: "./fonts/PixelOperator.ttf"
+    time_size: 16
+    date_size: 8
+    glow: true
+    glow_color: [100, 0, 0]
+
+# === Power Management ===
+power:
+  # Automatically turn off display at night (true/false)
+  auto_off: true
+  
+  # Turn off time (24-hour format, e.g., "23:00")
+  off_time: "23:00"
+  
+  # Turn on time (24-hour format, e.g., "07:00")
+  on_time: "07:00"
+

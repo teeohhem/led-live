@@ -3,6 +3,8 @@ Stock market display rendering as PNG
 """
 from PIL import Image, ImageDraw, ImageFont
 from pathlib import Path
+import logging
+logger = logging.getLogger(__name__)
 
 
 def render_stocks(quotes, width=64, height=40):
@@ -175,5 +177,5 @@ if __name__ == "__main__":
     for count in [1, 2, 3, 4]:
         img = render_stocks(test_quotes[:count], 64, 40)
         img.save(f"test_stocks_{count}.png")
-        print(f"✅ Saved test_stocks_{count}.png")
+        logger.info(f"Savedtest_stocks_{count}.png")
 

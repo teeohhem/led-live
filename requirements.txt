@@ -6,6 +6,9 @@ bleak>=0.21.0
 # Image Processing
 Pillow>=10.0.0
 
+# Configuration Management
+PyYAML>=6.0
+
 # HTTP Requests (for API calls)
 httpx>=0.24.0
 

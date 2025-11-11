@@ -31,9 +31,7 @@ Thumbs.db
 legacy/
 
 # Configuration (contains sensitive data)
-config.env
-.env
-.env.local
+config.yml
 
 # Custom themes (user-specific)
 custom_themes.json

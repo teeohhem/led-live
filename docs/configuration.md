@@ -1,472 +1,240 @@
 # Configuration Guide
 
-Complete guide to configuring your LED Panel Display System.
+The LED Panel Display System uses YAML configuration files for easy organization and readability.
 
-## Quick Start
+## Setup
 
-1. Copy the example config:
-   ```bash
-   cp config.env.example config.env
-   ```
-
-2. Edit `config.env` with your values:
-   ```bash
-   # Required
-   BLE_ADDRESS_TOP=12:34:56:78:9A:BC
-   BLE_ADDRESS_BOTTOM=12:34:56:78:9A:BD
-   OPENWEATHER_API_KEY=your-api-key-here
-   
-   # Optional
-   WEATHER_CITY=Detroit,US
-   SPORTS_NHL_TEAMS=DET
-   SPORTS_NBA_TEAMS=DET
-   CLOCK_THEME=stranger_things
-   ```
-
-3. Run:
-   ```bash
-   python display_manager.py
-   ```
-
-## Configuration System
-
-The system loads configuration in this order (highest priority first):
-
-1. **System environment variables**
-2. **config.env file** (git-ignored)
-3. **Default values** (fallback)
-
-This allows flexible deployment:
-- Local development: Use `config.env`
-- Docker/containers: Use env vars or mounted config
-- CI/CD: Use secrets management
-
----
-
-## Hardware Settings
-
-### Panel Dimensions
+### 1. Create Configuration File
 
 ```bash
-# Physical panel size
-PANEL_WIDTH=64           # Width of each panel in pixels (default: 64)
-PANEL_HEIGHT=20          # Height of each panel in pixels (default: 20)
-PANEL_COUNT=2            # Number of panels stacked vertically (default: 2)
+cp config.yml.example config.yml
 ```
 
-**When to change:**
-- Different panel sizes (32x16, 128x32, etc.)
-- Single panel setup
-- Different stacking configuration
+### 2. Edit `config.yml`
 
-### BLE Addresses
+Update the values in `config.yml` to match your setup:
 
-```bash
-# BLE addresses (REQUIRED)
-BLE_ADDRESS_TOP=YOUR-TOP-PANEL-ADDRESS
-BLE_ADDRESS_BOTTOM=YOUR-BOTTOM-PANEL-ADDRESS
-
-# BLE characteristic UUID (usually no change needed)
-BLE_UUID_WRITE=0000fa02-0000-1000-8000-00805f9b34fb
+```yaml
+display:
+  adapter: ipixel
+  ipixel:
+    ble_addresses:
+      - "YOUR-PANEL-1-ADDRESS"
+      - "YOUR-PANEL-2-ADDRESS"
 ```
 
-**Finding your addresses:**
-- Use a BLE scanner app (LightBlue on iOS, nRF Connect on Android)
-- Format: `12:34:56:78:9A:BC` or `12345678-9ABC-...`
-
----
-
-## API Settings
-
-### Weather API
+### 3. Install PyYAML (if not already installed)
 
 ```bash
-# OpenWeatherMap (REQUIRED for weather modes)
-OPENWEATHER_API_KEY=your-api-key-here
+pip install pyyaml
+```
+
+## Configuration Sections
+
+### Display Adapter Settings
+
+```yaml
+display:
+  adapter: ipixel  # Which adapter to use
+  
+  ipixel:
+    ble_addresses:      # BLE addresses of your panels
+      - "ADDRESS-1"
+      - "ADDRESS-2"
+    ble_uuid_write: "0000fa02-0000-1000-8000-00805f9b34fb"  # BLE UUID
+```
+
+**Panel Count:** Determined automatically by the number of BLE addresses.
+- 1 address = 1 panel (64×20)
+- 2 addresses = 2 panels (64×40)
+- 3 addresses = 3 panels (64×60)
+- etc.
+
+### Weather Settings
+
+```yaml
+weather:
+  api_key: "your-openweathermap-api-key"
+  city: "Detroit,US"              # Format: City,CountryCode
+  units: "imperial"               # imperial or metric
+  forecast_mode: "daily"          # daily or hourly
+  show_icons: true                # Display weather icons
+  check_interval: 1800            # Seconds (1800 = 30 min)
+  refresh_interval: 2             # Seconds
+```
+
+Get a free API key from [OpenWeatherMap](https://openweathermap.org/api).
+
+### Stocks Settings
+
+```yaml
+stocks:
+  symbols: "AAPL,GOOGL,MSFT,TSLA"  # Comma-separated ticker symbols
+  check_interval: 300              # Seconds (300 = 5 min)
+  refresh_interval: 2              # Seconds
+```
+
+### Sports Settings
+
+```yaml
+sports:
+  teams:
+    nhl: ["DET"]                   # List of team abbreviations
+    nba: ["DET"]
+    nfl: ["DET"]
+    mlb: ["DET"]
+  test_mode: false                 # Use random games for testing
+  check_interval: 10               # Seconds
+  show_logos: true                 # Display team logos
+  refresh_interval: 2              # Seconds
+```
+
+**Team Abbreviations:** Teams are league-specific, so the same abbreviation (e.g., "ATL") can refer to different teams in different leagues:
+- NHL: Detroit Red Wings = "DET"
+- NBA: Atlanta Hawks = "ATL"
+- NFL: Atlanta Falcons = "ATL"
+- MLB: Arizona Diamondbacks = "ARI"
+
+### Display Modes
+
+```yaml
+display_modes:
+  sports_priority: true            # Auto-switch to sports when games are live
+  cycle_modes:                      # Modes to cycle through
+    - clock
+    - weather
+    - stocks
+  cycle_seconds: 15                 # Seconds per mode
+  clock_theme: "stranger_things"    # Clock style (stranger_things, classic, matrix)
+  clock_24h: false                  # 24-hour format
+  mode_check_interval: 2            # Seconds
+```
+
+### Power Management
+
+```yaml
+power:
+  auto_off: true                   # Automatically turn off at night
+  off_time: "23:00"                # Turn off time (24-hour format)
+  on_time: "07:00"                 # Turn on time (24-hour format)
+```
+
+## Finding Panel BLE Addresses
+
+Use a Bluetooth Low Energy scanner app to find your panels' MAC addresses:
+
+- **iOS:** Search for "BLE Scanner" app
+- **Android:** Use "BLE Scanner" or similar app
+- **macOS:** Use "BLE Explorer" or Terminal with `bleak-scanner`
+
+The addresses will look like: `85736B96-4E4E-4EEF-B470-A351D43587BE`
+
+## Migration from .env Files
+
+If you were using `config.env`:
+
+1. Create new `config.yml` from `config.yml.example`
+2. Copy values from `config.env` to `config.yml` using the YAML structure
+3. Delete or rename `config.env` (the system now uses `config.yml`)
+
+**Before (.env):**
+```
+DISPLAY_ADAPTER=ipixel
+BLE_ADDRESSES=ADDR1,ADDR2
 WEATHER_CITY=Detroit,US
-WEATHER_UNITS=imperial          # imperial (°F) or metric (°C)
-WEATHER_CHECK_INTERVAL=1800     # Seconds between updates (default: 1800 = 30min)
 ```
 
-**Getting an API key:**
-1. Go to https://openweathermap.org/api
-2. Sign up (free tier available)
-3. Create an API key
-4. Copy to config.env
+**After (config.yml):**
+```yaml
+display:
+  adapter: ipixel
+  ipixel:
+    ble_addresses:
+      - ADDR1
+      - ADDR2
 
-**Free tier limits:** 60 calls/minute, 1,000,000 calls/month
-
-**Recommended intervals:**
-- Minimum: 600 (10 minutes)
-- Default: 1800 (30 minutes)
-- Maximum: 3600+ (1 hour+)
-
-### Sports API
-
-```bash
-# ESPN API (no key required)
-SPORTS_CHECK_INTERVAL=10        # Seconds between score updates (default: 10)
-SPORTS_NHL_TEAMS=DET
-SPORTS_NBA_TEAMS=DET
-SPORTS_NFL_TEAMS=DET
-SPORTS_MLB_TEAMS=DET
-SPORTS_TEST_MODE=false          # Pick 2 random live games for testing
+weather:
+  city: "Detroit,US"
 ```
 
-**Team codes:** Use 3-letter abbreviations (DET, BOS, NYR, etc.)
-**Multiple teams:** Comma-separated (e.g., `DET,BOS,NYR`)
+## Using Configuration in Code
 
-**Recommended intervals:**
-- Live games: 5-15 seconds (no bandwidth limits)
-- ESPN's free API has no strict rate limits
+```python
+from config_loader import load_config
 
-### Stock Market API
+# Load configuration on startup
+config = load_config()
 
-```bash
-# Yahoo Finance via yfinance (no key required)
-STOCKS_SYMBOLS=AAPL,GOOGL,MSFT,TSLA
-STOCKS_CHECK_INTERVAL=300       # Seconds between updates (default: 300 = 5min)
+# Get values
+adapter = config.get_string("display.adapter")
+addresses = config.get_list("display.ipixel.ble_addresses")
+api_key = config.get_string("weather.api_key")
+priority = config.get_bool("display_modes.sports_priority")
+interval = config.get_int("weather.check_interval")
 ```
 
-**Symbols:** Use standard ticker symbols (e.g., AAPL, TSLA)
-**Recommended interval:** 300+ seconds (market data doesn't need frequent updates)
+## YAML Syntax Tips
 
----
+### Lists
+```yaml
+# Array syntax
+teams: ["DET", "BOS"]
 
-## Display Behavior
-
-### Mode Management
-
-```bash
-# What to show and when
-DISPLAY_SPORTS_PRIORITY=true       # Auto-show sports when live (default: true)
-DISPLAY_CYCLE_MODES=clock,weather,stocks  # Modes to cycle through
-DISPLAY_CYCLE_SECONDS=300          # Seconds per mode (default: 300 = 5min)
-DISPLAY_MODE_CHECK_INTERVAL=2      # How often to check for mode changes (default: 2)
+# Or block syntax
+teams:
+  - DET
+  - BOS
 ```
 
-**Valid modes:**
-- `sports` - Live scores with logos
-- `clock` - Themed clock + weather
-- `weather` - Full weather display
-- `stocks` - Stock market tickers
-
-**How Priority Works:**
-
-With `DISPLAY_SPORTS_PRIORITY=true`:
-```
-Live game detected? 
-  → Yes: Show SPORTS (ignore cycle)
-  → No: Cycle through DISPLAY_CYCLE_MODES
+### Strings with Colons
+Use quotes if the value contains a colon:
+```yaml
+api_key: "12345:abcde"  # Correct
+# api_key: 12345:abcde  # Wrong - YAML will interpret as a mapping
 ```
 
-With `DISPLAY_SPORTS_PRIORITY=false`:
-```
-Always cycle through DISPLAY_CYCLE_MODES
-Only show sports when it's its turn in the cycle
-```
-
-### Display Mode Examples
-
-**Sports Fan (Default)**
-```bash
-DISPLAY_SPORTS_PRIORITY=true
-DISPLAY_CYCLE_MODES=clock,weather
-DISPLAY_CYCLE_SECONDS=300
-```
-Shows sports when live, otherwise cycles clock/weather every 5 minutes.
-
-**Weather Station**
-```bash
-DISPLAY_SPORTS_PRIORITY=false
-DISPLAY_CYCLE_MODES=weather
-```
-Always shows weather, never sports or clock.
-
-**Stock Tracker**
-```bash
-DISPLAY_SPORTS_PRIORITY=false
-DISPLAY_CYCLE_MODES=stocks,clock
-DISPLAY_CYCLE_SECONDS=600
-```
-Cycles between stocks and clock every 10 minutes.
-
-**Balanced Rotation**
-```bash
-DISPLAY_SPORTS_PRIORITY=false
-DISPLAY_CYCLE_MODES=sports,clock,weather,stocks
-DISPLAY_CYCLE_SECONDS=180
-```
-3 minutes per mode, rotates through all modes regardless of live games.
-
-### PNG Refresh Rates
-
-```bash
-# How often to re-upload PNGs (keeps display alive)
-DISPLAY_SPORTS_REFRESH_INTERVAL=2    # Seconds (default: 2)
-DISPLAY_WEATHER_REFRESH_INTERVAL=2   # Seconds (default: 2)
-DISPLAY_CLOCK_REFRESH_INTERVAL=2     # Seconds (default: 2)
-DISPLAY_STOCKS_REFRESH_INTERVAL=2    # Seconds (default: 2)
+### Comments
+```yaml
+# This is a comment
+setting: value  # Inline comment
 ```
 
-**Why refresh?** PNGs don't persist indefinitely on panels. Periodic re-upload prevents disappearing displays.
-
-**Tuning:**
-- Display disappears: decrease to 1 second
-- Too much BLE traffic: increase to 5 seconds
-
----
-
-## Visual Preferences
-
-### Clock Appearance
-
-```bash
-CLOCK_THEME=stranger_things     # Theme: stranger_things, classic, matrix
-CLOCK_24H=false                 # 24-hour format (default: false = 12-hour)
+### Nested Objects
+```yaml
+display:
+  adapter: ipixel
+  ipixel:
+    setting1: value1
+    setting2: value2
 ```
-
-**Available themes:**
-- `stranger_things` - Red text, retro glow
-- `classic` - Cyan/yellow, clean
-- `matrix` - Green, tech aesthetic
-
-See [Clock Themes](clock_themes.md) for creating custom themes.
-
-### Weather Display
-
-```bash
-WEATHER_FORECAST_MODE=daily     # Forecast type: daily or hourly
-WEATHER_SHOW_ICONS=true         # Show weather icons (default: true)
-WEATHER_COLOR_TEMPS=true        # Color-code temperatures (default: true)
-```
-
-**Temperature colors** (when enabled):
-- Blue: ≤45°F
-- Orange: 46-60°F
-- Yellow: ≥61°F
-
-### Sports Display
-
-```bash
-SPORTS_SHOW_LOGOS=true          # Show team logos (default: true)
-```
-
-**Logo organization:**
-- Place logos in `logos/{league}/{TEAM}.png`
-- Example: `logos/nfl/DET.png`
-- Fallback: `logos/NOT_FOUND.png` if team logo missing
-
----
-
-## Timing & Performance
-
-### Check Intervals
-
-How often to fetch fresh data from APIs:
-
-```bash
-SPORTS_CHECK_INTERVAL=10        # Seconds (default: 10)
-WEATHER_CHECK_INTERVAL=1800     # Seconds (default: 1800 = 30min)
-STOCKS_CHECK_INTERVAL=300       # Seconds (default: 300 = 5min)
-```
-
-**Recommendations:**
-- Sports: 5-15 seconds for live games
-- Weather: 1800+ seconds (API limits)
-- Stocks: 300+ seconds (market data frequency)
-
-### Advanced Settings
-
-```bash
-# BLE communication
-BLE_CONNECT_TIMEOUT=10          # Connection timeout in seconds
-BLE_COMMAND_DELAY=0.01          # Delay between commands
-
-# PNG upload
-PNG_MAX_RETRIES=3               # Retry failed uploads
-PNG_RETRY_DELAY=0.5             # Seconds between retries
-```
-
-**When to tune:**
-- Connection issues: increase timeout
-- Commands failing: increase command delay
-- Upload errors: adjust retries
-
----
-
-## Configuration Examples
-
-### Minimal (Clock Only)
-
-```bash
-# Hardware
-BLE_ADDRESS_TOP=YOUR-ADDRESS
-BLE_ADDRESS_BOTTOM=YOUR-ADDRESS
-
-# Display
-DISPLAY_SPORTS_PRIORITY=false
-DISPLAY_CYCLE_MODES=clock
-CLOCK_THEME=classic
-```
-
-### Sports Fan (High Frequency)
-
-```bash
-# Hardware
-BLE_ADDRESS_TOP=YOUR-ADDRESS
-BLE_ADDRESS_BOTTOM=YOUR-ADDRESS
-
-# Sports
-SPORTS_NHL_TEAMS=DET,BOS
-SPORTS_NBA_TEAMS=DET,BOS
-SPORTS_CHECK_INTERVAL=5          # Update every 5 seconds
-SPORTS_SHOW_LOGOS=true
-
-# Display
-DISPLAY_SPORTS_PRIORITY=true
-DISPLAY_CYCLE_MODES=clock,weather
-DISPLAY_CYCLE_SECONDS=180        # 3 minute cycles
-```
-
-### All Features (Balanced)
-
-```bash
-# Hardware
-BLE_ADDRESS_TOP=YOUR-ADDRESS
-BLE_ADDRESS_BOTTOM=YOUR-ADDRESS
-
-# APIs
-OPENWEATHER_API_KEY=your-key
-WEATHER_CITY=Detroit,US
-WEATHER_CHECK_INTERVAL=1800
-
-# Sports
-SPORTS_NHL_TEAMS=DET
-SPORTS_NBA_TEAMS=DET
-SPORTS_CHECK_INTERVAL=10
-
-# Stocks
-STOCKS_SYMBOLS=AAPL,GOOGL,MSFT,TSLA
-STOCKS_CHECK_INTERVAL=300
-
-# Display
-DISPLAY_SPORTS_PRIORITY=true
-DISPLAY_CYCLE_MODES=clock,weather,stocks
-DISPLAY_CYCLE_SECONDS=300
-CLOCK_THEME=stranger_things
-WEATHER_FORECAST_MODE=daily
-```
-
----
-
-## Validation
-
-The system validates configuration on startup:
-
-✅ **Valid configuration:**
-```
-🚀 Starting ALL-IN-ONE Display Manager...
-📺 Display: 40x64 (2 panels stacked)
-🔄 Cycle Modes: clock → weather → stocks
-⏱️  Cycle Duration: 300s per mode
-📈 Stocks: AAPL, GOOGL, MSFT, TSLA
-```
-
-❌ **Invalid configuration:**
-```
-❌ Invalid display modes in config: foo, bar
-   Valid modes: sports, clock, weather, stocks
-```
-
----
 
 ## Troubleshooting
 
-### "BLE_ADDRESS_TOP not configured"
-- Make sure you copied `config.env.example` to `config.env`
-- Fill in your actual BLE addresses
+### "PyYAML not installed"
 
-### "Cannot connect to panel"
-- Check panels are powered on
-- Verify BLE addresses are correct
-- Ensure panels are in Bluetooth range
-- Try running as root/admin if needed
-
-### "Weather not showing"
-- Verify API key is valid
-- Check city format: "City,CountryCode"
-- Check you're within free tier limits
-
-### "No sports showing"
-- Verify team codes in `config.env`
-- Sports only show when games are live (or completed if no live games)
-- Check ESPN API is accessible
-
-### "Display disappears"
-- Decrease refresh interval (e.g., `DISPLAY_*_REFRESH_INTERVAL=1`)
-- Check BLE connection stability
-
-### "Too slow / laggy"
-- Reduce check intervals
-- Increase PNG refresh intervals
-
----
-
-## Docker / Container Deployment
-
-### Option 1: Mount config.env
+Install it:
 ```bash
-docker run -v $(pwd)/config.env:/app/config.env led-panel
+pip install pyyaml
 ```
 
-### Option 2: Use environment variables
+### "config.yml not found"
+
+Create it from the example:
 ```bash
-docker run \
-  -e BLE_ADDRESS_TOP=12:34:56:78:9A:BC \
-  -e BLE_ADDRESS_BOTTOM=12:34:56:78:9A:BD \
-  -e OPENWEATHER_API_KEY=your-key \
-  led-panel
+cp config.yml.example config.yml
 ```
 
-### Option 3: docker-compose
-```yaml
-services:
-  led-panel:
-    build: .
-    env_file:
-      - config.env
+### Invalid YAML syntax
+
+Check your file at [yamllint.com](http://www.yamllint.com/) or validate with:
+```bash
+python3 -c "import yaml; yaml.safe_load(open('config.yml'))"
 ```
 
----
+### Values not being read
 
-## Security Best Practices
-
-1. **Never commit secrets**
-   - `config.env` is git-ignored by default
-   - Use `config.env.example` as template only
-
-2. **Use environment variables in production**
-   - System env vars or secret management
-   - Avoid hardcoding in code
-
-3. **Rotate API keys periodically**
-   - Especially if sharing code or logs
-
-4. **Check .gitignore**
-   - Ensure `config.env` is listed
-   - Verify no secrets in git history
-
----
-
-## Need Help?
-
-- **Setup issues:** See [Setup Guide](setup.md)
-- **Clock themes:** See [Clock Themes](clock_themes.md)
-- **Code architecture:** See main README.md
-- **Open an issue:** GitHub issues for bugs/features
-
----
-
-**Next:** [Clock Themes Guide](clock_themes.md) | [Setup Guide](setup.md)
-
+Ensure you're using the correct path with dot notation:
+```python
+config.get("display.adapter")      # Correct
+config.get("display_adapter")      # Wrong
+```
