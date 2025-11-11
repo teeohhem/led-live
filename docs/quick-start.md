@@ -5,7 +5,7 @@ Get the LED panel display system up and running in 5 minutes.
 ## Prerequisites
 
 - **Python** 3.7 or higher
-- **LED Panel** - iPixel 20x64 recommended (supports other panels via adapters)
+- **LED Panel** - iPixel panels (any size - 64x20, 64x32, 64x64, etc.)
 - **BLE Scanner App** - To find your panel's BLE address
 - **Free API Keys** - OpenWeatherMap (for weather)
 
@@ -59,6 +59,8 @@ Edit `config.yml` and update these key sections:
 display:
   adapter: ipixel
   ipixel:
+    size_width: 64                 # Panel width (default: 64)
+    size_height: 20                # Panel height (default: 20)
     ble_addresses:
       - "YOUR-PANEL-1-ADDRESS"      # Replace with your addresses
       - "YOUR-PANEL-2-ADDRESS"

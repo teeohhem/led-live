@@ -105,7 +105,7 @@ display_modes:
 - **⚡ Instant Updates** - PNG rendering for sub-second display updates
 - **🔋 Efficient** - Minimal BLE traffic, smart refresh intervals
 - **📡 Multi-Panel** - Automatic panel boundary handling
-- **🎯 Targeted Rendering** - Only render what's visible on your panel size
+- **🎯 Flexible Panel Sizes** - Configurable dimensions (64x20, 64x32, 64x64, etc.)
 
 ## Animation Support
 

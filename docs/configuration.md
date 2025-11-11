@@ -38,6 +38,8 @@ display:
   adapter: ipixel  # Which adapter to use
   
   ipixel:
+    size_width: 64      # Panel width in pixels (default: 64)
+    size_height: 20     # Panel height in pixels (default: 20)
     ble_addresses:      # BLE addresses of your panels
       - "ADDRESS-1"
       - "ADDRESS-2"
@@ -45,10 +47,21 @@ display:
 ```
 
 **Panel Count:** Determined automatically by the number of BLE addresses.
-- 1 address = 1 panel (64×20)
-- 2 addresses = 2 panels (64×40)
-- 3 addresses = 3 panels (64×60)
-- etc.
+- 1 address = 1 panel
+- 2 addresses = 2 panels (stacked vertically)
+- 3+ addresses = Multi-panel setup
+
+**Panel Dimensions:** Configurable per adapter (default 64×20)
+- `size_width`: Panel width in pixels
+- `size_height`: Panel height in pixels
+
+**Supported Sizes:**
+- 64×20 - Standard iPixel (default)
+- 64×32 - Tall variant
+- 64×64 - Large square
+- 32×16 - Small
+- 20×20 - Minimal
+- Any custom size supported by your panels
 
 ### Weather Settings
 
@@ -69,7 +82,7 @@ Get a free API key from [OpenWeatherMap](https://openweathermap.org/api).
 
 ```yaml
 stocks:
-  symbols: "AAPL,GOOGL,MSFT,TSLA"  # Comma-separated ticker symbols
+  symbols: [AAPL,GOOGL,MSFT,TSLA]  # Comma-separated ticker symbols
   check_interval: 300              # Seconds (300 = 5 min)
   refresh_interval: 2              # Seconds
 ```

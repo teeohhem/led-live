@@ -60,7 +60,7 @@ weather:
 stocks:
   # Stock symbols to track (comma-separated)
   # Examples: AAPL, GOOGL, MSFT, TSLA, SPY, QQQ, AMZN
-  symbols: "AAPL,GOOGL,MSFT,TSLA"
+  symbols: [AAPL,GOOGL,MSFT,TSLA]
   
   # How often to check stock prices (seconds, default: 300 = 5min)
   check_interval: 300

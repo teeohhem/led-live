@@ -47,8 +47,8 @@ python3 display_manager.py
 ## 🔌 Hardware Support
 
 ### Included
-- **iPixel 20x64 LED Panels** (BLE) - Default adapter
-  - Panel Size: 64x20 pixels per panel
+- **iPixel LED Panels** (BLE) - Default adapter
+  - Panel Size: Configurable (64x20 default, supports 64x32, 64x64, 32x16, 20x20, etc.)
   - Support: Single or multiple panels (1, 2, 3, 4+)
   - Connection: Bluetooth Low Energy
 
