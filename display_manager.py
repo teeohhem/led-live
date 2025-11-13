@@ -112,21 +112,28 @@ class DisplayManager:
     
     async def _upload_multi_panel_ticker_gifs(self, panel_gifs):
         """
-        Upload GIFs to multiple panels for smooth independent scrolling.
+        Upload GIFs to multiple panels in parallel for synchronized start.
         
         Args:
             panel_gifs: List of GIF bytes, one per panel
         """
-        logger.info(f"Uploading {len(panel_gifs)} ticker GIFs to panels...")
+        logger.info(f"Uploading {len(panel_gifs)} ticker GIFs to panels (parallel)...")
         
-        # Upload each GIF to its corresponding panel
+        # Upload all GIFs in parallel so they start together
+        upload_tasks = []
         for panel_idx, gif_bytes in enumerate(panel_gifs):
             if gif_bytes:
                 size_kb = len(gif_bytes) / 1024
-                logger.info(f"Uploading panel {panel_idx} ticker ({size_kb:.1f} KB)")
-                await self.adapter.upload_gif(gif_bytes, panels=[panel_idx])
+                logger.info(f"Preparing panel {panel_idx} ticker ({size_kb:.1f} KB)")
+                # Create upload task
+                task = self.adapter.upload_gif(gif_bytes, panels=[panel_idx])
+                upload_tasks.append(task)
         
-        logger.info("All ticker GIFs uploaded - panels are now looping!")
+        # Upload all panels simultaneously
+        if upload_tasks:
+            await asyncio.gather(*upload_tasks)
+        
+        logger.info("All ticker GIFs uploaded - panels are now looping in sync!")
     
     async def run(self):
         """Main display loop"""
