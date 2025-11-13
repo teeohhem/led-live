@@ -110,46 +110,23 @@ class DisplayManager:
         
         return self.cycle_order[self.current_index]
     
-    async def _play_ticker_frames(self, frames):
-        """Play ticker animation frames at 30 FPS."""
-        from adapters.ipixel.protocol import upload_png
-        
-        frame_rate = 30  # FPS
-        frame_delay = 1.0 / frame_rate
-        
-        for frame in frames:
-            await upload_png(self.adapter.client, frame, clear_first=False)
-            await asyncio.sleep(frame_delay)
-    
-    async def _play_multi_panel_ticker(self, panel_frames_list):
+    async def _upload_multi_panel_ticker_gifs(self, panel_gifs):
         """
-        Play multi-panel ticker with synchronized scrolling.
+        Upload GIFs to multiple panels for smooth independent scrolling.
         
         Args:
-            panel_frames_list: List of frame lists, one per panel
-                               [[panel0_frame1, panel0_frame2, ...],
-                                [panel1_frame1, panel1_frame2, ...]]
+            panel_gifs: List of GIF bytes, one per panel
         """
-        from adapters.ipixel.protocol import upload_png
+        logger.info(f"Uploading {len(panel_gifs)} ticker GIFs to panels...")
         
-        # Find max frame count (for synchronization)
-        max_frames = max(len(frames) for frames in panel_frames_list)
+        # Upload each GIF to its corresponding panel
+        for panel_idx, gif_bytes in enumerate(panel_gifs):
+            if gif_bytes:
+                size_kb = len(gif_bytes) / 1024
+                logger.info(f"Uploading panel {panel_idx} ticker ({size_kb:.1f} KB)")
+                await self.adapter.upload_gif(gif_bytes, panels=[panel_idx])
         
-        logger.info(f"Multi-panel ticker: {len(panel_frames_list)} panels, {max_frames} frames (synchronized)")
-        
-        frame_rate = 30  # FPS
-        frame_delay = 1.0 / frame_rate
-        
-        # Play frames synchronized across all panels
-        for frame_idx in range(max_frames):
-            # Upload to each panel
-            for panel_idx, panel_frames in enumerate(panel_frames_list):
-                # Loop shorter tickers
-                frame = panel_frames[frame_idx % len(panel_frames)]
-                await upload_png(self.adapter.client, frame, clear_first=False, panels=[panel_idx])
-            
-            # Wait for next frame
-            await asyncio.sleep(frame_delay)
+        logger.info("All ticker GIFs uploaded - panels are now looping!")
     
     async def run(self):
         """Main display loop"""
@@ -183,21 +160,21 @@ class DisplayManager:
                     self.current_mode = None
                     continue
                 
-                # Special handling for ticker mode (plays frames)
+                # Special handling for ticker mode (uses GIF for smooth playback)
                 if target_mode_name == 'ticker':
                     # Check if multi-panel ticker
-                    if hasattr(target_mode, 'get_panel_frames') and target_mode.layout == 'multi':
-                        panel_frames = target_mode.get_panel_frames()
-                        if panel_frames:
-                            logger.info(f"Playing multi-panel ticker: {len(panel_frames)} panels")
-                            await self._play_multi_panel_ticker(panel_frames)
-                            logger.info("Multi-panel ticker playback complete")
-                    elif hasattr(target_mode, 'get_frames'):
-                        frames = target_mode.get_frames()
-                        if frames:
-                            logger.info(f"Playing ticker: {len(frames)} frames")
-                            await self._play_ticker_frames(frames)
-                            logger.info("Ticker playback complete")
+                    if hasattr(target_mode, 'get_panel_gifs') and target_mode.layout == 'multi':
+                        panel_gifs = target_mode.get_panel_gifs()
+                        if panel_gifs:
+                            logger.info(f"Uploading multi-panel ticker GIFs: {len(panel_gifs)} panels")
+                            await self._upload_multi_panel_ticker_gifs(panel_gifs)
+                            logger.info("Multi-panel ticker uploaded (looping on panels)")
+                    elif hasattr(target_mode, 'get_gif_bytes'):
+                        gif_bytes = target_mode.get_gif_bytes()
+                        if gif_bytes:
+                            logger.info(f"Uploading ticker GIF ({len(gif_bytes)/1024:.1f} KB)")
+                            await self.adapter.upload_gif(gif_bytes)
+                            logger.info("Ticker GIF uploaded (looping on display)")
                 elif result.image:
                     await self.adapter.upload_image(result.image, clear_first=False)
                     logger.info(f"{target_mode_name} displayed")

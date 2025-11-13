@@ -223,6 +223,52 @@ class TickerMode(BaseMode):
         """Get per-panel ticker frames for multi-panel playback."""
         return self.panel_frames
     
+    def frames_to_gif_bytes(self, frames: List[Image.Image], fps: int = 30) -> bytes:
+        """
+        Convert frames to GIF bytes for smoother playback.
+        
+        Args:
+            frames: List of PIL Images
+            fps: Target frames per second
+        
+        Returns:
+            GIF bytes ready for upload
+        """
+        if not frames:
+            return None
+        
+        import io
+        
+        gif_buffer = io.BytesIO()
+        frame_duration_ms = int(1000 / fps)
+        
+        # Save as GIF
+        frames[0].save(
+            gif_buffer,
+            format='GIF',
+            save_all=True,
+            append_images=frames[1:],
+            duration=frame_duration_ms,
+            loop=0  # Loop forever
+        )
+        
+        return gif_buffer.getvalue()
+    
+    def get_gif_bytes(self) -> bytes:
+        """Get single-mode ticker as GIF bytes."""
+        if self.layout == 'single' and self.frames:
+            return self.frames_to_gif_bytes(self.frames, fps=30)
+        return None
+    
+    def get_panel_gifs(self) -> List[bytes]:
+        """Get multi-panel tickers as GIF bytes (one per panel)."""
+        if self.layout == 'multi' and self.panel_frames:
+            return [
+                self.frames_to_gif_bytes(frames, fps=30) 
+                for frames in self.panel_frames
+            ]
+        return []
+    
     async def _fetch_sports_segment_single(self):
         """Fetch sports ticker segment based on configured source."""
         try:
