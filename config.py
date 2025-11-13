@@ -63,6 +63,14 @@ STOCKS_SYMBOLS: List[str] = _cfg.get_list("stocks.symbols", ["AAPL", "GOOGL", "M
 STOCKS_CHECK_INTERVAL: int = _cfg.get_int("stocks.check_interval", 300)
 
 # ============================================================================
+# TICKER SETTINGS
+# ============================================================================
+TICKER_MODES: List[str] = _cfg.get_list("ticker.modes", ["sports", "stocks"])
+TICKER_SCROLL_SPEED: int = _cfg.get_int("ticker.scroll_speed", 3)
+TICKER_REFRESH_INTERVAL: int = _cfg.get_int("ticker.refresh_interval", 30)
+TICKER_HEIGHT: int = _cfg.get_int("ticker.height", 20)
+
+# ============================================================================
 # DISPLAY MODES SETTINGS
 # ============================================================================
 DISPLAY_SPORTS_PRIORITY: bool = _cfg.get_bool("display_modes.sports_priority", True)

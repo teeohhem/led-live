@@ -6,7 +6,7 @@ from datetime import datetime
 import logging
 import logging_config
 
-from modes import SportsMode, ClockMode, WeatherMode, StocksMode
+from modes import SportsMode, ClockMode, WeatherMode, StocksMode, TickerMode
 from adapters import get_adapter
 from config import (
     DISPLAY_CYCLE_MODES,
@@ -24,6 +24,10 @@ from config import (
     DISPLAY_WEATHER_REFRESH_INTERVAL,
     DISPLAY_CLOCK_REFRESH_INTERVAL,
     DISPLAY_STOCKS_REFRESH_INTERVAL,
+    TICKER_MODES,
+    TICKER_SCROLL_SPEED,
+    TICKER_REFRESH_INTERVAL,
+    TICKER_HEIGHT,
 )
 
 logger = logging.getLogger('led_panel.display_manager')
@@ -56,6 +60,10 @@ class DisplayManager:
             'CLOCK_THEME': CLOCK_THEME,
             'CLOCK_24H': CLOCK_24H,
             'WEATHER_FORECAST_MODE': WEATHER_FORECAST_MODE,
+            'TICKER_MODES': TICKER_MODES,
+            'TICKER_SCROLL_SPEED': TICKER_SCROLL_SPEED,
+            'TICKER_REFRESH_INTERVAL': TICKER_REFRESH_INTERVAL,
+            'TICKER_HEIGHT': TICKER_HEIGHT,
         }
         
         # Initialize modes
@@ -68,6 +76,7 @@ class DisplayManager:
             'clock': ClockMode,
             'weather': WeatherMode,
             'stocks': StocksMode,
+            'ticker': TickerMode,
         }
         
         for mode_name in DISPLAY_CYCLE_MODES:
@@ -101,6 +110,17 @@ class DisplayManager:
         
         return self.cycle_order[self.current_index]
     
+    async def _play_ticker_frames(self, frames):
+        """Play ticker animation frames at 30 FPS."""
+        from adapters.ipixel.protocol import upload_png
+        
+        frame_rate = 30  # FPS
+        frame_delay = 1.0 / frame_rate
+        
+        for frame in frames:
+            await upload_png(self.adapter.client, frame, clear_first=False)
+            await asyncio.sleep(frame_delay)
+    
     async def run(self):
         """Main display loop"""
         try:
@@ -133,7 +153,14 @@ class DisplayManager:
                     self.current_mode = None
                     continue
                 
-                if result.image:
+                # Special handling for ticker mode (plays frames)
+                if target_mode_name == 'ticker' and hasattr(target_mode, 'get_frames'):
+                    frames = target_mode.get_frames()
+                    if frames:
+                        logger.info(f"Playing ticker: {len(frames)} frames")
+                        await self._play_ticker_frames(frames)
+                        logger.info("Ticker playback complete")
+                elif result.image:
                     await self.adapter.upload_image(result.image, clear_first=False)
                     logger.info(f"{target_mode_name} displayed")
                 

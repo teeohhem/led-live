@@ -101,18 +101,40 @@ sports:
   # PNG refresh interval (seconds, keeps display visible)
   refresh_interval: 2
 
+# === Ticker Settings ===
+ticker:
+  # Which modes to composite into the ticker
+  # Options: sports, stocks, weather
+  # Each mode provides its own ticker segment with logos, colors, etc.
+  modes:
+    - sports   # Shows: [H] DET @ BOS 7PM | [B] CHI @ MIA 8PM
+    - stocks   # Shows: PLTR $25.30 ▲18% | BBAI $12.50 ▼5%
+    # - weather  # Shows: Mon: 45°F Cloudy | Tue: 52°F Rain
+  
+  # Scroll speed (pixels per frame, 2-6 recommended for smoothness)
+  # 2-3: Very smooth | 4-5: Moderate | 6+: Fast but choppy
+  scroll_speed: 3
+  
+  # Refresh ticker content every N seconds
+  refresh_interval: 30
+  
+  # Ticker height in pixels (use 20 for single panel)
+  height: 20
+
 # === Display Settings ===
 display_modes:
   # Auto-switch to sports when live games detected (true/false)
   sports_priority: true
   
-  # Modes to cycle through (list: sports, clock, weather, stocks)
+  # Modes to cycle through (list: sports, clock, weather, stocks, ticker)
   # Note: Configure what sports shows via sports.modes (live/upcoming)
+  # Note: Configure what ticker shows via ticker.modes
   cycle_modes:
     - sports
     - clock
     - weather
     - stocks
+    - ticker
   
   # How long to show each mode before cycling (seconds)
   cycle_seconds: 15
