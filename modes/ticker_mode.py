@@ -222,11 +222,13 @@ class TickerMode(BaseMode):
     
     def _render_sports_segment(self, draw, x_offset, height, games):
         """
-        Render sports segment with logos and game info.
+        Render sports segment with team colors and logos.
         
         Returns: width of rendered segment
         """
-        from core.rendering.sports_display_png import load_team_logo, get_league_letter
+        from core.rendering.sports_display_png import (
+            load_team_logo, get_league_letter, get_team_color
+        )
         from PIL import ImageFont
         
         try:
@@ -241,31 +243,51 @@ class TickerMode(BaseMode):
             home = game['home']
             time_str = game.get('time', 'TBD')
             league = game.get('league', '')
+            state = game.get('state', '')
             
-            # Away logo (8x8)
-            away_logo = load_team_logo(away, league, max_size=(8, 8))
-            if away_logo:
-                # Note: Parent function will paste this
-                pass
+            # Get team colors
+            away_color = get_team_color(away, league, (200, 200, 200))
+            home_color = get_team_color(home, league, (255, 255, 255))
             
-            # Render: 🏀 DET @ BOS 7PM
+            # League indicator
             league_letter = get_league_letter(league)
+            draw.text((current_x, height // 2 - 4), f"[{league_letter}]", fill=(128, 128, 128), font=font)
+            current_x += 18
             
-            # For now, just text - logos would need to be handled by parent
-            text = f"[{league_letter}] {away} @ {home}"
+            # Away team (in team color)
+            draw.text((current_x, height // 2 - 4), away, fill=away_color, font=font)
+            text_bbox = draw.textbbox((current_x, 0), away, font=font)
+            current_x = text_bbox[2] + 3
             
-            # Add time
+            # @ symbol
+            draw.text((current_x, height // 2 - 4), "@", fill=(100, 100, 100), font=font)
+            current_x += 8
+            
+            # Home team (in team color)
+            draw.text((current_x, height // 2 - 4), home, fill=home_color, font=font)
+            text_bbox = draw.textbbox((current_x, 0), home, font=font)
+            current_x = text_bbox[2] + 5
+            
+            # Time/score
             from core.rendering.sports_display_png import format_game_time
-            time_display = format_game_time(time_str, compact=True)
-            text += f" {time_display}"
             
-            # Draw text
-            draw.text((current_x, height // 2 - 4), text, fill=(255, 200, 200), font=font)
+            if state in ['inProgress', 'in']:
+                # Live game - show scores in yellow
+                score_text = f"{game.get('away_score', 0)}-{game.get('home_score', 0)}"
+                period = game.get('period', '')
+                if period:
+                    score_text += f" {period}"
+                draw.text((current_x, height // 2 - 4), score_text, fill=(255, 255, 0), font=font)
+                text_bbox = draw.textbbox((current_x, 0), score_text, font=font)
+                current_x = text_bbox[2]
+            else:
+                # Upcoming game - show time in blue
+                time_display = format_game_time(time_str, compact=True)
+                draw.text((current_x, height // 2 - 4), time_display, fill=(100, 200, 255), font=font)
+                text_bbox = draw.textbbox((current_x, 0), time_display, font=font)
+                current_x = text_bbox[2]
             
-            # Calculate width
-            text_bbox = draw.textbbox((current_x, 0), text, font=font)
-            text_width = text_bbox[2] - text_bbox[0]
-            current_x += text_width + 20  # Add spacing
+            current_x += 20  # Add spacing
             
             # Add separator
             draw.text((current_x - 15, height // 2 - 4), "|", fill=(100, 100, 100), font=font)
