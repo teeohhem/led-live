@@ -103,13 +103,10 @@ sports:
 
 # === Ticker Settings ===
 ticker:
-  # Which modes to composite into the ticker
-  # Options: sports, stocks, weather
-  # Each mode provides its own ticker segment with logos, colors, etc.
-  modes:
-    - sports   # Shows: [H] DET @ BOS 7PM | [B] CHI @ MIA 8PM
-    - stocks   # Shows: PLTR $25.30 ▲18% | BBAI $12.50 ▼5%
-    # - weather  # Shows: Mon: 45°F Cloudy | Tue: 52°F Rain
+  # Layout mode: How to display tickers
+  # - single: One ticker across all panels (combined display)
+  # - multi: Independent tickers per panel (different content on each!)
+  layout: multi  # Options: single, multi
   
   # Scroll speed (pixels per frame, 2-6 recommended for smoothness)
   # 2-3: Very smooth | 4-5: Moderate | 6+: Fast but choppy
@@ -118,30 +115,64 @@ ticker:
   # Refresh ticker content every N seconds
   refresh_interval: 30
   
-  # Ticker height in pixels (use 20 for single panel)
-  height: 20
+  # ===== SINGLE TICKER MODE (layout: single) =====
+  # One continuous ticker across all panels
+  single:
+    modes:
+      - sports   # [H] DET @ BOS 7PM
+      - stocks   # PLTR $25.30 ▲18%
+      # - weather  # Mon: 45°F Cloudy
+    
+    sports:
+      source: my_teams     # Options: my_teams, all_live, all_upcoming, all
+      max_games: 10
+    
+    stocks:
+      source: my_symbols   # Options: my_symbols, gainers, losers, active, mixed
+      max_symbols: 10
   
-  # Sports ticker data source
-  sports:
-    source: all_live  # What sports data to show
-    # Options:
-    #   my_teams: Only your configured teams (sports.teams)
-    #   all_live: All live games across all leagues (exciting!)
-    #   all_upcoming: All upcoming games today (full schedule)
-    #   all: Everything (live + upcoming, all teams)
-    max_games: 10  # Limit to prevent overwhelming ticker
+  # ===== MULTI-PANEL TICKER MODE (layout: multi) =====
+  # Independent tickers per panel - different content on each!
+  panels:
+    - # Panel 0 (top panel) - Sports ticker
+      modes:
+        - sports
+      sports:
+        source: all_live      # Show ALL live games!
+        max_games: 15
+    
+    - # Panel 1 (bottom panel) - Market ticker
+      modes:
+        - stocks
+      stocks:
+        source: gainers       # Show top gainers!
+        max_symbols: 12
   
-  # Stocks ticker data source
-  stocks:
-    source: gainers  # What stocks to show
-    # Options:
-    #   my_symbols: Your configured symbols only
-    #   gainers: Top % gainers today (market movers!)
-    #   losers: Top % losers today
-    #   active: Most actively traded today
-    #   trending: Trending/popular stocks
-    #   mixed: Combine gainers + losers
-    max_symbols: 10  # Limit display
+  # Example: Both panels show combined content
+  # panels:
+  #   - modes: [sports, stocks]  # Panel 0
+  #     sports: { source: my_teams, max_games: 5 }
+  #     stocks: { source: my_symbols, max_symbols: 3 }
+  #   
+  #   - modes: [sports, stocks]  # Panel 1
+  #     sports: { source: all_upcoming, max_games: 5 }
+  #     stocks: { source: losers, max_symbols: 3 }
+  
+  # Data source options:
+  #
+  # Sports sources:
+  #   my_teams: Only your configured teams
+  #   all_live: ALL live games across all leagues
+  #   all_upcoming: ALL upcoming games today
+  #   all: Everything (live + upcoming)
+  #
+  # Stocks sources:
+  #   my_symbols: Your configured symbols
+  #   gainers: Top % gainers today (yfinance screener)
+  #   losers: Top % losers today (yfinance screener)
+  #   active: Most actively traded (yfinance screener)
+  #   mixed: Gainers + losers interleaved
+  #   trending: Trending stocks (placeholder)
 
 # === Display Settings ===
 display_modes:

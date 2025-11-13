@@ -121,6 +121,36 @@ class DisplayManager:
             await upload_png(self.adapter.client, frame, clear_first=False)
             await asyncio.sleep(frame_delay)
     
+    async def _play_multi_panel_ticker(self, panel_frames_list):
+        """
+        Play multi-panel ticker with synchronized scrolling.
+        
+        Args:
+            panel_frames_list: List of frame lists, one per panel
+                               [[panel0_frame1, panel0_frame2, ...],
+                                [panel1_frame1, panel1_frame2, ...]]
+        """
+        from adapters.ipixel.protocol import upload_png
+        
+        # Find max frame count (for synchronization)
+        max_frames = max(len(frames) for frames in panel_frames_list)
+        
+        logger.info(f"Multi-panel ticker: {len(panel_frames_list)} panels, {max_frames} frames (synchronized)")
+        
+        frame_rate = 30  # FPS
+        frame_delay = 1.0 / frame_rate
+        
+        # Play frames synchronized across all panels
+        for frame_idx in range(max_frames):
+            # Upload to each panel
+            for panel_idx, panel_frames in enumerate(panel_frames_list):
+                # Loop shorter tickers
+                frame = panel_frames[frame_idx % len(panel_frames)]
+                await upload_png(self.adapter.client, frame, clear_first=False, panels=[panel_idx])
+            
+            # Wait for next frame
+            await asyncio.sleep(frame_delay)
+    
     async def run(self):
         """Main display loop"""
         try:
@@ -154,12 +184,20 @@ class DisplayManager:
                     continue
                 
                 # Special handling for ticker mode (plays frames)
-                if target_mode_name == 'ticker' and hasattr(target_mode, 'get_frames'):
-                    frames = target_mode.get_frames()
-                    if frames:
-                        logger.info(f"Playing ticker: {len(frames)} frames")
-                        await self._play_ticker_frames(frames)
-                        logger.info("Ticker playback complete")
+                if target_mode_name == 'ticker':
+                    # Check if multi-panel ticker
+                    if hasattr(target_mode, 'get_panel_frames') and target_mode.layout == 'multi':
+                        panel_frames = target_mode.get_panel_frames()
+                        if panel_frames:
+                            logger.info(f"Playing multi-panel ticker: {len(panel_frames)} panels")
+                            await self._play_multi_panel_ticker(panel_frames)
+                            logger.info("Multi-panel ticker playback complete")
+                    elif hasattr(target_mode, 'get_frames'):
+                        frames = target_mode.get_frames()
+                        if frames:
+                            logger.info(f"Playing ticker: {len(frames)} frames")
+                            await self._play_ticker_frames(frames)
+                            logger.info("Ticker playback complete")
                 elif result.image:
                     await self.adapter.upload_image(result.image, clear_first=False)
                     logger.info(f"{target_mode_name} displayed")
