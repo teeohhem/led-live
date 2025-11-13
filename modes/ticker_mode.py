@@ -73,8 +73,10 @@ class TickerMode(BaseMode):
         self.ticker_segments = []  # Segments for scrolling ticker
         self.ticker_frames = []  # Frames for scrolling ticker
         self.ticker_gif = None  # GIF bytes for ticker
-        self.static_image = None  # Static panel image
+        self.static_images = []  # Multiple static "pages" to cycle through
         self.static_data = None  # Data for static panel
+        self.static_page_index = 0  # Current page being displayed
+        self.static_page_duration = 5  # Seconds per page
     
     async def fetch_data(self) -> bool:
         """Fetch data for ticker and static content."""
@@ -221,23 +223,46 @@ class TickerMode(BaseMode):
         return None
     
     async def _render_static_panel(self, width: int, height: int):
-        """Render static panel content using appropriate mode renderer."""
+        """
+        Render static panel content as multiple "pages" to cycle through.
+        For stocks: Show 2 stocks per page for readability.
+        """
+        self.static_images = []
+        
         if self.static_mode == 'stocks':
-            from core.rendering import render_stocks
-            return render_stocks(self.static_data, width=width, height=height)
+            # Show 2 stocks per page for better readability
+            items_per_page = 2
+            stocks = self.static_data
+            
+            # Create pages
+            for i in range(0, len(stocks), items_per_page):
+                page_stocks = stocks[i:i + items_per_page]
+                page_image = self._render_stocks_page(page_stocks, width, height)
+                self.static_images.append(page_image)
+            
+            logger.info(f"Created {len(self.static_images)} stock pages ({items_per_page} stocks each)")
         
         elif self.static_mode == 'sports':
-            from core.rendering import render_upcoming_games
-            return render_upcoming_games(self.static_data, width=width, height=height)
+            # Show 2 games per page
+            items_per_page = 2
+            games = self.static_data
+            
+            for i in range(0, len(games), items_per_page):
+                page_games = games[i:i + items_per_page]
+                page_image = self._render_sports_page(page_games, width, height)
+                self.static_images.append(page_image)
+            
+            logger.info(f"Created {len(self.static_images)} sports pages ({items_per_page} games each)")
         
         elif self.static_mode == 'weather':
             from core.rendering import render_weather
-            return render_weather(
+            page = render_weather(
                 self.static_data['current'],
                 self.static_data['forecast'],
                 width=width,
                 height=height
             )
+            self.static_images = [page]
         
         elif self.static_mode == 'clock':
             from core.rendering import render_clock_with_weather_split
@@ -248,15 +273,58 @@ class TickerMode(BaseMode):
             weather = await fetch_current_weather()
             forecast = await fetch_daily_forecast()
             
-            return render_clock_with_weather_split(
+            page = render_clock_with_weather_split(
                 weather, forecast,
                 total_width=width,
                 total_height=height,
                 theme=CLOCK_THEME,
                 hour24=CLOCK_24H
             )
+            self.static_images = [page]
         
-        return None
+        # Return first page
+        return self.static_images[0] if self.static_images else None
+    
+    def _render_stocks_page(self, stocks, width, height):
+        """Render a page showing 2 stocks with large, readable text (symbol + % only)."""
+        from PIL import Image, ImageDraw, ImageFont
+        from core.rendering.stocks_display_png import format_percentage_change
+        
+        img = Image.new('RGB', (width, height), color=(0, 0, 0))
+        draw = ImageDraw.Draw(img)
+        
+        try:
+            font = ImageFont.truetype("./fonts/PixelOperator.ttf", 12)
+        except:
+            font = ImageFont.load_default()
+        
+        # Show 2 stocks vertically (10px each)
+        for idx, stock in enumerate(stocks[:2]):
+            y_offset = idx * 10
+            symbol = stock['symbol']
+            change_pct = stock['change_percent']
+            is_up = stock['is_up']
+            
+            color = (100, 255, 100) if is_up else (255, 100, 100)
+            arrow = "▲" if is_up else "▼"
+            
+            # Symbol on left (white)
+            draw.text((2, y_offset - 1), symbol, fill=(255, 255, 255), font=font)
+            
+            # Change percentage on right (colored)
+            change_text = format_percentage_change(arrow, change_pct)
+            text_bbox = draw.textbbox((0, 0), change_text, font=font)
+            text_width = text_bbox[2] - text_bbox[0]
+            change_x = width - text_width - 2
+            draw.text((change_x, y_offset - 1), change_text, fill=color, font=font)
+        
+        return img
+    
+    def _render_sports_page(self, games, width, height):
+        """Render a page showing 2 games."""
+        from core.rendering import render_upcoming_games
+        # Use existing renderer (it handles 2 games well)
+        return render_upcoming_games(games, width=width, height=height)
     
     def has_priority(self) -> bool:
         """Ticker never has priority."""
@@ -327,10 +395,21 @@ class TickerMode(BaseMode):
         return None
     
     def get_static_image_with_panel(self):
-        """Get static image and which panel to upload it to."""
-        if self.layout == 'multi' and self.static_image:
-            return (self.static_image, self.static_panel_idx)
+        """Get current static page and which panel to upload it to."""
+        if self.layout == 'multi' and self.static_images:
+            current_page = self.static_images[self.static_page_index]
+            return (current_page, self.static_panel_idx)
         return None
+    
+    def get_static_page_count(self):
+        """Get total number of static pages."""
+        return len(self.static_images)
+    
+    def advance_static_page(self):
+        """Advance to next static page (for cycling)."""
+        if self.static_images:
+            self.static_page_index = (self.static_page_index + 1) % len(self.static_images)
+            logger.debug(f"Advanced to static page {self.static_page_index + 1}/{len(self.static_images)}")
     
     async def _fetch_sports_with_source(self, source, max_games):
         """Helper to fetch sports data from a given source."""

@@ -171,30 +171,42 @@ class DisplayManager:
                 if target_mode_name == 'ticker':
                     # Check layout type
                     if target_mode.layout == 'multi':
-                        # Ticker + static panel mode
+                        # Ticker + static panel mode with page cycling
                         ticker_data = target_mode.get_ticker_gif_with_panel()
                         static_data = target_mode.get_static_image_with_panel()
+                        page_count = target_mode.get_static_page_count()
                         
-                        logger.info("Uploading ticker (scrolling) + static panel...")
+                        logger.info(f"Uploading ticker + static panel ({page_count} pages)...")
                         
                         # Upload ticker GIF and static image in parallel
                         tasks = []
                         
                         if ticker_data:
                             gif_bytes, panel_idx = ticker_data
-                            logger.info(f"Ticker GIF: {len(gif_bytes)/1024:.1f} KB → panel {panel_idx}")
+                            logger.info(f"Ticker GIF: {len(gif_bytes)/1024:.1f} KB → panel {panel_idx} (looping)")
                             tasks.append(self.adapter.upload_gif(gif_bytes, panels=[panel_idx]))
                         
                         if static_data:
                             image, panel_idx = static_data
-                            logger.info(f"Static image → panel {panel_idx}")
+                            logger.info(f"Static page {target_mode.static_page_index + 1}/{page_count} → panel {panel_idx}")
                             tasks.append(self.adapter.upload_image(image, clear_first=False, panels=[panel_idx]))
                         
-                        # Upload both in parallel
+                        # Upload both in parallel with timeout
                         if tasks:
-                            await asyncio.gather(*tasks)
+                            try:
+                                await asyncio.wait_for(
+                                    asyncio.gather(*tasks),
+                                    timeout=30.0  # 30 second timeout
+                                )
+                                logger.info("Ticker + static uploaded!")
+                            except asyncio.TimeoutError:
+                                logger.error("Upload timed out after 30 seconds - GIF might be too large!")
+                                logger.info("Skipping to next mode...")
+                                continue
                         
-                        logger.info("Ticker + static uploaded!")
+                        # Track when we last updated the static page
+                        if not hasattr(self, 'last_static_page_update'):
+                            self.last_static_page_update = now
                     else:
                         # Single panel mode
                         gif_bytes = target_mode.get_gif_bytes()
@@ -205,6 +217,33 @@ class DisplayManager:
                 elif result.image:
                     await self.adapter.upload_image(result.image, clear_first=False)
                     logger.info(f"{target_mode_name} displayed")
+                
+                # Handle static page cycling for ticker mode
+                if (target_mode_name == 'ticker' and 
+                    target_mode.layout == 'multi' and 
+                    hasattr(self, 'last_static_page_update')):
+                    
+                    page_count = target_mode.get_static_page_count()
+                    logger.debug(f"Ticker page cycling check: {page_count} pages")
+                    
+                    if page_count > 1:
+                        # Check if it's time to cycle to next page
+                        time_since_page_update = (now - self.last_static_page_update).total_seconds()
+                        logger.debug(f"Time since page update: {time_since_page_update:.1f}s / {target_mode.static_page_duration}s")
+                        
+                        if time_since_page_update >= target_mode.static_page_duration:
+                            # Advance to next page
+                            target_mode.advance_static_page()
+                            static_data = target_mode.get_static_image_with_panel()
+                            if static_data:
+                                image, panel_idx = static_data
+                                logger.info(f"Cycling static to page {target_mode.static_page_index + 1}/{page_count}")
+                                await self.adapter.upload_image(image, clear_first=False, panels=[panel_idx])
+                                self.last_static_page_update = now
+                            else:
+                                logger.warning("No static data available for page cycling")
+                    else:
+                        logger.debug(f"Only 1 page, no cycling needed")
                 
                 # Wait before next check
                 await asyncio.sleep(DISPLAY_MODE_CHECK_INTERVAL)

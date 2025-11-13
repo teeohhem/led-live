@@ -51,5 +51,5 @@ def get_logger(name):
 
 
 # Initialize root logger
-setup_logging()
+setup_logging(level=logging.DEBUG)  # Enable debug logging
 
