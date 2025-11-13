@@ -289,3 +289,53 @@ async def fetch_upcoming_games(today_only=False):
     
     return upcoming
 
+
+async def fetch_all_live_games():
+    """
+    Fetch ALL live games across all leagues (not filtered by teams).
+    Perfect for ticker mode to show what's happening now.
+    
+    Returns:
+        List of live game dicts across all leagues
+    """
+    logger.info("Fetching all live games (unfiltered)...")
+    all_games = []
+    
+    for url in API_ENDPOINTS:
+        games = await fetch_games_from_endpoint(url, filter_teams=False)
+        all_games.extend(games)
+    
+    # Filter for only live games
+    live_games = [
+        game for game in all_games
+        if game.get('state') in ['inProgress', 'in']
+    ]
+    
+    logger.info(f"Found {len(live_games)} live games across all leagues")
+    return live_games
+
+
+async def fetch_all_upcoming_games():
+    """
+    Fetch ALL upcoming games today (not filtered by teams).
+    Perfect for ticker showing today's full schedule.
+    
+    Returns:
+        List of upcoming game dicts across all leagues
+    """
+    logger.info("Fetching all upcoming games (unfiltered)...")
+    all_games = []
+    
+    for url in API_ENDPOINTS:
+        games = await fetch_games_from_endpoint(url, filter_teams=False)
+        all_games.extend(games)
+    
+    # Filter for only upcoming games
+    upcoming = [
+        game for game in all_games
+        if game.get('state') in ['pre', 'STATUS_SCHEDULED']
+    ]
+    
+    logger.info(f"Found {len(upcoming)} upcoming games across all leagues")
+    return upcoming
+

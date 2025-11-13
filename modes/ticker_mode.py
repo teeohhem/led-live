@@ -37,6 +37,14 @@ class TickerMode(BaseMode):
         self.refresh_interval = config.get('TICKER_REFRESH_INTERVAL', 30)
         self.height = config.get('TICKER_HEIGHT', 20)  # Which panel to use
         
+        # Ticker-specific configs (loaded from config.yml if available)
+        from config_loader import ConfigLoader
+        cfg = ConfigLoader()
+        self.sports_source = cfg.get_string('ticker.sports.source', 'my_teams')
+        self.sports_max = cfg.get_int('ticker.sports.max_games', 10)
+        self.stocks_source = cfg.get_string('ticker.stocks.source', 'my_symbols')
+        self.stocks_max = cfg.get_int('ticker.stocks.max_symbols', 10)
+        
         # Data from modes
         self.segments = []
         self.frames = []
@@ -112,13 +120,33 @@ class TickerMode(BaseMode):
         return self.frames
     
     async def _fetch_sports_segment(self):
-        """Fetch sports ticker segment."""
-        from core.data import fetch_upcoming_games
-        
+        """Fetch sports ticker segment based on configured source."""
         try:
-            games = await fetch_upcoming_games(today_only=False)
+            games = []
+            
+            # Fetch based on configured source
+            if self.sports_source == 'my_teams':
+                from core.data import fetch_upcoming_games
+                games = await fetch_upcoming_games(today_only=False)
+            elif self.sports_source == 'all_live':
+                from core.data.sports_data import fetch_all_live_games
+                games = await fetch_all_live_games()
+            elif self.sports_source == 'all_upcoming':
+                from core.data.sports_data import fetch_all_upcoming_games
+                games = await fetch_all_upcoming_games()
+            elif self.sports_source == 'all':
+                from core.data.sports_data import fetch_all_live_games, fetch_all_upcoming_games
+                live = await fetch_all_live_games()
+                upcoming = await fetch_all_upcoming_games()
+                games = live + upcoming
+            
             if not games:
                 return None
+            
+            # Limit to max_games
+            games = games[:self.sports_max]
+            
+            logger.info(f"Ticker sports: {len(games)} games ({self.sports_source})")
             
             # Return segment info
             return {
@@ -131,13 +159,39 @@ class TickerMode(BaseMode):
             return None
     
     async def _fetch_stocks_segment(self):
-        """Fetch stocks ticker segment."""
-        from core.data import fetch_stock_quotes
-        
+        """Fetch stocks ticker segment based on configured source."""
         try:
-            quotes = await fetch_stock_quotes()
+            quotes = []
+            
+            # Fetch based on configured source
+            if self.stocks_source == 'my_symbols':
+                from core.data import fetch_stock_quotes
+                quotes = await fetch_stock_quotes()
+            elif self.stocks_source == 'gainers':
+                from core.data.stocks_data import fetch_market_gainers
+                quotes = await fetch_market_gainers(limit=self.stocks_max)
+            elif self.stocks_source == 'losers':
+                from core.data.stocks_data import fetch_market_losers
+                quotes = await fetch_market_losers(limit=self.stocks_max)
+            elif self.stocks_source == 'mixed':
+                from core.data.stocks_data import fetch_market_mixed
+                quotes = await fetch_market_mixed(limit=self.stocks_max)
+            elif self.stocks_source == 'active':
+                from core.data.stocks_data import fetch_market_active
+                quotes = await fetch_market_active(limit=self.stocks_max)
+            elif self.stocks_source == 'trending':
+                # Placeholder - would need real API for trending
+                from core.data import fetch_stock_quotes
+                quotes = await fetch_stock_quotes()
+                logger.info("'trending' source not yet implemented, using my_symbols")
+            
             if not quotes:
                 return None
+            
+            # Limit to max_symbols (if not already limited by fetch function)
+            quotes = quotes[:self.stocks_max]
+            
+            logger.info(f"Ticker stocks: {len(quotes)} symbols ({self.stocks_source})")
             
             return {
                 'type': 'stocks',

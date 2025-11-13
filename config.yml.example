@@ -120,6 +120,28 @@ ticker:
   
   # Ticker height in pixels (use 20 for single panel)
   height: 20
+  
+  # Sports ticker data source
+  sports:
+    source: all_live  # What sports data to show
+    # Options:
+    #   my_teams: Only your configured teams (sports.teams)
+    #   all_live: All live games across all leagues (exciting!)
+    #   all_upcoming: All upcoming games today (full schedule)
+    #   all: Everything (live + upcoming, all teams)
+    max_games: 10  # Limit to prevent overwhelming ticker
+  
+  # Stocks ticker data source
+  stocks:
+    source: gainers  # What stocks to show
+    # Options:
+    #   my_symbols: Your configured symbols only
+    #   gainers: Top % gainers today (market movers!)
+    #   losers: Top % losers today
+    #   active: Most actively traded today
+    #   trending: Trending/popular stocks
+    #   mixed: Combine gainers + losers
+    max_symbols: 10  # Limit display
 
 # === Display Settings ===
 display_modes:

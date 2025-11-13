@@ -7,95 +7,16 @@ from pathlib import Path
 from datetime import datetime
 import asyncio
 import logging
+import yfinance as yf
 logger = logging.getLogger(__name__)
 
 # Import configuration (loaded at startup via config.py)
 from config import STOCKS_SYMBOLS, STOCKS_CHECK_INTERVAL
 
 
-def _fetch_quote_sync(symbol):
-    """
-    Synchronous function to fetch a single stock quote.
-    Called from thread pool to avoid blocking async event loop.
-    """
-    import yfinance as yf  # Import here to avoid issues with thread pool
-    from datetime import datetime as dt
-    try:
-        ticker = yf.Ticker(symbol)
-        info = ticker.info
-        
-        # Debug: print timestamp and what we're fetching
-        fetch_time = dt.now().strftime('%H:%M:%S')
-        logger.info(f"[{fetch_time}]Fetching{symbol}...")
-        
-        # Check market state to determine which price to use
-        market_state = info.get('marketState', 'REGULAR')
-        
-        # Debug: show what's available
-        pre_price = info.get('preMarketPrice')
-        reg_price = info.get('regularMarketPrice')
-        cur_price = info.get('currentPrice')
-        
-        if market_state == 'PRE' and pre_price:
-            # Use pre-market data
-            current_price = pre_price
-            change = info.get('preMarketChange', 0)
-            change_percent = info.get('preMarketChangePercent', 0)
-            source = "PRE"
-        elif reg_price:
-            # Use regular market data
-            current_price = reg_price
-            change = info.get('regularMarketChange', 0)
-            change_percent = info.get('regularMarketChangePercent', 0)
-            source = "REG"
-        elif cur_price:
-            # Fallback to current price
-            current_price = cur_price
-            change = info.get('regularMarketChange', 0)
-            change_percent = info.get('regularMarketChangePercent', 0)
-            source = "CUR"
-        else:
-            current_price = 0
-            change = 0
-            change_percent = 0
-            source = "NONE"
-        
-        # Get company name
-        name = info.get('shortName') or info.get('longName') or symbol
-        
-        quote = {
-            'symbol': symbol,
-            'price': current_price,
-            'change': change,
-            'change_percent': change_percent,
-            'is_up': change >= 0,
-            'name': name,
-            'market_state': market_state
-        }
-        
-        # Debug print with source and available prices
-        logger.info(f"{symbol}:${current_price:.2f}({change_percent:+.2f}%)[state={market_state},source={source}]")
-        if pre_price and reg_price and pre_price != reg_price:
-            logger.info(f"Available:PRE=${pre_price:.2f},REG=${reg_price:.2f}")
-        
-        return quote
-    except Exception as e:
-        logger.warning(f"Errorfetching{symbol}:{e}")
-        # Return placeholder data
-        return {
-            'symbol': symbol,
-            'price': 0,
-            'change': 0,
-            'change_percent': 0,
-            'is_up': False,
-            'name': symbol,
-            'market_state': 'CLOSED'
-        }
-
-
 async def fetch_stock_quotes():
     """
-    Fetch current stock quotes using yfinance.
+    Fetch current stock quotes using yfinance.Tickers() (much simpler!).
     
     Returns:
         List of dicts with stock data:
@@ -110,27 +31,56 @@ async def fetch_stock_quotes():
             ...
         ]
     """
+    logger.info(f"Fetching quotes for: {', '.join(STOCKS_SYMBOLS)}")
+    
     try:
-        import yfinance as yf  # Just to check it's installed
-    except ImportError:
-        logger.error("yfinancenotinstalled.Run:pipinstallyfinance")
+        # Run in executor to avoid blocking async loop
+        tickers = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: yf.Tickers(' '.join(STOCKS_SYMBOLS))
+        )
+        
+        quotes = []
+        for symbol in STOCKS_SYMBOLS:
+            try:
+                ticker = tickers.tickers[symbol]
+                info = ticker.info
+                
+                # Get current price and change
+                current_price = info.get('regularMarketPrice') or info.get('currentPrice', 0)
+                change = info.get('regularMarketChange', 0)
+                change_percent = info.get('regularMarketChangePercent', 0)
+                
+                quote = {
+                    'symbol': symbol,
+                    'price': current_price,
+                    'change': change,
+                    'change_percent': change_percent,
+                    'is_up': change >= 0,
+                    'name': info.get('shortName', symbol)
+                }
+                
+                quotes.append(quote)
+                logger.debug(f"{symbol}: ${current_price:.2f} ({change_percent:+.2f}%)")
+                
+            except Exception as e:
+                logger.warning(f"Error parsing {symbol}: {e}")
+                # Add placeholder
+                quotes.append({
+                    'symbol': symbol,
+                    'price': 0,
+                    'change': 0,
+                    'change_percent': 0,
+                    'is_up': False,
+                    'name': symbol
+                })
+        
+        logger.info(f"Fetched {len(quotes)} stock quotes")
+        return quotes
+        
+    except Exception as e:
+        logger.error(f"Error fetching stock quotes: {e}")
         return []
-    
-    logger.debug(f"Fetchingstockquotesfor:{','.join(STOCKS_SYMBOLS)}")
-    
-    # Run synchronous yfinance calls in thread pool to avoid blocking async event loop
-    loop = asyncio.get_event_loop()
-    tasks = []
-    
-    for symbol in STOCKS_SYMBOLS:
-        # Run each stock fetch in a thread pool
-        task = loop.run_in_executor(None, _fetch_quote_sync, symbol)
-        tasks.append(task)
-    
-    # Wait for all fetches to complete (runs in parallel)
-    quotes = await asyncio.gather(*tasks)
-    
-    return list(quotes)
 
 
 def get_market_status():
@@ -182,4 +132,197 @@ if __name__ == "__main__":
         logger.debug(f"\nMarketstatus:{get_market_status()}")
     
     asyncio.run(test())
+
+
+# ============================================================================
+# MARKET DATA FOR TICKER MODE
+# ============================================================================
+
+async def fetch_market_gainers(limit=10):
+    """
+    Fetch top gaining stocks today using yfinance screener API.
+    
+    Args:
+        limit: Maximum number of stocks to return (max 250)
+    
+    Returns:
+        List of stock quote dicts sorted by % gain
+    """
+    
+    try:
+        logger.info(f"Fetching top {limit} gainers from yfinance screener...")
+        
+        # Use yfinance predefined screener for day_gainers
+        # Run in executor to avoid blocking async loop
+        response = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: yf.screen("day_gainers", count=limit)
+        )
+        
+        if not response or 'quotes' not in response:
+            logger.warning("No gainers data returned from screener")
+            return []
+        
+        quotes_data = response['quotes']
+        logger.info(f"Screener returned {len(quotes_data)} gainers")
+        
+        # Convert to our quote format
+        quotes = []
+        for quote_data in quotes_data[:limit]:
+            try:
+                symbol = quote_data.get('symbol', '')
+                price = quote_data.get('regularMarketPrice', 0)
+                change_pct = quote_data.get('regularMarketChangePercent', 0)
+                
+                quotes.append({
+                    'symbol': symbol,
+                    'price': price,
+                    'change_percent': change_pct,
+                    'is_up': change_pct > 0
+                })
+            except Exception as e:
+                logger.debug(f"Error parsing gainer {quote_data.get('symbol', 'unknown')}: {e}")
+                continue
+        
+        gainer_list = ', '.join([f"{q['symbol']} +{q['change_percent']:.1f}%" for q in quotes[:5]])
+        logger.info(f"Top {len(quotes)} gainers: {gainer_list}...")
+        
+        return quotes
+    except Exception as e:
+        logger.error(f"Error fetching market gainers: {e}")
+        return []
+
+
+async def fetch_market_losers(limit=10):
+    """
+    Fetch top losing stocks today using yfinance screener API.
+    
+    Args:
+        limit: Maximum number of stocks to return (max 250)
+    
+    Returns:
+        List of stock quote dicts sorted by % loss
+    """
+    
+    try:
+        logger.info(f"Fetching top {limit} losers from yfinance screener...")
+        
+        # Use yfinance predefined screener for day_losers
+        response = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: yf.screen("day_losers", count=limit)
+        )
+        
+        if not response or 'quotes' not in response:
+            logger.warning("No losers data returned from screener")
+            return []
+        
+        quotes_data = response['quotes']
+        logger.info(f"Screener returned {len(quotes_data)} losers")
+        
+        # Convert to our quote format
+        quotes = []
+        for quote_data in quotes_data[:limit]:
+            try:
+                symbol = quote_data.get('symbol', '')
+                price = quote_data.get('regularMarketPrice', 0)
+                change_pct = quote_data.get('regularMarketChangePercent', 0)
+                
+                quotes.append({
+                    'symbol': symbol,
+                    'price': price,
+                    'change_percent': change_pct,
+                    'is_up': change_pct > 0
+                })
+            except Exception as e:
+                logger.debug(f"Error parsing loser {quote_data.get('symbol', 'unknown')}: {e}")
+                continue
+        
+        loser_list = ', '.join([f"{q['symbol']} {q['change_percent']:.1f}%" for q in quotes[:5]])
+        logger.info(f"Top {len(quotes)} losers: {loser_list}...")
+        
+        return quotes
+    except Exception as e:
+        logger.error(f"Error fetching market losers: {e}")
+        return []
+
+
+async def fetch_market_active(limit=10):
+    """
+    Fetch most actively traded stocks using yfinance screener API.
+    
+    Args:
+        limit: Maximum number of stocks to return (max 250)
+    
+    Returns:
+        List of stock quote dicts sorted by volume
+    """
+    
+    try:
+        logger.info(f"Fetching top {limit} most active from yfinance screener...")
+        
+        # Use yfinance predefined screener for most_actives
+        response = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: yf.screen("most_actives", count=limit)
+        )
+        
+        if not response or 'quotes' not in response:
+            logger.warning("No active stocks data returned from screener")
+            return []
+        
+        quotes_data = response['quotes']
+        logger.info(f"Screener returned {len(quotes_data)} most active stocks")
+        
+        # Convert to our quote format
+        quotes = []
+        for quote_data in quotes_data[:limit]:
+            try:
+                symbol = quote_data.get('symbol', '')
+                price = quote_data.get('regularMarketPrice', 0)
+                change_pct = quote_data.get('regularMarketChangePercent', 0)
+                
+                quotes.append({
+                    'symbol': symbol,
+                    'price': price,
+                    'change_percent': change_pct,
+                    'is_up': change_pct > 0
+                })
+            except Exception as e:
+                logger.debug(f"Error parsing active stock {quote_data.get('symbol', 'unknown')}: {e}")
+                continue
+        
+        active_list = ', '.join([f"{q['symbol']}" for q in quotes[:5]])
+        logger.info(f"Top {len(quotes)} most active: {active_list}...")
+        
+        return quotes
+    except Exception as e:
+        logger.error(f"Error fetching most active stocks: {e}")
+        return []
+
+
+async def fetch_market_mixed(limit=10):
+    """
+    Fetch a mix of top gainers and losers.
+    
+    Args:
+        limit: Total number of stocks to return
+    
+    Returns:
+        List alternating gainers and losers
+    """
+    half = limit // 2
+    gainers = await fetch_market_gainers(half)
+    losers = await fetch_market_losers(limit - half)
+    
+    # Interleave gainers and losers
+    mixed = []
+    for i in range(max(len(gainers), len(losers))):
+        if i < len(gainers):
+            mixed.append(gainers[i])
+        if i < len(losers):
+            mixed.append(losers[i])
+    
+    logger.info(f"Mixed market data: {len(mixed)} stocks (gainers + losers)")
+    return mixed
 
