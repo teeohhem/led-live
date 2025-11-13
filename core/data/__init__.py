@@ -15,8 +15,8 @@ STOCKS_CHECK_INTERVAL = int(os.getenv("STOCKS_CHECK_INTERVAL", "300"))
 
 # Lazy imports to avoid dependency issues during import
 def __getattr__(name):
-    if name in ('fetch_all_games', 'get_league_letter'):
-        from .sports_data import fetch_all_games, get_league_letter
+    if name in ('fetch_all_games', 'fetch_upcoming_games', 'get_league_letter'):
+        from .sports_data import fetch_all_games, fetch_upcoming_games, get_league_letter
         return locals()[name]
     elif name in ('fetch_current_weather', 'fetch_hourly_forecast', 'fetch_daily_forecast', 'WEATHER_API_KEY'):
         from .weather_data import (
@@ -31,7 +31,7 @@ def __getattr__(name):
 
 __all__ = [
     # Sports data
-    'fetch_all_games', 'get_league_letter',
+    'fetch_all_games', 'fetch_upcoming_games', 'get_league_letter',
     # Weather data
     'fetch_current_weather', 'fetch_hourly_forecast', 'fetch_daily_forecast',
     'CITY', 'WEATHER_API_KEY',

@@ -54,6 +54,7 @@ SPORTS_MLB_TEAMS: List[str] = _cfg.get_list("sports.teams.mlb", ["DET"])
 SPORTS_TEST_MODE: bool = _cfg.get_bool("sports.test_mode", False)
 SPORTS_CHECK_INTERVAL: int = _cfg.get_int("sports.check_interval", 10)
 SPORTS_SHOW_LOGOS: bool = _cfg.get_bool("sports.show_logos", True)
+SPORTS_MODES: List[str] = _cfg.get_list("sports.modes", ["live", "upcoming"])
 
 # ============================================================================
 # STOCKS SETTINGS

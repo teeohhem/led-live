@@ -4,6 +4,7 @@ Sports data fetching from ESPN APIs
 import httpx
 import os
 from pathlib import Path
+from datetime import datetime, timedelta
 import logging
 logger = logging.getLogger(__name__)
 
@@ -15,6 +16,13 @@ from config import (
     SPORTS_NFL_TEAMS as TEAMS_NFL,
     SPORTS_MLB_TEAMS as TEAMS_MLB,
 )
+
+# In-memory cache for game data
+_games_cache = {
+    'data': None,          # Cached game data
+    'timestamp': None,     # When cache was last updated
+    'ttl': 60              # Cache time-to-live in seconds
+}
 
 
 def get_teams_for_league(league):
@@ -48,7 +56,17 @@ def get_league_letter(league):
 
 
 # --- Fetch games from ESPN ---
-async def fetch_games_from_endpoint(url):
+async def fetch_games_from_endpoint(url, filter_teams=True):
+    """
+    Fetch games from ESPN endpoint.
+    
+    Args:
+        url: ESPN API endpoint URL
+        filter_teams: If True, filter for configured teams. If False, return all games.
+    
+    Returns:
+        List of game dicts
+    """
     async with httpx.AsyncClient() as client:
         try:
             resp = await client.get(url)
@@ -60,7 +78,7 @@ async def fetch_games_from_endpoint(url):
     next_events = data.get("events", [])
     total_games_found = len(next_events)
     league = url.split('/')[-2].upper()
-    logger.debug(f"Found{total_games_found}totalgamesin{league}scoreboard")
+    logger.debug(f"Found {total_games_found} total games in {league} scoreboard")
 
     for game in next_events:
         try:
@@ -122,24 +140,29 @@ async def fetch_games_from_endpoint(url):
                 away_abbr, home_abbr = short_name.split(" VS ")
             else:
                 continue
+            
+            # Get game time for scheduled games
+            time_detail = status.get("type", {}).get("detail", "")
 
-            # Filter for your teams (unless in test mode)
-            if TEST_MODE_RANDOM_2:
-                should_include = True
-                logger.info(f"Gamefound:{away_abbr}@{home_abbr}(TESTMODE-including)")
-            else:
-                # Get teams for THIS league only (prevents cross-league matches)
-                league_teams = get_teams_for_league(league)
-                team_match = any(
-                    team.upper() in away_abbr.upper() or 
-                    team.upper() in home_abbr.upper() 
-                    for team in league_teams
-                )
-                should_include = team_match
-                if team_match:
-                    logger.info(f"{league}Game:{away_abbr}@{home_abbr}-Matched!")
+            # Filter for your teams if requested
+            should_include = True
+            if filter_teams:
+                if TEST_MODE_RANDOM_2:
+                    should_include = True
+                    logger.debug(f"Game found: {away_abbr} @ {home_abbr} (TEST MODE - including)")
                 else:
-                    logger.info(f"⏭{league}Game:{away_abbr}@{home_abbr}-Notfollowing")
+                    # Get teams for THIS league only (prevents cross-league matches)
+                    league_teams = get_teams_for_league(league)
+                    team_match = any(
+                        team.upper() in away_abbr.upper() or 
+                        team.upper() in home_abbr.upper() 
+                        for team in league_teams
+                    )
+                    should_include = team_match
+                    if team_match:
+                        logger.debug(f"{league} Game: {away_abbr} @ {home_abbr} - Matched!")
+                    else:
+                        logger.debug(f"{league} Game: {away_abbr} @ {home_abbr} - Not following")
 
             if should_include:
                 games.append({
@@ -150,28 +173,119 @@ async def fetch_games_from_endpoint(url):
                     "clock": clock,
                     "period": period,
                     "state": state,
-                    "league": league
+                    "league": league,
+                    "time": time_detail  # Add time for upcoming games
                 })
         except Exception as e:
-            logger.error(f"Exceptionprocessinggame{short_name}:{e}")
+            logger.error(f"Exception processing game {short_name}: {e}")
             continue
 
     games_count = len(games)
-    if TEST_MODE_RANDOM_2:
-        logger.info(f"Found{games_count}gamestotal(TESTMODE-allgamesincluded)")
+    if filter_teams:
+        if TEST_MODE_RANDOM_2:
+            logger.info(f"Found {games_count} games total (TEST MODE - all games included)")
+        else:
+            logger.info(f"Kept {games_count} team games (filtered from {total_games_found} found)")
     else:
-        logger.info(f"Kept{games_count}Detroitgames(filteredfrom{total_games_found}found)")
+        logger.debug(f"Fetched {games_count} games from {league}")
     return games
 
 
-async def fetch_all_games():
-    logger.info(f"🌐Startingtofetchgamesfrom{len(API_ENDPOINTS)}endpoints...")
+async def _fetch_all_games_with_cache(use_cache=True):
+    """
+    Internal function to fetch all games with optional caching.
+    
+    Args:
+        use_cache: If True, return cached data if still valid
+    
+    Returns:
+        List of all game dicts (filtered for your teams)
+    """
+    global _games_cache
+    
+    # Check if cache is valid
+    if use_cache and _games_cache['data'] is not None and _games_cache['timestamp'] is not None:
+        time_since_fetch = (datetime.now() - _games_cache['timestamp']).total_seconds()
+        if time_since_fetch < _games_cache['ttl']:
+            logger.debug(f"Using cached game data ({int(time_since_fetch)}s old)")
+            return _games_cache['data']
+    
+    # Fetch fresh data
+    logger.info(f"Fetching games from {len(API_ENDPOINTS)} endpoints...")
     all_games = []
     for i, url in enumerate(API_ENDPOINTS):
-        logger.info(f"📡[{i+1}/{len(API_ENDPOINTS)}]Fetchingfrom{url.split('/')[-2].upper()}...")
-        games = await fetch_games_from_endpoint(url)
+        logger.info(f"[{i+1}/{len(API_ENDPOINTS)}] Fetching from {url.split('/')[-2].upper()}...")
+        games = await fetch_games_from_endpoint(url, filter_teams=True)
         all_games.extend(games)
     
-    logger.debug(f"Totalgamesfetched:{len(all_games)}")
+    # Update cache
+    _games_cache['data'] = all_games
+    _games_cache['timestamp'] = datetime.now()
+    
+    logger.debug(f"Total games fetched: {len(all_games)}")
     return all_games
+
+
+async def fetch_all_games():
+    """
+    Fetch all games for your configured teams.
+    Uses in-memory cache to avoid redundant API calls.
+    
+    Returns:
+        List of game dicts (all states: live, upcoming, completed)
+    """
+    return await _fetch_all_games_with_cache(use_cache=False)
+
+
+async def fetch_upcoming_games(today_only=False):
+    """
+    Fetch upcoming games scheduled for today (not yet started).
+    Reuses cached data from fetch_all_games() to avoid duplicate API calls.
+    
+    Args:
+        today_only: If True, only return games scheduled for today (default: True)
+    
+    Returns:
+        List of game dicts with 'pre' or 'STATUS_SCHEDULED' state
+    """
+    # Get all games (from cache if available)
+    all_games = await _fetch_all_games_with_cache(use_cache=True)
+    
+    # Filter for only upcoming games (pre-game state)
+    upcoming = [
+        game for game in all_games 
+        if game.get('state') in ['pre', 'STATUS_SCHEDULED']
+    ]
+    
+    # If today_only is True, filter by date
+    if today_only:
+        from dateutil import parser as date_parser
+        today = datetime.now().date()
+        filtered_upcoming = []
+        
+        for game in upcoming:
+            time_str = game.get('time', '')
+            if not time_str:
+                continue
+                
+            try:
+                # dateutil.parser handles ordinal suffixes automatically!
+                # "Wed, November 12th at 7:00 PM EST" -> datetime object
+                game_datetime = date_parser.parse(time_str)
+                game_date = game_datetime.date()
+                
+                if game_date == today:
+                    filtered_upcoming.append(game)
+                    
+            except Exception as e:
+                # If parsing fails, include the game anyway (better to show than hide)
+                logger.debug(f"Could not parse game time '{time_str}': {e}")
+                filtered_upcoming.append(game)
+        
+        upcoming = filtered_upcoming
+        logger.info(f"Found {len(upcoming)} upcoming games today (from {len(all_games)} total)")
+    else:
+        logger.info(f"Found {len(upcoming)} upcoming games (from {len(all_games)} total)")
+    
+    return upcoming
 

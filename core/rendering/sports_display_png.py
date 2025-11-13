@@ -516,3 +516,185 @@ def render_scoreboard(games, width=64, height=40):
     
     return img
 
+
+def render_upcoming_games(games, width=64, height=40):
+    """
+    Render upcoming games scheduled for today with team logos.
+    
+    Shows:
+    - Team logos (away @ home)
+    - Game time
+    - League indicator
+    
+    Layout:
+    - 1 game: Large format with logos (similar to live game display)
+    - 2 games: Stacked format with small logos, 20px per game
+    - 3-4 games: Compact format with mini logos, 10px per game
+    
+    Args:
+        games: List of upcoming game dicts from fetch_upcoming_games()
+        width: Image width (default 64)
+        height: Image height (default 40)
+    
+    Returns:
+        PIL Image (RGB mode)
+    """
+    img = Image.new('RGB', (width, height), color=(0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    
+    num_games = len(games)
+    if num_games == 0:
+        # No upcoming games
+        try:
+            font = ImageFont.truetype("./fonts/PixelOperator.ttf", 8)
+        except:
+            font = ImageFont.load_default()
+        draw.text((4, 16), "No games today", fill=(128, 128, 128), font=font)
+        return img
+    
+    # Limit to 4 games max
+    games = games[:4]
+    num_games = len(games)
+    
+    try:
+        font_large = ImageFont.truetype("./fonts/PixelOperator.ttf", 12)
+        font_medium = ImageFont.truetype("./fonts/PixelOperator.ttf", 10)
+        font_small = ImageFont.truetype("./fonts/PixelOperator.ttf", 8)
+    except:
+        font_large = ImageFont.load_default()
+        font_medium = ImageFont.load_default()
+        font_small = ImageFont.load_default()
+    
+    if num_games == 1:
+        # Single game - large format with logos (similar to live games)
+        game = games[0]
+        away = game['away']
+        home = game['home']
+        time = game['time']
+        league = game['league']
+        
+        # Away team logo (top half)
+        away_logo = load_team_logo(away, league, max_size=(16, 16))
+        if away_logo:
+            img.paste(away_logo, (2, 2), away_logo)
+        
+        # Away team name
+        draw.text((22, 4), away, fill=(200, 200, 200), font=font_medium)
+        
+        # @ symbol in middle
+        draw.text((width // 2 - 3, 12), "@", fill=(100, 100, 100), font=font_small)
+        
+        # Home team logo (bottom half)
+        home_logo = load_team_logo(home, league, max_size=(16, 16))
+        if home_logo:
+            img.paste(home_logo, (2, 22), home_logo)
+        
+        # Home team name
+        draw.text((22, 24), home, fill=(255, 255, 255), font=font_medium)
+        
+        # Time on the right - extract just the time portion
+        # Wed, November 12th at 7:00 PM EST -> 7:00 PM
+        if time:
+            time_parts = time.split('at')
+            time_display = ' '.join(time_parts[1].strip().split()[0:2])
+        else:
+            time_display = "TBD"
+        
+        # Right-align and center vertically
+        time_bbox = font_small.getbbox(time_display)
+        time_width = time_bbox[2] - time_bbox[0]
+        time_x = width - time_width - 2
+        draw.text((time_x, 16), time_display, fill=(100, 200, 255), font=font_small)
+        
+    elif num_games == 2:
+        # Two games - stacked format with logos side-by-side (20px each)
+        for idx, game in enumerate(games):
+            y_offset = idx * 20
+            away = game['away']
+            home = game['home']
+            time = game['time']
+            league = game['league']
+            
+            # Away logo (small, 10x10) on left
+            away_logo = load_team_logo(away, league, max_size=(10, 10))
+            if away_logo:
+                img.paste(away_logo, (2, y_offset + 5), away_logo)
+            
+            # Away team name next to logo
+            draw.text((14, y_offset + 6), away, fill=(200, 200, 200), font=font_small)
+            
+            # @ symbol
+            draw.text((29, y_offset + 6), "@", fill=(100, 100, 100), font=font_small)
+            
+            # Home logo (small, 10x10) 
+            home_logo = load_team_logo(home, league, max_size=(10, 10))
+            if home_logo:
+                img.paste(home_logo, (34, y_offset + 5), home_logo)
+            
+            # Home team name next to logo
+            draw.text((46, y_offset + 6), home, fill=(255, 255, 255), font=font_small)
+            
+            # Time - extract just the time portion (e.g., "7:00 PM" from "Wednesday, 7:00 PM EST")
+            if time:
+                # Try to parse time from various formats
+                print(time)
+                time_parts = time.split(',')
+                if len(time_parts) > 1:
+                    # Format: "Wednesday, 7:00 PM EST" -> get "7:00 PM"
+                    time_display = time_parts[1].strip().split()[0:2]  # Get "7:00 PM"
+                    time_display = ' '.join(time_display) if len(time_display) == 2 else time_parts[1].strip()
+                else:
+                    # Format might be just "7:00 PM EST"
+                    time_display = ' '.join(time.split()[0:2])
+            else:
+                time_display = "TBD"
+            
+            # Right-align time on second line of this game
+            time_bbox = font_small.getbbox(time_display)
+            time_width = time_bbox[2] - time_bbox[0]
+            time_x = width - time_width - 2
+            draw.text((time_x, y_offset + 12), time_display, fill=(100, 200, 255), font=font_small)
+    
+    else:
+        # 3-4 games - compact format with mini logos (10px each)
+        for idx, game in enumerate(games):
+            y_offset = idx * 10
+            away = game['away']
+            home = game['home']
+            time = game['time']
+            league = game['league']
+            
+            # Away logo (mini, 8x8)
+            away_logo = load_team_logo(away, league, max_size=(8, 8))
+            if away_logo:
+                img.paste(away_logo, (2, y_offset + 1), away_logo)
+            
+            # Away team name (abbreviated)
+            draw.text((12, y_offset + 1), away[:3], fill=(200, 200, 200), font=font_small)
+            
+            # @ symbol
+            draw.text((26, y_offset + 1), "@", fill=(100, 100, 100), font=font_small)
+            
+            # Home team name (abbreviated)
+            draw.text((30, y_offset + 1), home[:3], fill=(255, 255, 255), font=font_small)
+            
+            # Time - extract just the time portion
+            if time:
+                time_parts = time.split(',')
+                if len(time_parts) > 1:
+                    # Format: "Wednesday, 7:00 PM EST" -> get "7:00"
+                    time_display = time_parts[1].strip().split()[0]  # Just "7:00"
+                else:
+                    # Format might be just "7:00 PM EST" -> get "7:00"
+                    time_display = time.split()[0]
+            else:
+                time_display = "TBD"
+            
+            # Right-align time
+            time_bbox = font_small.getbbox(time_display)
+            time_width = time_bbox[2] - time_bbox[0]
+            time_x = width - time_width - 2
+            draw.text((time_x, y_offset + 1), time_display, fill=(100, 200, 255), font=font_small)
+    
+    return img
+

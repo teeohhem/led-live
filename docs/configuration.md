@@ -117,11 +117,24 @@ display_modes:
     - clock
     - weather
     - stocks
+    - upcoming_games                # Shows today's scheduled games
   cycle_seconds: 15                 # Seconds per mode
   clock_theme: "stranger_things"    # Clock style (stranger_things, classic, matrix)
   clock_24h: false                  # 24-hour format
   mode_check_interval: 2            # Seconds
 ```
+
+**Available Display Modes:**
+- **`clock`** - Displays time/date with optional weather
+- **`weather`** - Shows current conditions and forecast
+- **`stocks`** - Real-time stock quotes and changes
+- **`sports`** - Live game scores (auto-activates when games are in progress)
+- **`upcoming_games`** - Today's scheduled games with start times
+
+**Notes:**
+- The `sports` mode activates automatically when your teams have live games (if `sports_priority: true`)
+- The `upcoming_games` mode shows games that haven't started yet
+- Both sports modes filter by teams configured in `sports.teams`
 
 ### Power Management
 

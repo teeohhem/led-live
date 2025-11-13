@@ -15,5 +15,8 @@ httpx>=0.24.0
 # Stock Market Data (Yahoo Finance)
 yfinance>=0.2.0
 
+# Date Parsing
+python-dateutil>=2.8.0
+
 # Note: Python 3.7+ required
 

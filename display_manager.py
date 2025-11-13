@@ -51,6 +51,7 @@ from config import (
 )
 
 import logging
+import logging_config  # Initialize logging configuration
 logger = logging.getLogger('led_panel.display_manager')
 
 # --- Mode Manager ---
@@ -167,13 +168,13 @@ async def main(display_adapter: Optional[DisplayAdapter] = None):
 
     # Import data and rendering modules (lazy import to avoid dependency issues)
     from core.data import (
-        fetch_all_games, get_league_letter,
+        fetch_all_games, fetch_upcoming_games, get_league_letter,
         fetch_current_weather, fetch_hourly_forecast, fetch_daily_forecast,
         fetch_stock_quotes
     )
     from core.rendering import (
         render_scoreboard, render_weather, render_weather_bottom_panel,
-        render_clock_with_weather_split, render_stocks
+        render_clock_with_weather_split, render_stocks, render_upcoming_games
     )
 
     try:            # State tracking
@@ -201,7 +202,7 @@ async def main(display_adapter: Optional[DisplayAdapter] = None):
             stock_quotes = []
             prev_stock_quotes = None
             last_stocks_check = datetime.min  # Initialize to past so it fetches immediately
-            last_stocks_render = None  # Track when we last rendered stocks
+            last_stocks_render = None
             
             # Cycle state (for mode cycling)
             cycle_index = 0  # Current index in DISPLAY_CYCLE_MODES
@@ -269,18 +270,34 @@ async def main(display_adapter: Optional[DisplayAdapter] = None):
                 
                 # ========== RENDER CURRENT MODE ==========
                 if current_mode == DisplayMode.SPORTS:
-                    # Filter for live/recent games
-                    display_games = []
-                    for game in games:
-                        state = game.get("state", "")
-                        if state in ["inProgress", "in", "post", "completed", "final"]:
-                            display_games.append(game)
+                    # Import sports modes config
+                    from config import SPORTS_MODES
                     
-                    # Prioritize live games: if any live games exist, only show those
-                    display_games = filter_live_games(display_games)
+                    display_games = []
+                    display_type = None  # 'live' or 'upcoming'
+                    
+                    # Try to get live games if 'live' is in sports.modes
+                    if 'live' in SPORTS_MODES:
+                        for game in games:
+                            state = game.get("state", "")
+                            if state in ["inProgress", "in", "post", "completed", "final"]:
+                                display_games.append(game)
+                        
+                        # Prioritize live games: if any live games exist, only show those
+                        display_games = filter_live_games(display_games)
+                        
+                        if display_games:
+                            display_type = 'live'
+                    
+                    # If no live games and 'upcoming' is in sports.modes, show upcoming
+                    if not display_games and 'upcoming' in SPORTS_MODES:
+                        upcoming_games = await fetch_upcoming_games(today_only=False)
+                        if upcoming_games:
+                            display_games = upcoming_games
+                            display_type = 'upcoming'
                     
                     if not display_games:
-                        logger.info("No games to display - skipping to next mode")
+                        logger.info("No live or upcoming games to display - skipping to next mode")
                         # Skip to next mode in cycle
                         cycle_index = (cycle_index + 1) % len(DISPLAY_CYCLE_MODES)
                         cycle_mode = DISPLAY_CYCLE_MODES[cycle_index]
@@ -289,9 +306,13 @@ async def main(display_adapter: Optional[DisplayAdapter] = None):
                         continue
                     
                     # Create game snapshot for comparison
-                    current_snapshot = [(g['home'], g['away'], g['home_score'], g['away_score'], 
-                                        g.get('period', ''), g.get('clock', ''), g.get('state', '')) 
-                                       for g in display_games]
+                    if display_type == 'live':
+                        current_snapshot = [(g['home'], g['away'], g['home_score'], g['away_score'], 
+                                            g.get('period', ''), g.get('clock', ''), g.get('state', '')) 
+                                           for g in display_games]
+                    else:  # upcoming
+                        current_snapshot = [(g['home'], g['away'], g.get('time', ''), g.get('state', ''))
+                                           for g in display_games]
                     
                     # Check if we need to render (data changed OR periodic refresh needed)
                     data_changed = current_snapshot != prev_games_snapshot
@@ -299,21 +320,26 @@ async def main(display_adapter: Optional[DisplayAdapter] = None):
                                    (now - last_sports_render).total_seconds() >= DISPLAY_SPORTS_REFRESH_INTERVAL)
                     
                     if data_changed or needs_refresh:
-                        # Render scoreboard as image
+                        # Render appropriate display based on type
                         if data_changed:
-                            logger.info("Rendering sports scoreboard (data changed)...")
+                            logger.info(f"Rendering {display_type} sports display (data changed)...")
                         else:
-                            logger.info("Refreshing sports display (keeping PNG alive)...")
+                            logger.info(f"Refreshing {display_type} sports display (keeping PNG alive)...")
                         
                         logger.info(f"Games to display: {len(display_games)}")
-                        for g in display_games[:2]:
-                            logger.info(f"{g['away']} {g['away_score']} - {g['home']} {g['home_score']}")
                         
-                        scoreboard_img = render_scoreboard(display_games, width=display_adapter.display_width, height=display_adapter.display_height)
+                        if display_type == 'live':
+                            for g in display_games[:2]:
+                                logger.info(f"{g['away']} {g['away_score']} - {g['home']} {g['home_score']}")
+                            sports_img = render_scoreboard(display_games, width=display_adapter.display_width, height=display_adapter.display_height)
+                        else:  # upcoming
+                            for g in display_games[:2]:
+                                logger.info(f"{g['away']} @ {g['home']} - {g.get('time', 'TBD')}")
+                            sports_img = render_upcoming_games(display_games, width=display_adapter.display_width, height=display_adapter.display_height)
                         
                         # Upload as PNG - DON'T clear first (screen was already cleared during mode switch)
-                        await display_adapter.upload_image(scoreboard_img, clear_first=False)
-                        logger.info("Scoreboard displayed!")
+                        await display_adapter.upload_image(sports_img, clear_first=False)
+                        logger.info(f"{display_type.capitalize()} sports displayed!")
                         
                         # Update state
                         prev_games_snapshot = current_snapshot
@@ -443,6 +469,7 @@ async def main(display_adapter: Optional[DisplayAdapter] = None):
                         # Update state
                         prev_stock_quotes = current_snapshot
                         last_stocks_render = now
+                
                 
                 # Wait before next check
                 await asyncio.sleep(DISPLAY_MODE_CHECK_INTERVAL)

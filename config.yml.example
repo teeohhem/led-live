@@ -89,6 +89,15 @@ sports:
   # Show team logos in sports mode (true/false)
   show_logos: true
   
+  # Sports display modes: live (in-progress games), upcoming (scheduled games)
+  # Options: live, upcoming
+  # - live: Show games currently in progress
+  # - upcoming: Show games scheduled but not started
+  # When both are enabled, shows live games if available, otherwise upcoming
+  modes:
+    - live
+    - upcoming
+  
   # PNG refresh interval (seconds, keeps display visible)
   refresh_interval: 2
 
@@ -98,7 +107,9 @@ display_modes:
   sports_priority: true
   
   # Modes to cycle through (list: sports, clock, weather, stocks)
+  # Note: Configure what sports shows via sports.modes (live/upcoming)
   cycle_modes:
+    - sports
     - clock
     - weather
     - stocks

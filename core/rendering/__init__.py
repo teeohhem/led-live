@@ -11,9 +11,9 @@ as PIL Images for display on LED panels:
 
 # Lazy imports to avoid dependency issues during import
 def __getattr__(name):
-    if name == 'render_scoreboard':
-        from .sports_display_png import render_scoreboard
-        return render_scoreboard
+    if name in ('render_scoreboard', 'render_upcoming_games'):
+        from .sports_display_png import render_scoreboard, render_upcoming_games
+        return locals()[name]
     elif name in ('render_weather', 'render_weather_bottom_panel'):
         from .weather_display_png import render_weather, render_weather_bottom_panel
         return locals()[name]
@@ -27,7 +27,7 @@ def __getattr__(name):
 
 __all__ = [
     # Sports rendering
-    'render_scoreboard',
+    'render_scoreboard', 'render_upcoming_games',
     # Weather rendering
     'render_weather', 'render_weather_bottom_panel',
     # Clock rendering

@@ -7,6 +7,24 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def format_percentage_change(arrow, change_pct):
+    """
+    Format a percentage change with arrow, avoiding unnecessary decimals.
+
+    Args:
+        arrow: Direction arrow ("▲" or "▼")
+        change_pct: Percentage change value
+
+    Returns:
+        Formatted string like "▲18%" or "▼18.3%"
+    """
+    change_pct_formatted = abs(change_pct)
+    if change_pct_formatted == int(change_pct_formatted):
+        return f"{int(change_pct_formatted)}%"
+    else:
+        return f"{change_pct_formatted:.1f}%"
+
+
 def render_stocks(quotes, width=64, height=40):
     """
     Render stock quotes as a PNG image.
@@ -81,7 +99,7 @@ def render_single_stock(draw, quote, width, height, font_main, font_small):
     draw.text((2, 12), price_text, fill=price_color, font=font_main)
     
     # Change percentage
-    change_text = f"{arrow} {abs(change_pct):.2f}%"
+    change_text = format_percentage_change(f"{arrow} ", change_pct)
     draw.text((2, 24), change_text, fill=price_color, font=font_small)
 
 
@@ -100,11 +118,11 @@ def render_stock_compact(draw, quote, y_offset, font_main, font_small):
     draw.text((2, y_offset), symbol, fill=(255, 255, 255), font=font_small)
     
     # Price in middle
-    price_text = f"${price:.2f}"
+    price_text = f"$ {price:.2f}"
     draw.text((22, y_offset), price_text, fill=color, font=font_small)
     
     # Change on right
-    change_text = f"{arrow}{abs(change_pct):.1f}%"
+    change_text = format_percentage_change(arrow, change_pct)
     draw.text((48, y_offset), change_text, fill=color, font=font_small)
 
 
@@ -124,15 +142,15 @@ def render_stock_mini(draw, quote, y_offset, font_small):
     
     # Price
     if price >= 1000:
-        price_text = f"${price/1000:.1f}k"
+        price_text = f"$ {price/1000:.1f}k"
     elif price >= 100:
-        price_text = f"${price:.0f}"
+        price_text = f"$ {price:.0f}"
     else:
-        price_text = f"${price:.2f}"
+        price_text = f"$ {price:.2f}"
     draw.text((18, y_offset), price_text, fill=color, font=font_small)
     
     # Change
-    change_text = f"{arrow}{abs(change_pct):.1f}%"
+    change_text = format_percentage_change(arrow, change_pct)
     draw.text((42, y_offset), change_text, fill=color, font=font_small)
 
 
