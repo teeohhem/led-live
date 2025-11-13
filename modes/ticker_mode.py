@@ -44,15 +44,25 @@ class TickerMode(BaseMode):
         
         # Load configuration based on layout
         if self.layout == 'multi':
-            # Multi-panel mode - load per-panel configs
-            self.panel_configs = cfg.get('ticker.panels', [])
-            if not self.panel_configs:
-                # Fallback to single mode if no panel configs
-                logger.warning("Multi-panel ticker requested but no panel configs found, using single mode")
-                self.layout = 'single'
-        
-        # Fallback single-mode config
-        if self.layout == 'single':
+            # Multi-panel mode - ticker + static panel design
+            self.ticker_panel_idx = cfg.get_int('ticker.ticker_panel', 0)
+            self.static_panel_idx = cfg.get_int('ticker.static_panel', 1)
+            
+            # Ticker panel config
+            self.ticker_modes = cfg.get_list('ticker.ticker.modes', ['sports'])
+            self.ticker_sports_source = cfg.get_string('ticker.ticker.sports.source', 'all_live')
+            self.ticker_sports_max = cfg.get_int('ticker.ticker.sports.max_games', 15)
+            self.ticker_stocks_source = cfg.get_string('ticker.ticker.stocks.source', 'gainers')
+            self.ticker_stocks_max = cfg.get_int('ticker.ticker.stocks.max_symbols', 10)
+            
+            # Static panel config
+            self.static_mode = cfg.get_string('ticker.static.mode', 'stocks')
+            self.static_sports_source = cfg.get_string('ticker.static.sports.source', 'my_teams')
+            self.static_sports_max = cfg.get_int('ticker.static.sports.max_games', 4)
+            self.static_stocks_source = cfg.get_string('ticker.static.stocks.source', 'gainers')
+            self.static_stocks_max = cfg.get_int('ticker.static.stocks.max_symbols', 4)
+        else:
+            # Single-mode config
             self.ticker_modes = cfg.get_list('ticker.single.modes', ['sports', 'stocks'])
             self.sports_source = cfg.get_string('ticker.single.sports.source', 'my_teams')
             self.sports_max = cfg.get_int('ticker.single.sports.max_games', 10)
@@ -60,18 +70,19 @@ class TickerMode(BaseMode):
             self.stocks_max = cfg.get_int('ticker.single.stocks.max_symbols', 10)
         
         # Data storage
-        self.segments = []  # For single mode
-        self.panel_segments = []  # For multi mode (list of segment lists)
-        self.frames = []  # For single mode
-        self.panel_frames = []  # For multi mode (list of frame lists)
+        self.ticker_segments = []  # Segments for scrolling ticker
+        self.ticker_frames = []  # Frames for scrolling ticker
+        self.ticker_gif = None  # GIF bytes for ticker
+        self.static_image = None  # Static panel image
+        self.static_data = None  # Data for static panel
     
     async def fetch_data(self) -> bool:
-        """Fetch data for all ticker segments (single or multi-panel)."""
+        """Fetch data for ticker and static content."""
         try:
             if self.layout == 'single':
                 return await self._fetch_single_mode()
             else:
-                return await self._fetch_multi_panel_mode()
+                return await self._fetch_ticker_plus_static_mode()
         except Exception as e:
             logger.error(f"Error fetching ticker data: {e}")
             return False
@@ -99,45 +110,39 @@ class TickerMode(BaseMode):
         self.last_fetch = datetime.now()
         return len(self.segments) > 0
     
-    async def _fetch_multi_panel_mode(self):
-        """Fetch data for multi-panel ticker (independent per panel)."""
-        self.panel_segments = []
+    async def _fetch_ticker_plus_static_mode(self):
+        """Fetch data for ticker panel (scrolling) + static panel."""
+        # Fetch ticker segments
+        self.ticker_segments = []
         
-        # Fetch data for each panel configuration
-        for panel_idx, panel_config in enumerate(self.panel_configs):
-            panel_modes = panel_config.get('modes', [])
-            segments = []
-            
-            logger.info(f"Fetching ticker data for panel {panel_idx}: {panel_modes}")
-            
-            # Fetch segments for this panel
-            if 'sports' in panel_modes:
-                segment = await self._fetch_sports_segment_for_panel(panel_config)
-                if segment:
-                    segments.append(segment)
-            
-            if 'stocks' in panel_modes:
-                segment = await self._fetch_stocks_segment_for_panel(panel_config)
-                if segment:
-                    segments.append(segment)
-            
-            if 'weather' in panel_modes:
-                segment = await self._fetch_weather_segment()
-                if segment:
-                    segments.append(segment)
-            
-            self.panel_segments.append(segments)
+        logger.info(f"Fetching ticker data for panel {self.ticker_panel_idx}: {self.ticker_modes}")
+        
+        if 'sports' in self.ticker_modes:
+            segment = await self._fetch_sports_segment_ticker()
+            if segment:
+                self.ticker_segments.append(segment)
+        
+        if 'stocks' in self.ticker_modes:
+            segment = await self._fetch_stocks_segment_ticker()
+            if segment:
+                self.ticker_segments.append(segment)
+        
+        # Fetch static panel data
+        logger.info(f"Fetching static data for panel {self.static_panel_idx}: {self.static_mode}")
+        self.static_data = await self._fetch_static_panel_data()
         
         self.last_fetch = datetime.now()
-        # Has data if any panel has segments
-        return any(len(segs) > 0 for segs in self.panel_segments)
+        
+        # Has data if ticker has segments or static has data
+        return len(self.ticker_segments) > 0 or self.static_data is not None
     
     def has_data(self) -> bool:
-        """Check if we have ticker segments."""
+        """Check if we have ticker or static data."""
         if self.layout == 'single':
             return len(self.segments) > 0
         else:
-            return any(len(segs) > 0 for segs in self.panel_segments)
+            # Multi-panel: has data if ticker or static has content
+            return len(self.ticker_segments) > 0 or self.static_data is not None
     
     def should_fetch(self, now: datetime) -> bool:
         """Refresh ticker data periodically."""
@@ -177,33 +182,79 @@ class TickerMode(BaseMode):
         return None
     
     async def _render_multi_panel_mode(self, width: int, height: int):
-        """Render independent tickers for each panel."""
-        if not self.panel_segments:
-            return None
+        """Render ticker GIF + static panel image."""
+        panel_height = height // 2  # Assume 2 panels
         
-        # Calculate height per panel
-        panel_count = len(self.panel_segments)
-        panel_height = height // panel_count
+        # Render ticker panel
+        if self.ticker_segments:
+            self.ticker_frames = self._create_ticker_frames_for_segments(
+                self.ticker_segments, width, panel_height
+            )
+            self.ticker_gif = self.frames_to_gif_bytes(self.ticker_frames, fps=30)
+            logger.info(f"Ticker GIF: {len(self.ticker_gif)/1024:.1f} KB, {len(self.ticker_frames)} frames")
         
-        # Create frames for each panel
-        self.panel_frames = []
-        for panel_idx, segments in enumerate(self.panel_segments):
-            if segments:
-                frames = self._create_ticker_frames_for_segments(segments, width, panel_height)
-                self.panel_frames.append(frames)
-            else:
-                # Empty panel - create blank frames
-                blank = Image.new('RGB', (width, panel_height), color=(0, 0, 0))
-                self.panel_frames.append([blank])
+        # Render static panel
+        if self.static_data:
+            self.static_image = await self._render_static_panel(width, panel_height)
+            logger.info(f"Static panel: {self.static_mode} display")
         
-        # Composite first frame from all panels for initial display
-        if self.panel_frames:
-            first_composite = Image.new('RGB', (width, height), color=(0, 0, 0))
-            y_offset = 0
-            for frames in self.panel_frames:
-                first_composite.paste(frames[0], (0, y_offset))
-                y_offset += panel_height
-            return first_composite
+        # Return composite initial frame for display
+        if self.ticker_frames or self.static_image:
+            composite = Image.new('RGB', (width, height), color=(0, 0, 0))
+            
+            # Place ticker panel
+            if self.ticker_frames:
+                if self.ticker_panel_idx == 0:
+                    composite.paste(self.ticker_frames[0], (0, 0))
+                else:
+                    composite.paste(self.ticker_frames[0], (0, panel_height))
+            
+            # Place static panel
+            if self.static_image:
+                if self.static_panel_idx == 0:
+                    composite.paste(self.static_image, (0, 0))
+                else:
+                    composite.paste(self.static_image, (0, panel_height))
+            
+            return composite
+        
+        return None
+    
+    async def _render_static_panel(self, width: int, height: int):
+        """Render static panel content using appropriate mode renderer."""
+        if self.static_mode == 'stocks':
+            from core.rendering import render_stocks
+            return render_stocks(self.static_data, width=width, height=height)
+        
+        elif self.static_mode == 'sports':
+            from core.rendering import render_upcoming_games
+            return render_upcoming_games(self.static_data, width=width, height=height)
+        
+        elif self.static_mode == 'weather':
+            from core.rendering import render_weather
+            return render_weather(
+                self.static_data['current'],
+                self.static_data['forecast'],
+                width=width,
+                height=height
+            )
+        
+        elif self.static_mode == 'clock':
+            from core.rendering import render_clock_with_weather_split
+            from core.data import fetch_current_weather, fetch_daily_forecast
+            from config import CLOCK_THEME, CLOCK_24H
+            
+            # Fetch weather for clock
+            weather = await fetch_current_weather()
+            forecast = await fetch_daily_forecast()
+            
+            return render_clock_with_weather_split(
+                weather, forecast,
+                total_width=width,
+                total_height=height,
+                theme=CLOCK_THEME,
+                hour24=CLOCK_24H
+            )
         
         return None
     
@@ -268,6 +319,136 @@ class TickerMode(BaseMode):
                 for frames in self.panel_frames
             ]
         return []
+    
+    def get_ticker_gif_with_panel(self):
+        """Get ticker GIF and which panel to upload it to."""
+        if self.layout == 'multi' and self.ticker_gif:
+            return (self.ticker_gif, self.ticker_panel_idx)
+        return None
+    
+    def get_static_image_with_panel(self):
+        """Get static image and which panel to upload it to."""
+        if self.layout == 'multi' and self.static_image:
+            return (self.static_image, self.static_panel_idx)
+        return None
+    
+    async def _fetch_sports_with_source(self, source, max_games):
+        """Helper to fetch sports data from a given source."""
+        try:
+            games = []
+            
+            if source == 'my_teams':
+                from core.data import fetch_upcoming_games
+                games = await fetch_upcoming_games(today_only=False)
+            elif source == 'all_live':
+                from core.data.sports_data import fetch_all_live_games
+                games = await fetch_all_live_games()
+            elif source == 'all_upcoming':
+                from core.data.sports_data import fetch_all_upcoming_games
+                games = await fetch_all_upcoming_games()
+            elif source == 'all':
+                from core.data.sports_data import fetch_all_live_games, fetch_all_upcoming_games
+                live = await fetch_all_live_games()
+                upcoming = await fetch_all_upcoming_games()
+                games = live + upcoming
+            
+            if not games:
+                return None
+            
+            games = games[:max_games]
+            logger.info(f"Sports data: {len(games)} games ({source})")
+            
+            return {
+                'type': 'sports',
+                'data': games,
+                'render_func': self._render_sports_segment
+            }
+        except Exception as e:
+            logger.warning(f"Error fetching sports: {e}")
+            return None
+    
+    async def _fetch_sports_segment_ticker(self):
+        """Fetch sports segment for ticker panel (uses ticker config)."""
+        source = self.ticker_sports_source if self.layout == 'multi' else self.sports_source
+        max_games = self.ticker_sports_max if self.layout == 'multi' else self.sports_max
+        
+        return await self._fetch_sports_with_source(source, max_games)
+    
+    async def _fetch_stocks_segment_ticker(self):
+        """Fetch stocks segment for ticker panel (uses ticker config)."""
+        source = self.ticker_stocks_source if self.layout == 'multi' else self.stocks_source
+        max_symbols = self.ticker_stocks_max if self.layout == 'multi' else self.stocks_max
+        
+        return await self._fetch_stocks_with_source(source, max_symbols)
+    
+    async def _fetch_stocks_with_source(self, source, max_symbols):
+        """Helper to fetch stocks data from a given source."""
+        try:
+            quotes = []
+            
+            if source == 'my_symbols':
+                from core.data import fetch_stock_quotes
+                quotes = await fetch_stock_quotes()
+            elif source == 'gainers':
+                from core.data.stocks_data import fetch_market_gainers
+                quotes = await fetch_market_gainers(limit=max_symbols)
+            elif source == 'losers':
+                from core.data.stocks_data import fetch_market_losers
+                quotes = await fetch_market_losers(limit=max_symbols)
+            elif source == 'mixed':
+                from core.data.stocks_data import fetch_market_mixed
+                quotes = await fetch_market_mixed(limit=max_symbols)
+            elif source == 'active':
+                from core.data.stocks_data import fetch_market_active
+                quotes = await fetch_market_active(limit=max_symbols)
+            
+            if not quotes:
+                return None
+            
+            quotes = quotes[:max_symbols]
+            logger.info(f"Stocks data: {len(quotes)} symbols ({source})")
+            
+            return {
+                'type': 'stocks',
+                'data': quotes,
+                'render_func': self._render_stocks_segment
+            }
+        except Exception as e:
+            logger.warning(f"Error fetching stocks: {e}")
+            return None
+    
+    async def _fetch_static_panel_data(self):
+        """Fetch data for static panel based on configured mode."""
+        try:
+            if self.static_mode == 'sports':
+                games = []
+                result = await self._fetch_sports_with_source(
+                    self.static_sports_source,
+                    self.static_sports_max
+                )
+                return result['data'] if result else None
+            
+            elif self.static_mode == 'stocks':
+                result = await self._fetch_stocks_with_source(
+                    self.static_stocks_source,
+                    self.static_stocks_max
+                )
+                return result['data'] if result else None
+            
+            elif self.static_mode == 'weather':
+                from core.data import fetch_current_weather, fetch_daily_forecast
+                weather = await fetch_current_weather()
+                forecast = await fetch_daily_forecast()
+                return {'current': weather, 'forecast': forecast}
+            
+            elif self.static_mode == 'clock':
+                # Clock doesn't need data (shows current time)
+                return {'mode': 'clock'}
+            
+            return None
+        except Exception as e:
+            logger.warning(f"Error fetching static panel data: {e}")
+            return None
     
     async def _fetch_sports_segment_single(self):
         """Fetch sports ticker segment based on configured source."""

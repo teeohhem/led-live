@@ -132,31 +132,49 @@ ticker:
       max_symbols: 10
   
   # ===== MULTI-PANEL TICKER MODE (layout: multi) =====
-  # Independent tickers per panel - different content on each!
-  panels:
-    - # Panel 0 (top panel) - Sports ticker
-      modes:
-        - sports
-      sports:
-        source: all_live      # Show ALL live games!
-        max_games: 15
-    
-    - # Panel 1 (bottom panel) - Market ticker
-      modes:
-        - stocks
-      stocks:
-        source: gainers       # Show top gainers!
-        max_symbols: 12
+  # One panel scrolls (ticker), other panel shows static content
+  # This prevents eye strain from two scrolling tickers!
   
-  # Example: Both panels show combined content
-  # panels:
-  #   - modes: [sports, stocks]  # Panel 0
-  #     sports: { source: my_teams, max_games: 5 }
-  #     stocks: { source: my_symbols, max_symbols: 3 }
-  #   
-  #   - modes: [sports, stocks]  # Panel 1
-  #     sports: { source: all_upcoming, max_games: 5 }
-  #     stocks: { source: losers, max_symbols: 3 }
+  ticker_panel: 0  # Which panel scrolls (0=top, 1=bottom)
+  static_panel: 1  # Which panel shows static content
+  
+  # Ticker panel configuration (scrolling)
+  ticker:
+    modes:
+      - sports     # Can combine: [sports, stocks]
+    sports:
+      source: all_live    # Options: my_teams, all_live, all_upcoming, all
+      max_games: 15
+    stocks:
+      source: gainers     # If stocks included
+      max_symbols: 10
+  
+  # Static panel configuration (not scrolling)
+  static:
+    mode: stocks  # What to show: sports, stocks, weather, clock
+    # Each mode uses its normal static rendering
+    sports:
+      source: my_teams     # Upcoming games for your teams
+      max_games: 4         # Top 4 fit in panel
+    stocks:
+      source: gainers      # Top gainers
+      max_symbols: 4       # Top 4 fit in panel
+    weather:
+      # Shows current weather (uses normal weather display)
+    clock:
+      # Shows clock (uses normal clock display)
+  
+  # Examples:
+  #
+  # Sports bar: Ticker shows all live, static shows gainers
+  # ticker_panel: 0
+  # ticker: { modes: [sports], sports: { source: all_live, max_games: 20 }}
+  # static: { mode: stocks, stocks: { source: gainers, max_symbols: 4 }}
+  #
+  # Personal: Ticker shows your teams, static shows your stocks
+  # ticker_panel: 1  # Bottom scrolls
+  # ticker: { modes: [sports], sports: { source: my_teams }}
+  # static: { mode: clock }  # Top shows clock
   
   # Data source options:
   #

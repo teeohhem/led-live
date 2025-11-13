@@ -169,14 +169,34 @@ class DisplayManager:
                 
                 # Special handling for ticker mode (uses GIF for smooth playback)
                 if target_mode_name == 'ticker':
-                    # Check if multi-panel ticker
-                    if hasattr(target_mode, 'get_panel_gifs') and target_mode.layout == 'multi':
-                        panel_gifs = target_mode.get_panel_gifs()
-                        if panel_gifs:
-                            logger.info(f"Uploading multi-panel ticker GIFs: {len(panel_gifs)} panels")
-                            await self._upload_multi_panel_ticker_gifs(panel_gifs)
-                            logger.info("Multi-panel ticker uploaded (looping on panels)")
-                    elif hasattr(target_mode, 'get_gif_bytes'):
+                    # Check layout type
+                    if target_mode.layout == 'multi':
+                        # Ticker + static panel mode
+                        ticker_data = target_mode.get_ticker_gif_with_panel()
+                        static_data = target_mode.get_static_image_with_panel()
+                        
+                        logger.info("Uploading ticker (scrolling) + static panel...")
+                        
+                        # Upload ticker GIF and static image in parallel
+                        tasks = []
+                        
+                        if ticker_data:
+                            gif_bytes, panel_idx = ticker_data
+                            logger.info(f"Ticker GIF: {len(gif_bytes)/1024:.1f} KB → panel {panel_idx}")
+                            tasks.append(self.adapter.upload_gif(gif_bytes, panels=[panel_idx]))
+                        
+                        if static_data:
+                            image, panel_idx = static_data
+                            logger.info(f"Static image → panel {panel_idx}")
+                            tasks.append(self.adapter.upload_image(image, clear_first=False, panels=[panel_idx]))
+                        
+                        # Upload both in parallel
+                        if tasks:
+                            await asyncio.gather(*tasks)
+                        
+                        logger.info("Ticker + static uploaded!")
+                    else:
+                        # Single panel mode
                         gif_bytes = target_mode.get_gif_bytes()
                         if gif_bytes:
                             logger.info(f"Uploading ticker GIF ({len(gif_bytes)/1024:.1f} KB)")
