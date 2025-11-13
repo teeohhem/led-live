@@ -4,9 +4,65 @@ Renders entire scoreboard as PIL Image for instant upload
 """
 from PIL import Image, ImageDraw, ImageFont
 from core.data.sports_data import get_league_letter
+from datetime import datetime
 import os
 import logging
 logger = logging.getLogger(__name__)
+
+
+def format_game_time(time_str, compact=False):
+    """
+    Format game time intelligently based on date.
+    
+    Args:
+        time_str: Time string from ESPN (e.g., "Wed, November 12th at 7:00 PM EST")
+        compact: If True, use more abbreviated format
+    
+    Returns:
+        Formatted string:
+        - Today: "7:00 PM" or "7PM" (compact)
+        - This week: "Wed 7PM"
+        - Further: "Nov 15"
+    """
+    if not time_str:
+        return "TBD"
+    
+    try:
+        from dateutil import parser as date_parser
+        
+        game_datetime = date_parser.parse(time_str)
+        today = datetime.now().date()
+        game_date = game_datetime.date()
+        
+        if game_date == today:
+            # Today - just show time
+            if compact:
+                return game_datetime.strftime('%I%p').lstrip('0')  # "7PM"
+            else:
+                return game_datetime.strftime('%I:%M %p').lstrip('0')  # "7:00 PM"
+        else:
+            # Future game - show date info
+            days_away = (game_date - today).days
+            if days_away <= 6:
+                # This week: "Wed 7PM"
+                hour = game_datetime.strftime('%I').lstrip('0')  # Remove leading zero
+                period = game_datetime.strftime('%p')
+                day = game_datetime.strftime('%a')
+                return f"{day} {hour}{period}"
+            else:
+                # Further out: "Nov 15"
+                return game_datetime.strftime('%b %d')
+    except Exception as e:
+        # Fallback: try to extract time from string
+        if 'at' in time_str:
+            time_part = time_str.split('at')[1].strip()
+            parts = time_part.split()
+            if compact and len(parts) >= 2:
+                return parts[0] + parts[1]  # "7:00PM"
+            elif len(parts) >= 2:
+                return parts[0] + ' ' + parts[1]  # "7:00 PM"
+        return time_str
+
 
 # --- Team colors ---
 TEAM_COLORS = {
@@ -549,7 +605,7 @@ def render_upcoming_games(games, width=64, height=40):
             font = ImageFont.truetype("./fonts/PixelOperator.ttf", 8)
         except:
             font = ImageFont.load_default()
-        draw.text((4, 16), "No games today", fill=(128, 128, 128), font=font)
+        draw.text((4, 8), "No games today", fill=(128, 128, 128), font=font)
         return img
     
     # Limit to 4 games max
@@ -592,19 +648,14 @@ def render_upcoming_games(games, width=64, height=40):
         # Home team name
         draw.text((22, 24), home, fill=(255, 255, 255), font=font_medium)
         
-        # Time on the right - extract just the time portion
-        # Wed, November 12th at 7:00 PM EST -> 7:00 PM
-        if time:
-            time_parts = time.split('at')
-            time_display = ' '.join(time_parts[1].strip().split()[0:2])
-        else:
-            time_display = "TBD"
+        # Format time (shows date if not today)
+        time_display = format_game_time(time, compact=False)
         
         # Right-align and center vertically
         time_bbox = font_small.getbbox(time_display)
         time_width = time_bbox[2] - time_bbox[0]
         time_x = width - time_width - 2
-        draw.text((time_x, 16), time_display, fill=(100, 200, 255), font=font_small)
+        draw.text((time_x, 10), time_display, fill=(100, 200, 255), font=font_small)
         
     elif num_games == 2:
         # Two games - stacked format with logos side-by-side (20px each)
@@ -624,7 +675,7 @@ def render_upcoming_games(games, width=64, height=40):
             draw.text((14, y_offset + 6), away, fill=(200, 200, 200), font=font_small)
             
             # @ symbol
-            draw.text((29, y_offset + 6), "@", fill=(100, 100, 100), font=font_small)
+            draw.text((29, y_offset + 6), "@", fill=(100, 100, 100), font=font_medium)
             
             # Home logo (small, 10x10) 
             home_logo = load_team_logo(home, league, max_size=(10, 10))
@@ -634,20 +685,8 @@ def render_upcoming_games(games, width=64, height=40):
             # Home team name next to logo
             draw.text((46, y_offset + 6), home, fill=(255, 255, 255), font=font_small)
             
-            # Time - extract just the time portion (e.g., "7:00 PM" from "Wednesday, 7:00 PM EST")
-            if time:
-                # Try to parse time from various formats
-                print(time)
-                time_parts = time.split(',')
-                if len(time_parts) > 1:
-                    # Format: "Wednesday, 7:00 PM EST" -> get "7:00 PM"
-                    time_display = time_parts[1].strip().split()[0:2]  # Get "7:00 PM"
-                    time_display = ' '.join(time_display) if len(time_display) == 2 else time_parts[1].strip()
-                else:
-                    # Format might be just "7:00 PM EST"
-                    time_display = ' '.join(time.split()[0:2])
-            else:
-                time_display = "TBD"
+            # Format time (shows date if not today)
+            time_display = format_game_time(time, compact=False)
             
             # Right-align time on second line of this game
             time_bbox = font_small.getbbox(time_display)
@@ -678,17 +717,8 @@ def render_upcoming_games(games, width=64, height=40):
             # Home team name (abbreviated)
             draw.text((30, y_offset + 1), home[:3], fill=(255, 255, 255), font=font_small)
             
-            # Time - extract just the time portion
-            if time:
-                time_parts = time.split(',')
-                if len(time_parts) > 1:
-                    # Format: "Wednesday, 7:00 PM EST" -> get "7:00"
-                    time_display = time_parts[1].strip().split()[0]  # Just "7:00"
-                else:
-                    # Format might be just "7:00 PM EST" -> get "7:00"
-                    time_display = time.split()[0]
-            else:
-                time_display = "TBD"
+            # Format time (compact for 3-4 games)
+            time_display = format_game_time(time, compact=True)
             
             # Right-align time
             time_bbox = font_small.getbbox(time_display)
