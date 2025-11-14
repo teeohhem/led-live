@@ -12,6 +12,15 @@ from core.rendering import render_stocks
 
 logger = logging.getLogger(__name__)
 
+# Check if layout templates are available
+try:
+    from core.layout import LayoutLoader
+    from core.rendering.templated_renderer import TemplatedStocksRenderer
+    LAYOUT_TEMPLATES_AVAILABLE = True
+except ImportError:
+    LAYOUT_TEMPLATES_AVAILABLE = False
+    logger.warning("Layout templates not available, using legacy renderer")
+
 
 class StocksMode(BaseMode):
     """Stock market display mode."""
@@ -24,6 +33,19 @@ class StocksMode(BaseMode):
         # Config
         self.check_interval = config.get('STOCKS_CHECK_INTERVAL', 300)
         self.refresh_interval = config.get('DISPLAY_STOCKS_REFRESH_INTERVAL', 2)
+        
+        # Load layout template if available
+        self.layout_renderer = None
+        if LAYOUT_TEMPLATES_AVAILABLE:
+            try:
+                from config import get_all_config
+                config_dict = get_all_config()
+                loader = LayoutLoader(config_dict)
+                layout_template = loader.get_template('stocks')
+                self.layout_renderer = TemplatedStocksRenderer(layout_template)
+                logger.info("Using templated stocks renderer")
+            except Exception as e:
+                logger.warning(f"Failed to load layout template, using legacy renderer: {e}")
     
     async def fetch_data(self) -> bool:
         """Fetch stock quotes."""
@@ -71,6 +93,11 @@ class StocksMode(BaseMode):
     
     async def render(self, width: int, height: int) -> Optional[Image.Image]:
         """Render stock display."""
+        # Use templated renderer if available
+        if self.layout_renderer:
+            return self.layout_renderer.render_stocks(self.quotes)
+        
+        # Fallback to legacy renderer
         return render_stocks(self.quotes, width=width, height=height)
     
     def has_priority(self) -> bool:

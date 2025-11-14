@@ -12,6 +12,15 @@ from core.rendering import render_scoreboard, render_upcoming_games
 
 logger = logging.getLogger(__name__)
 
+# Check if layout templates are available
+try:
+    from core.layout import LayoutLoader
+    from core.rendering.templated_renderer import TemplatedSportsRenderer
+    LAYOUT_TEMPLATES_AVAILABLE = True
+except ImportError:
+    LAYOUT_TEMPLATES_AVAILABLE = False
+    logger.warning("Layout templates not available, using legacy renderer")
+
 
 class SportsMode(BaseMode):
     """
@@ -36,6 +45,19 @@ class SportsMode(BaseMode):
         # Cycle state for when priority is disabled
         self.sports_cycle_index = 0
         self.last_sports_cycle = datetime.now()
+        
+        # Load layout template if available
+        self.layout_renderer = None
+        if LAYOUT_TEMPLATES_AVAILABLE:
+            try:
+                from config import get_all_config
+                config_dict = get_all_config()
+                loader = LayoutLoader(config_dict)
+                layout_template = loader.get_template('sports')
+                self.layout_renderer = TemplatedSportsRenderer(layout_template)
+                logger.info("Using templated sports renderer")
+            except Exception as e:
+                logger.warning(f"Failed to load layout template, using legacy renderer: {e}")
     
     async def fetch_data(self) -> bool:
         """Fetch game data from ESPN."""
@@ -88,6 +110,11 @@ class SportsMode(BaseMode):
         
         logger.info(f"Rendering {self.display_type} sports ({len(self.display_games)} games)")
         
+        # Use templated renderer if available
+        if self.layout_renderer:
+            return self.layout_renderer.render_games(self.display_games, display_type=self.display_type)
+        
+        # Fallback to legacy renderer
         if self.display_type == 'live':
             return render_scoreboard(self.display_games, width=width, height=height)
         else:  # upcoming

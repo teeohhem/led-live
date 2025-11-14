@@ -257,6 +257,208 @@ clock_themes:
     glow: true
     glow_color: [100, 0, 0]
 
+# === Layout Templates (OPTIONAL - Advanced Feature) ===
+# Define custom layouts for different display modes and panel configurations
+# If not specified, the system uses smart defaults optimized for dual 20×64 panels
+#
+# Use layout templates to customize element positioning for different panel sizes:
+#   - Single 64×64 panel: More space for larger logos and text
+#   - Single 32×16 panel: Need compact layouts
+#   - Three+ panels: Can show more items simultaneously
+#
+# Each mode (sports, stocks) can have templates for different item counts:
+#   - one_game / one_stock: Single item, full screen
+#   - two_games / two_stocks: Two items, stacked or side-by-side
+#   - three_games / four_stocks: Multiple compact items
+#
+# IMPORTANT: Coordinates are in pixels, origin (0,0) is top-left
+# Colors can be: RGB tuples [R,G,B], or special names:
+#   - "white", "black", "red", "green", "blue", "yellow", "orange", "cyan"
+#   - "away_team", "home_team" (uses team colors)
+#   - "change_color" (green/red based on stock direction)
+#   - "time" (yellow for game clock/period)
+layout_templates:
+  
+  # === SPORTS LAYOUT TEMPLATES ===
+  # Customize how games are displayed based on count
+  sports:
+    logo_enabled: true  # Set to false to disable logos completely
+    
+    # Layout for 1 game (full screen display)
+    one_game:
+      # Away team (top half)
+      away_logo:
+        x: 2
+        y: 2
+        width: 16
+        height: 16
+      away_score:
+        x: 22
+        y: 2
+        font_size: 14
+        color: "away_team"
+      
+      # Home team (bottom half)
+      home_logo:
+        x: 2
+        y: 22
+        width: 16
+        height: 16
+      home_score:
+        x: 22
+        y: 22
+        font_size: 14
+        color: "home_team"
+      
+      # Game status (top-right)
+      period:
+        x: 3  # Offset from right edge (when align: right)
+        y: 2
+        font_size: 8
+        color: "time"
+        align: "right"  # Options: left, right, center
+      clock:
+        x: 3
+        y: 11
+        font_size: 8
+        color: "time"
+        align: "right"
+    
+    # Layout for 2 games (20 pixels per game)
+    two_games:
+      game_height: 20  # Each game gets 20 pixels vertically
+      game_template:   # Template repeats for each game
+        # Combined text format (e.g., "DET 5")
+        away_text:
+          x: 2
+          y: 1
+          font_size: 10
+          color: "away_team"
+          format: "{abbr} {score}"  # Available: {abbr}, {name}, {score}
+        home_text:
+          x: 2
+          y: 11
+          font_size: 10
+          color: "home_team"
+          format: "{abbr} {score}"
+        period:
+          x: 4
+          y: 1
+          font_size: 8
+          color: "time"
+          align: "right"
+        clock:
+          x: 4
+          y: 11
+          font_size: 8
+          color: "time"
+          align: "right"
+    
+    # Layout for 3-4 games (compact, 10 pixels per game)
+    four_games:
+      game_height: 10
+      game_template:
+        away_text:
+          x: 1
+          y: 0
+          font_size: 10
+          color: "away_team"
+          format: "{abbr} {score}"
+        home_text:
+          x: 32
+          y: 0
+          font_size: 10
+          color: "home_team"
+          format: "{abbr} {score}"
+          align: "right"
+  
+  # === STOCKS LAYOUT TEMPLATES ===
+  # Customize how stock quotes are displayed
+  stocks:
+    
+    # Layout for 1 stock (large display)
+    one_stock:
+      symbol:
+        x: 2
+        y: 2
+        font_size: 12
+        color: "white"
+      price:
+        x: 2
+        y: 14
+        font_size: 14
+        color: "change_color"  # Green/red based on up/down
+      change:
+        x: 2
+        y: 28
+        font_size: 10
+        color: "change_color"
+    
+    # Layout for 2 stocks (20 pixels per stock)
+    two_stocks:
+      stock_height: 20
+      stock_template:
+        symbol:
+          x: 2
+          y: 0
+          font_size: 8
+          color: "white"
+        price:
+          x: 22
+          y: 0
+          font_size: 8
+          color: "change_color"
+        change:
+          x: 48
+          y: 0
+          font_size: 8
+          color: "change_color"
+    
+    # Layout for 4 stocks (compact, 10 pixels per stock)
+    four_stocks:
+      stock_height: 10
+      stock_template:
+        symbol:
+          x: 1
+          y: 0
+          font_size: 8
+          color: "white"
+        price:
+          x: 18
+          y: 0
+          font_size: 8
+          color: "change_color"
+        change:
+          x: 42
+          y: 0
+          font_size: 8
+          color: "change_color"
+
+# === EXAMPLE: Custom Layout for Single 64×64 Panel ===
+# Uncomment and customize for a large square panel:
+# layout_templates:
+#   sports:
+#     logo_enabled: true
+#     one_game:
+#       away_logo: { x: 4, y: 4, width: 24, height: 24 }
+#       away_name: { x: 32, y: 8, font_size: 14, color: "away_team" }
+#       away_score: { x: 32, y: 24, font_size: 16, color: "away_team" }
+#       home_logo: { x: 4, y: 36, width: 24, height: 24 }
+#       home_name: { x: 32, y: 40, font_size: 14, color: "home_team" }
+#       home_score: { x: 32, y: 56, font_size: 16, color: "home_team" }
+#       period: { x: 4, y: 4, font_size: 10, color: "time", align: "right" }
+#       clock: { x: 4, y: 16, font_size: 10, color: "time", align: "right" }
+#     
+#     two_games:
+#       game_height: 32
+#       game_template:
+#         away_logo: { x: 2, y: 2, width: 12, height: 12 }
+#         away_text: { x: 16, y: 4, font_size: 12, color: "away_team", format: "{abbr} {score}" }
+#         home_logo: { x: 2, y: 16, width: 12, height: 12 }
+#         home_text: { x: 16, y: 18, font_size: 12, color: "home_team", format: "{abbr} {score}" }
+#         period: { x: 4, y: 4, font_size: 9, color: "time", align: "right" }
+#         clock: { x: 4, y: 18, font_size: 9, color: "time", align: "right" }
+
 # === Power Management ===
 power:
   # Automatically turn off display at night (true/false)
