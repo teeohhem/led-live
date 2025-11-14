@@ -4,15 +4,15 @@ A Python-based display system for LED matrix panels for showing live sports scor
 
 ## ✨ Key Features
 
-- **🔌 Plugin Architecture** - Support for any LED panel via extensible adapters
-- **⚡ Instant Display Updates** - PNG upload for sub-second full-frame rendering
+- **🔌 Plugin Architecture** - Support for any LED panel via extensible adapters and layouts
 - **🏀 Sports Scoreboards** - Live scores (NHL, NBA, NFL, MLB)
 - **📈 Stock Market Display** - Real-time quotes via Yahoo Finance
-- **🕐 Themed Clock** - Customizable themes with glow effects
+- **🕐 Themed Clock** - Customizable themes
 - **🌤️ Weather Display** - Current conditions + forecasts
 - **🔋 Power Management** - Scheduled on/off times
 - **🔄 Intelligent Mode Switching** - Auto-switches between modes
 - **🎬 GIF Animations** - Frame-by-frame animation support
+- ** Scrolling Ticker** - Display data in a ticker-style
 
 ## 🚀 Quick Start
 
@@ -59,11 +59,6 @@ Create an adapter for any LED panel type. See [Creating Adapters](docs/adapters.
 
 - **Python**: 3.7+
 - **Dependencies**: See `requirements.txt`
-  - `bleak` - BLE communication
-  - `pillow` - Image processing
-  - `pyyaml` - Configuration
-  - `httpx` - HTTP requests
-  - `yfinance` - Stock data
 
 ## 📁 Project Structure
 
@@ -133,7 +128,7 @@ See [LICENSE](LICENSE) file
 - **Python Libraries** - bleak, pillow, pyyaml, httpx, yfinance
 
 ## Related Projects
-- *[iPixel CLI](https://github.com/lucagoc/iPixel-CLI)
+- [iPixel CLI](https://github.com/lucagoc/iPixel-CLI) - CLI for interacting with iPixel displays
 
 ## 📚 Learn More
 
