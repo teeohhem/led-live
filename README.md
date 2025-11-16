@@ -4,15 +4,15 @@ A Python-based display system for LED matrix panels for showing live sports scor
 
 ## ✨ Key Features
 
-- **🔌 Plugin Architecture** - Support for any LED panel via extensible adapters
-- **⚡ Instant Display Updates** - PNG upload for sub-second full-frame rendering
+- **🔌 Plugin Architecture** - Support for any LED panel via extensible adapters and layouts
 - **🏀 Sports Scoreboards** - Live scores (NHL, NBA, NFL, MLB)
 - **📈 Stock Market Display** - Real-time quotes via Yahoo Finance
-- **🕐 Themed Clock** - Customizable themes with glow effects
+- **🕐 Themed Clock** - Customizable themes
 - **🌤️ Weather Display** - Current conditions + forecasts
 - **🔋 Power Management** - Scheduled on/off times
 - **🔄 Intelligent Mode Switching** - Auto-switches between modes
 - **🎬 GIF Animations** - Frame-by-frame animation support
+- ** Scrolling Ticker** - Display data in a ticker-style
 
 ## 🚀 Quick Start
 
@@ -59,11 +59,6 @@ Create an adapter for any LED panel type. See [Creating Adapters](docs/adapters.
 
 - **Python**: 3.7+
 - **Dependencies**: See `requirements.txt`
-  - `bleak` - BLE communication
-  - `pillow` - Image processing
-  - `pyyaml` - Configuration
-  - `httpx` - HTTP requests
-  - `yfinance` - Stock data
 
 ## 📁 Project Structure
 
@@ -115,102 +110,9 @@ display_modes:
 
 👉 **[Full Configuration Reference](docs/configuration.md)**
 
-## 🎨 Display Modes
-
-### Sports
-- Live game scores
-- Team logos
-- Multi-game layouts
-- Auto-priority when games are live
-
-### Clock
-- Multiple themes (Stranger Things, Classic, Matrix)
-- Custom theme support
-- Weather integration
-- Glow effects
-
-### Weather
-- Current conditions
-- Forecasts (hourly/daily)
-- Temperature color coding
-- Weather icons
-
-### Stocks
-- Real-time prices
-- Color-coded changes
-- Multiple symbols
-
-👉 **[Display Modes Guide](docs/display-modes.md)**
-
-## 🛠️ Customization
-
-### Add Custom Clock Theme
-Edit `config.yml`:
-```yaml
-clock_themes:
-  my_theme:
-    bg_color: [0, 0, 0]
-    time_color: [255, 100, 0]
-    glow: true
-    # ... more properties
-```
-
-### Track Different Teams
-```yaml
-sports:
-  teams:
-    nhl: ["DET", "BOS", "NYR"]
-    nba: ["DET", "LAL", "MIA"]
-```
-
-### Watch Different Stocks
-```yaml
-stocks:
-  symbols: "AAPL,GOOGL,SPY,QQQ"
-```
-
-## 🔗 API Keys Required
-
-- **OpenWeatherMap** (Weather)
-  - Get free key: https://openweathermap.org/api
-  - Set in `config.yml` under `weather.api_key`
-
-- **Yahoo Finance** (Stocks)
-  - Free, no key required
-
-- **ESPN API** (Sports)
-  - Free, no key required
-
-## 📊 Multi-Panel Support
-
-The system automatically detects and supports:
-- Single panel (64×20)
-- Dual panels (64×40)
-- Triple panels (64×60)
-- Or more!
-
-Panel count determined by number of BLE addresses in config.
-
-👉 **[Multi-Panel Setup](docs/multi-panel.md)**
-
-## 🏗️ Adding New Hardware
-
-Create an adapter for any LED panel:
-1. Implement `DisplayAdapter` interface
-2. Handle BLE/USB/network communication
-3. Register in `adapters.json`
-4. Add config section in `config.yml.example`
-
-👉 **[Creating Adapters Guide](docs/adapters.md)**
-
 ## 🐛 Troubleshooting
 
 Common issues and solutions in **[Troubleshooting Guide](docs/troubleshooting.md)**
-
-Quick fixes:
-- **"No panels found"** - Check BLE addresses
-- **"Connection timeout"** - Ensure Bluetooth is enabled
-- **"Config not found"** - Run `cp config.yml.example config.yml`
 
 ## 📝 License
 
@@ -222,7 +124,11 @@ See [LICENSE](LICENSE) file
 - **Weather Data** - OpenWeatherMap
 - **Stock Data** - Yahoo Finance
 - **Panel Hardware** - iPixel (default)
+- **Team Logos** - https://www.stickpng.com/
 - **Python Libraries** - bleak, pillow, pyyaml, httpx, yfinance
+
+## Related Projects
+- [iPixel CLI](https://github.com/lucagoc/iPixel-CLI) - CLI for interacting with iPixel displays
 
 ## 📚 Learn More
 
