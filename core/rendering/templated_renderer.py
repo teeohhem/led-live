@@ -145,10 +145,11 @@ class TemplatedSportsRenderer:
     Renders sports games using layout templates.
     """
     
-    def __init__(self, layout_template: LayoutTemplate):
+    def __init__(self, layout_template: LayoutTemplate, show_logos: bool = True):
         self.template = layout_template
         self.width = layout_template.canvas_width
         self.height = layout_template.canvas_height
+        self.show_logos = show_logos
     
     def render_games(self, games: List[Dict[str, Any]], display_type: str = 'live') -> Image.Image:
         """
@@ -174,7 +175,7 @@ class TemplatedSportsRenderer:
             # Fall back to legacy renderer when template not available
             from core.rendering.sports_display_png import render_scoreboard, render_upcoming_games
             if display_type == 'live':
-                return render_scoreboard(games, width=self.width, height=self.height)
+                return render_scoreboard(games, width=self.width, height=self.height, show_logos=self.show_logos)
             else:
                 return render_upcoming_games(games, width=self.width, height=self.height)
         
@@ -205,7 +206,7 @@ class TemplatedSportsRenderer:
         }
         
         # Render away team elements
-        if template.away_logo and self.template.logo_enabled:
+        if template.away_logo and self.template.logo_enabled and self.show_logos:
             logo = load_team_logo(away_name, league, max_size=(
                 template.away_logo.width or 16,
                 template.away_logo.height or 16
@@ -219,7 +220,7 @@ class TemplatedSportsRenderer:
             render_element_text(draw, template.away_name, away_name, context, self.width)
         
         # Render home team elements
-        if template.home_logo and self.template.logo_enabled:
+        if template.home_logo and self.template.logo_enabled and self.show_logos:
             logo = load_team_logo(home_name, league, max_size=(
                 template.home_logo.width or 16,
                 template.home_logo.height or 16
@@ -292,6 +293,14 @@ class TemplatedSportsRenderer:
                 new_spec.y = spec.y + y_off
                 return new_spec
             
+            # Render away team logo
+            if game_template.away_logo and self.template.logo_enabled and self.show_logos:
+                logo = load_team_logo(away_name, league, max_size=(
+                    game_template.away_logo.width or 8,
+                    game_template.away_logo.height or 8
+                ))
+                render_element_logo(img, offset_spec(game_template.away_logo, y_offset), logo)
+            
             # Render away team
             if game_template.away_text:
                 # Combined text (e.g., "DET 5")
@@ -306,6 +315,14 @@ class TemplatedSportsRenderer:
             elif game_template.away_score:
                 # Separate score
                 render_element_text(draw, offset_spec(game_template.away_score, y_offset), str(game.get('away_score', 0)), context, self.width)
+            
+            # Render home team logo
+            if game_template.home_logo and self.template.logo_enabled and self.show_logos:
+                logo = load_team_logo(home_name, league, max_size=(
+                    game_template.home_logo.width or 8,
+                    game_template.home_logo.height or 8
+                ))
+                render_element_logo(img, offset_spec(game_template.home_logo, y_offset), logo)
             
             # Render home team
             if game_template.home_text:

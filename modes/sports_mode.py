@@ -63,7 +63,7 @@ class SportsMode(BaseMode):
                 config_dict = get_all_config()
                 loader = LayoutLoader(config_dict)
                 layout_template = loader.get_template('sports')
-                self.layout_renderer = TemplatedSportsRenderer(layout_template)
+                self.layout_renderer = TemplatedSportsRenderer(layout_template, show_logos=self.show_logos)
                 logger.info("Using templated sports renderer")
             except Exception as e:
                 logger.warning(f"Failed to load layout template, using legacy renderer: {e}")
