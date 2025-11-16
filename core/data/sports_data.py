@@ -339,3 +339,45 @@ async def fetch_all_upcoming_games():
     logger.info(f"Found {len(upcoming)} upcoming games across all leagues")
     return upcoming
 
+
+async def fetch_live_games_by_leagues(leagues):
+    """
+    Fetch all live games from specified leagues (not filtered by teams).
+    Perfect for cycling through live action across multiple leagues.
+    
+    Args:
+        leagues: List of league names (e.g., ["NHL", "NBA"])
+    
+    Returns:
+        List of live game dicts from the specified leagues
+    """
+    logger.info(f"Fetching live games from leagues: {', '.join(leagues)}")
+    
+    # Map league names to API endpoints
+    league_endpoint_map = {
+        "NHL": "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard",
+        "NBA": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard",
+        "NFL": "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard",
+        "MLB": "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard",
+    }
+    
+    all_games = []
+    
+    # Fetch games from requested leagues only
+    for league in leagues:
+        url = league_endpoint_map.get(league.upper())
+        if url:
+            games = await fetch_games_from_endpoint(url, filter_teams=False)
+            all_games.extend(games)
+        else:
+            logger.warning(f"Unknown league '{league}', skipping")
+    
+    # Filter for only live games
+    live_games = [
+        game for game in all_games
+        if game.get('state') in ['inProgress', 'in']
+    ]
+    
+    logger.info(f"Found {len(live_games)} live games from {len(leagues)} leagues")
+    return live_games
+

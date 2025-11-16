@@ -104,7 +104,7 @@ TEAM_COLORS = {
         "BAL": (26, 25, 95),     # Baltimore Ravens
         "BUF": (0, 51, 160),     # Buffalo Bills
         "CAR": (0, 133, 202),    # Carolina Panthers
-        "CHI": (11, 22, 42),     # Chicago Bears
+        "CHI": (230, 65, 0),     # Chicago Bears
         "CIN": (255, 60, 0),     # Cincinnati Bengals
         "CLE": (49, 29, 0),      # Cleveland Browns
         "DAL": (0, 53, 148),     # Dallas Cowboys
@@ -257,7 +257,7 @@ def load_team_logo(team_name, league, max_size=(16, 16)):
         return None
 
 
-def render_game_with_logos(img, game, width=64, height=40):
+def render_game_with_logos(img, game, width=64, height=40, show_logos=True):
     """
     Render a single game in FULL-SCREEN format with LOGOS (40 rows).
     Beautiful layout for single game display.
@@ -266,6 +266,9 @@ def render_game_with_logos(img, game, width=64, height=40):
       Top half (20px): Away team logo + score
       Bottom half (20px): Home team logo + score
       Right side: Period + Clock
+    
+    Args:
+        show_logos: If True, shows 16x16 team logos
     """
     draw = ImageDraw.Draw(img)
     
@@ -301,19 +304,21 @@ def render_game_with_logos(img, game, width=64, height=40):
         time_color = (255, 255, 0)
     
     # --- AWAY TEAM (top half, y=0-19) ---
-    away_logo = load_team_logo(away_name, league, max_size=(16, 16))
-    if away_logo:
-        # Logo exists (or fallback NOT_FOUND.png) - composite it
-        img.paste(away_logo, (2, 2), away_logo)  # Alpha blend at (2, 2)
+    if show_logos:
+        away_logo = load_team_logo(away_name, league, max_size=(16, 16))
+        if away_logo:
+            # Logo exists (or fallback NOT_FOUND.png) - composite it
+            img.paste(away_logo, (2, 2), away_logo)  # Alpha blend at (2, 2)
     
     # Away score (large, to the right of logo)
     draw.text((22, 2), away_score, fill=away_color, font=score_font)
     
     # --- HOME TEAM (bottom half, y=20-39) ---
-    home_logo = load_team_logo(home_name, league, max_size=(16, 16))
-    if home_logo:
-        # Logo exists (or fallback NOT_FOUND.png) - composite it
-        img.paste(home_logo, (2, 22), home_logo)  # Alpha blend at (2, 22)
+    if show_logos:
+        home_logo = load_team_logo(home_name, league, max_size=(16, 16))
+        if home_logo:
+            # Logo exists (or fallback NOT_FOUND.png) - composite it
+            img.paste(home_logo, (2, 22), home_logo)  # Alpha blend at (2, 22)
     
     # Home score (large, to the right of logo)
     draw.text((22, 22), home_score, fill=home_color, font=score_font)
@@ -341,13 +346,16 @@ def render_game_with_logos(img, game, width=64, height=40):
             draw.text((clock_x, clock_y), clock, fill=time_color, font=small_font)
 
 
-def render_game_expanded(draw, game, offset=(0,0), width=64, font=None, small_font=None):
+def render_game_expanded(draw, game, offset=(0,0), width=64, font=None, small_font=None, show_logos=True):
     """
     Render a single game in EXPANDED format (20 rows).
     Draws directly onto a PIL ImageDraw object.
     Layout:
       Left: Team names + scores (away top, home bottom)
       Right: Period (top right) with clock below
+    
+    Args:
+        show_logos: If True, shows 8x8 team logos
     """
     if font is None:
         try:
@@ -364,6 +372,7 @@ def render_game_expanded(draw, game, offset=(0,0), width=64, font=None, small_fo
     away_score = str(game["away_score"])
     clock = game.get("clock", "")
     period = game.get("period", "")
+    league = game.get("league", "")
     
     # Shorten team names
     home_abbr = home_name[:3]
@@ -387,16 +396,42 @@ def render_game_expanded(draw, game, offset=(0,0), width=64, font=None, small_fo
     # Get font size for dynamic spacing
     font_size = font.size if hasattr(font, 'size') else 10
     # Use tighter spacing to ensure both lines fit in 20 pixels
-    vertical_spacing = 11  # Fixed spacing to ensure home team at y_start+11 fits with small font
+    vertical_spacing = 10  # Fixed spacing to ensure home team at y_start+10 fits
     
-    # --- AWAY TEAM (top left) ---
+    # Calculate text starting position (with or without logos)
+    text_x = x_start + 2
+    
+    # Load and display logos if enabled
+    if show_logos:
+        away_logo = load_team_logo(away_name, league, max_size=(8, 8))
+        home_logo = load_team_logo(home_name, league, max_size=(8, 8))
+        
+        if away_logo or home_logo:
+            text_x = x_start + 11  # Leave space for 8px logo + 3px margin
+        
+        # --- AWAY TEAM LOGO (top) ---
+        if away_logo:
+            # Composite logo with alpha channel
+            logo_y = y_start + 1
+            img = draw._image  # Access the underlying PIL Image
+            img.paste(away_logo, (x_start + 2, logo_y), away_logo)
+        
+        # --- HOME TEAM LOGO (bottom) ---
+        home_y = y_start + vertical_spacing
+        if home_logo:
+            # Composite logo with alpha channel
+            logo_y = home_y
+            img = draw._image
+            img.paste(home_logo, (x_start + 2, logo_y), home_logo)
+    
+    # --- AWAY TEAM TEXT ---
     away_text = f"{away_abbr} {away_score}"
-    draw.text((x_start + 2, y_start + 1), away_text, fill=away_color, font=font)
+    draw.text((text_x, y_start + 1), away_text, fill=away_color, font=font)
     
-    # --- HOME TEAM (middle left) ---
+    # --- HOME TEAM TEXT ---
     home_y = y_start + vertical_spacing
     home_text = f"{home_abbr} {home_score}"
-    draw.text((x_start + 2, home_y), home_text, fill=home_color, font=font)
+    draw.text((text_x, home_y), home_text, fill=home_color, font=font)
     
     # --- PERIOD (top right) ---
     if is_game_over:
@@ -435,6 +470,7 @@ def render_game_compact(draw, game, offset=(0,0), width=64, font=None):
     away_name = game["away"]
     home_score = str(game["home_score"])
     away_score = str(game["away_score"])
+    league = game.get("league", "")
     
     # Shorten team names
     home_abbr = home_name[:3]
@@ -466,24 +502,30 @@ def render_game_compact(draw, game, offset=(0,0), width=64, font=None):
     draw.text((home_x, y_center), home_text, fill=home_color, font=font)
 
 
-def render_scoreboard_single_game_fullscreen(img, game, width=64, height=40):
+def render_scoreboard_single_game_fullscreen(img, game, width=64, height=40, show_logos=True):
     """
     Layout Format: SINGLE GAME - FULL SCREEN WITH LOGOS
     - Full 40 pixel height
     - Team logos (16x16) on left side
     - Large scores next to logos
     - Period and clock in top-right corner
+    
+    Args:
+        show_logos: If True, shows 16x16 team logos
     """
-    render_game_with_logos(img, game, width=width, height=height)
+    render_game_with_logos(img, game, width=width, height=height, show_logos=show_logos)
 
 
-def render_scoreboard_two_games_expanded(img, games, width=64, height=40):
+def render_scoreboard_two_games_expanded(img, games, width=64, height=40, show_logos=True):
     """
     Layout Format: TWO GAMES - EXPANDED (20 pixels per game)
     - Game 1: Top panel (y=0-19)
     - Game 2: Bottom panel (y=20-39)
     - Shows: team names, scores, period, clock
     - Font: 10px main, 8px details
+    
+    Args:
+        show_logos: If True, shows 8x8 team logos
     """
     draw = ImageDraw.Draw(img)
     
@@ -496,7 +538,7 @@ def render_scoreboard_two_games_expanded(img, games, width=64, height=40):
     
     for i, game in enumerate(games):
         y_offset = i * 20  # Each game gets exactly 20 pixels
-        render_game_expanded(draw, game, offset=(0, y_offset), width=width, font=font, small_font=small_font)
+        render_game_expanded(draw, game, offset=(0, y_offset), width=width, font=font, small_font=small_font, show_logos=show_logos)
 
 
 def render_scoreboard_multi_game_compact(img, games, width=64, height=40):
@@ -540,14 +582,20 @@ def render_scoreboard_multi_game_compact(img, games, width=64, height=40):
         render_game_compact(draw, game, offset=(0, y_offset), width=width, font=font)
 
 
-def render_scoreboard(games, width=64, height=40):
+def render_scoreboard(games, width=64, height=40, show_logos=True):
     """
     Render complete scoreboard as PIL Image (FAST PNG upload!).
     
     Adaptive layout based on number of games:
-    - 1 game:   Full-screen with logos (render_scoreboard_single_game_fullscreen)
-    - 2 games:  Expanded format, 20px per game (render_scoreboard_two_games_expanded)
-    - 3-4 games: Compact format, single line per game (render_scoreboard_multi_game_compact)
+    - 1 game:   Full-screen with logos (16x16) if show_logos=True
+    - 2 games:  Expanded format with small logos (8x8) if show_logos=True
+    - 3-4 games: Compact format (no logos regardless of show_logos)
+    
+    Args:
+        games: List of game dicts
+        width: Display width
+        height: Display height
+        show_logos: Whether to show team logos (when space allows)
     
     Returns:
         PIL Image (RGB mode, 64x40)
@@ -564,9 +612,9 @@ def render_scoreboard(games, width=64, height=40):
     num_games = len(games)
     
     if num_games == 1:
-        render_scoreboard_single_game_fullscreen(img, games[0], width=width, height=height)
+        render_scoreboard_single_game_fullscreen(img, games[0], width=width, height=height, show_logos=show_logos)
     elif num_games == 2:
-        render_scoreboard_two_games_expanded(img, games, width=width, height=height)
+        render_scoreboard_two_games_expanded(img, games, width=width, height=height, show_logos=show_logos)
     else:  # 3 or 4 games
         render_scoreboard_multi_game_compact(img, games, width=width, height=height)
     

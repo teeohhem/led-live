@@ -55,6 +55,10 @@ SPORTS_TEST_MODE: bool = _cfg.get_bool("sports.test_mode", False)
 SPORTS_CHECK_INTERVAL: int = _cfg.get_int("sports.check_interval", 10)
 SPORTS_SHOW_LOGOS: bool = _cfg.get_bool("sports.show_logos", True)
 SPORTS_MODES: List[str] = _cfg.get_list("sports.modes", ["live", "upcoming"])
+SPORTS_LIVE_GAMES_SOURCE: str = _cfg.get_string("sports.live_games_source", "my_teams")
+SPORTS_LIVE_GAMES_LEAGUES: List[str] = _cfg.get_list("sports.live_games_leagues", [])
+SPORTS_GAMES_PER_PAGE: int = _cfg.get_int("sports.games_per_page", 2)
+SPORTS_GAMES_CYCLE_INTERVAL: int = _cfg.get_int("sports.games_cycle_interval", 10)
 
 # ============================================================================
 # STOCKS SETTINGS

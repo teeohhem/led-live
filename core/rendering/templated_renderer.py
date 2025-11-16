@@ -170,8 +170,13 @@ class TemplatedSportsRenderer:
         scenario_template = self.template.get_template_for_count(num_games)
         
         if scenario_template is None:
-            logger.warning(f"No template for {num_games} games, using fallback")
-            return img
+            logger.warning(f"No template for {num_games} games, falling back to legacy renderer")
+            # Fall back to legacy renderer when template not available
+            from core.rendering.sports_display_png import render_scoreboard, render_upcoming_games
+            if display_type == 'live':
+                return render_scoreboard(games, width=self.width, height=self.height)
+            else:
+                return render_upcoming_games(games, width=self.width, height=self.height)
         
         # Handle single game (full template)
         if num_games == 1 and isinstance(scenario_template, GameLayoutTemplate):
@@ -360,8 +365,10 @@ class TemplatedStocksRenderer:
         scenario_template = self.template.get_template_for_count(num_stocks)
         
         if scenario_template is None:
-            logger.warning(f"No template for {num_stocks} stocks, using fallback")
-            return img
+            logger.warning(f"No template for {num_stocks} stocks, falling back to legacy renderer")
+            # Fall back to legacy renderer when template not available
+            from core.rendering.stocks_display_png import render_stocks
+            return render_stocks(quotes, width=self.width, height=self.height)
         
         # Handle single stock
         if num_stocks == 1 and isinstance(scenario_template, StockLayoutTemplate):

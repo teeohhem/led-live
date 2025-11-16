@@ -86,7 +86,11 @@ sports:
   # How often to check for score updates (seconds, default: 10)
   check_interval: 10
   
-  # Show team logos in sports mode (true/false)
+  # Show team logos in sports mode
+  # Logos automatically size based on games_per_page:
+  #   1 game:  16x16 logos (full screen)
+  #   2 games: 8x8 logos (stacked per panel)
+  #   3-4 games: No logos (compact text only)
   show_logos: true
   
   # Sports display modes: live (in-progress games), upcoming (scheduled games)
@@ -97,6 +101,30 @@ sports:
   modes:
     - live
     - upcoming
+  
+  # Live games source: Controls what live games to display
+  # Options:
+  #   - my_teams: Only show games for your configured teams (default)
+  #   - all_leagues: Show all live games from specified leagues (cycles through them)
+  live_games_source: "my_teams"
+  
+  # When live_games_source is "all_leagues", specify which leagues to include
+  # Available leagues: NHL, NBA, NFL, MLB
+  # The display will cycle through live games from these leagues
+  # Example: ["NHL", "NBA"] - shows all live games from NHL and NBA
+  live_games_leagues:
+    - NHL
+    - NBA
+  
+  # Games cycling settings (for all_leagues mode with many games)
+  # How many games to show at once:
+  #   1 = Full screen, large logos (16x16), period & clock
+  #   2 = Stacked vertical per panel, small logos (8x8), period & clock
+  #   3-4 = Compact horizontal, no logos, scores only
+  games_per_page: 2
+  
+  # How many seconds to show each page of games before cycling to next
+  games_cycle_interval: 10
   
   # PNG refresh interval (seconds, keeps display visible)
   refresh_interval: 2

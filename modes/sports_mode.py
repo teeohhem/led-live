@@ -7,7 +7,7 @@ from PIL import Image
 import logging
 
 from .base_mode import BaseMode
-from core.data import fetch_all_games, fetch_upcoming_games
+from core.data import fetch_all_games, fetch_upcoming_games, fetch_live_games_by_leagues
 from core.rendering import render_scoreboard, render_upcoming_games
 
 logger = logging.getLogger(__name__)
@@ -41,10 +41,19 @@ class SportsMode(BaseMode):
         self.refresh_interval = config.get('DISPLAY_SPORTS_REFRESH_INTERVAL', 2)
         self.sports_modes = config.get('SPORTS_MODES', ['live', 'upcoming'])
         self.enable_priority = config.get('DISPLAY_SPORTS_PRIORITY', True)
+        self.live_games_source = config.get('SPORTS_LIVE_GAMES_SOURCE', 'my_teams')
+        self.live_games_leagues = config.get('SPORTS_LIVE_GAMES_LEAGUES', [])
+        self.show_logos = config.get('SPORTS_SHOW_LOGOS', True)
         
         # Cycle state for when priority is disabled
         self.sports_cycle_index = 0
         self.last_sports_cycle = datetime.now()
+        
+        # Game cycling for all_leagues mode - rotate through games showing 2 at a time
+        self.games_page_index = 0
+        self.last_games_page_cycle = datetime.now()
+        self.games_per_page = config.get('SPORTS_GAMES_PER_PAGE', 2)
+        self.games_cycle_interval = config.get('SPORTS_GAMES_CYCLE_INTERVAL', 10)
         
         # Load layout template if available
         self.layout_renderer = None
@@ -62,7 +71,26 @@ class SportsMode(BaseMode):
     async def fetch_data(self) -> bool:
         """Fetch game data from ESPN."""
         try:
-            if 'live' in self.sports_modes and 'upcoming' in self.sports_modes:
+            # Check if we're using all_leagues mode for live games
+            if self.live_games_source == 'all_leagues' and 'live' in self.sports_modes:
+                if not self.live_games_leagues:
+                    logger.warning("live_games_source is 'all_leagues' but no leagues specified. Please add 'live_games_leagues' to config.")
+                    logger.warning("Example: live_games_leagues: ['NHL', 'NBA', 'NFL', 'MLB']")
+                    self.games = []
+                else:
+                    # Fetch live games from specified leagues
+                    live_games = await fetch_live_games_by_leagues(self.live_games_leagues)
+                    
+                    # If upcoming is also enabled, fetch those too (filtered by teams)
+                    if 'upcoming' in self.sports_modes:
+                        upcoming_games = await fetch_upcoming_games()
+                        self.games = live_games + upcoming_games
+                    else:
+                        self.games = live_games
+                    
+                    logger.info(f"Fetched {len(self.games)} games (all_leagues mode)")
+            elif 'live' in self.sports_modes or 'upcoming' in self.sports_modes:
+                # Original behavior: fetch games filtered by teams
                 self.games = await fetch_all_games()
                 logger.info(f"Fetched {len(self.games)} games")
             else:
@@ -91,6 +119,14 @@ class SportsMode(BaseMode):
         current_snapshot = self._create_snapshot()
         data_changed = current_snapshot != self.prev_snapshot
         
+        # Check if we need to cycle to next page of games
+        time_since_cycle = (now - self.last_games_page_cycle).total_seconds()
+        should_cycle = (
+            self.live_games_source == 'all_leagues' and 
+            len(self.display_games) > self.games_per_page and
+            time_since_cycle >= self.games_cycle_interval
+        )
+        
         # Check if periodic refresh needed
         needs_refresh = (
             self.last_render is None or
@@ -101,24 +137,42 @@ class SportsMode(BaseMode):
             self.prev_snapshot = current_snapshot
             return True
         
-        return needs_refresh
+        return needs_refresh or should_cycle
     
     async def render(self, width: int, height: int) -> Optional[Image.Image]:
         """Render the sports display."""
         if not self.display_games:
+            logger.debug("No display games to render")
             return None
         
-        logger.info(f"Rendering {self.display_type} sports ({len(self.display_games)} games)")
+        # Determine which games to show (cycle through if in all_leagues mode)
+        games_to_render = self._get_games_page()
         
-        # Use templated renderer if available
-        if self.layout_renderer:
-            return self.layout_renderer.render_games(self.display_games, display_type=self.display_type)
+        logger.info(f"Rendering {self.display_type} sports ({len(games_to_render)} of {len(self.display_games)} games)")
         
-        # Fallback to legacy renderer
-        if self.display_type == 'live':
-            return render_scoreboard(self.display_games, width=width, height=height)
-        else:  # upcoming
-            return render_upcoming_games(self.display_games, width=width, height=height)
+        try:
+            # Use templated renderer if available
+            if self.layout_renderer:
+                logger.debug("Using templated renderer")
+                result = self.layout_renderer.render_games(games_to_render, display_type=self.display_type)
+                if result is None:
+                    logger.warning("Templated renderer returned None")
+                return result
+            
+            # Fallback to legacy renderer
+            logger.debug("Using legacy renderer")
+            if self.display_type == 'live':
+                result = render_scoreboard(games_to_render, width=width, height=height, show_logos=self.show_logos)
+            else:  # upcoming
+                result = render_upcoming_games(games_to_render, width=width, height=height)
+            
+            if result is None:
+                logger.warning("Legacy renderer returned None")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error rendering sports display: {e}", exc_info=True)
+            return None
     
     def has_priority(self) -> bool:
         """Check if live games should trigger priority mode."""
@@ -142,6 +196,34 @@ class SportsMode(BaseMode):
             if g.get('state') in ['pre', 'STATUS_SCHEDULED']
         ]
     
+    def _get_games_page(self):
+        """
+        Get the current page of games to display.
+        
+        In all_leagues mode with many games, cycles through showing games_per_page at a time.
+        In my_teams mode, shows all games (up to renderer's limit).
+        """
+        # If not using all_leagues mode, or few games, show all
+        if self.live_games_source != 'all_leagues' or len(self.display_games) <= self.games_per_page:
+            return self.display_games
+        
+        # Cycle through games
+        now = datetime.now()
+        time_since_cycle = (now - self.last_games_page_cycle).total_seconds()
+        
+        # Cycle based on configured interval
+        if time_since_cycle >= self.games_cycle_interval:
+            total_games = len(self.display_games)
+            total_pages = (total_games + self.games_per_page - 1) // self.games_per_page  # Ceiling division
+            self.games_page_index = (self.games_page_index + 1) % total_pages
+            self.last_games_page_cycle = now
+            logger.info(f"Cycling to games page {self.games_page_index + 1}/{total_pages}")
+        
+        # Get the current page slice
+        start_idx = self.games_page_index * self.games_per_page
+        end_idx = start_idx + self.games_per_page
+        return self.display_games[start_idx:end_idx]
+    
     def _prepare_display_games(self, now: datetime):
         """
         Determine which games to display (live vs upcoming).
@@ -153,8 +235,12 @@ class SportsMode(BaseMode):
         self.display_games = []
         self.display_type = None
         
+        logger.debug(f"Preparing display games. Total games in memory: {len(self.games)}")
+        
         live_games = self._get_live_games() if 'live' in self.sports_modes else []
         upcoming_games = self._get_upcoming_games() if 'upcoming' in self.sports_modes else []
+        
+        logger.debug(f"Found {len(live_games)} live games, {len(upcoming_games)} upcoming games")
         
         # If priority enabled, always show live when available
         if self.enable_priority:
