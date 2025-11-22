@@ -69,7 +69,7 @@ TEAM_COLORS = {
     "NBA": {
         "ATL": (204, 0, 0),      # Atlanta Hawks
         "BOS": (0, 122, 51),     # Boston Celtics
-        "BKN": (0, 0, 0),        # Brooklyn Nets
+        "BKN": (206, 17, 65),    # Brooklyn Nets
         "CHA": (29, 17, 96),     # Charlotte Hornets
         "CHI": (206, 17, 65),    # Chicago Bulls
         "CLE": (134, 0, 56),     # Cleveland Cavaliers
@@ -213,6 +213,28 @@ def get_team_color(team_name, league, default_color=(255, 0, 0)):
     league_colors = TEAM_COLORS.get(league, {})
     return league_colors.get(team_name, default_color)
 
+
+def paste_logo_centered(img, logo, x, y, max_height):
+    """
+    Paste a logo centered vertically within the given height.
+    
+    Args:
+        img: PIL Image to paste onto
+        logo: PIL Image logo to paste
+        x: X position (left edge)
+        y: Y position (top of the area to center within)
+        max_height: Height of the area to center the logo within
+    """
+    if logo is None:
+        return
+    
+    # Calculate vertical offset to center the logo
+    logo_height = logo.size[1]
+    y_offset = (max_height - logo_height) // 2
+    
+    # Paste with alpha blending
+    img.paste(logo, (x, y + y_offset), logo)
+
 # --- Logo Loading ---
 def load_team_logo(team_name, league, max_size=(16, 16)):
     """
@@ -307,8 +329,8 @@ def render_game_with_logos(img, game, width=64, height=40, show_logos=True):
     if show_logos:
         away_logo = load_team_logo(away_name, league, max_size=(16, 16))
         if away_logo:
-            # Logo exists (or fallback NOT_FOUND.png) - composite it
-            img.paste(away_logo, (2, 2), away_logo)  # Alpha blend at (2, 2)
+            # Center logo vertically in top half (20px tall)
+            paste_logo_centered(img, away_logo, x=2, y=0, max_height=20)
     
     # Away score (large, to the right of logo)
     draw.text((22, 2), away_score, fill=away_color, font=score_font)
@@ -317,8 +339,8 @@ def render_game_with_logos(img, game, width=64, height=40, show_logos=True):
     if show_logos:
         home_logo = load_team_logo(home_name, league, max_size=(16, 16))
         if home_logo:
-            # Logo exists (or fallback NOT_FOUND.png) - composite it
-            img.paste(home_logo, (2, 22), home_logo)  # Alpha blend at (2, 22)
+            # Center logo vertically in bottom half (20px tall)
+            paste_logo_centered(img, home_logo, x=2, y=20, max_height=20)
     
     # Home score (large, to the right of logo)
     draw.text((22, 22), home_score, fill=home_color, font=score_font)
@@ -411,18 +433,16 @@ def render_game_expanded(draw, game, offset=(0,0), width=64, font=None, small_fo
         
         # --- AWAY TEAM LOGO (top) ---
         if away_logo:
-            # Composite logo with alpha channel
-            logo_y = y_start + 1
+            # Center logo vertically in top line (10px tall)
             img = draw._image  # Access the underlying PIL Image
-            img.paste(away_logo, (x_start + 2, logo_y), away_logo)
+            paste_logo_centered(img, away_logo, x=x_start + 2, y=y_start, max_height=10)
         
         # --- HOME TEAM LOGO (bottom) ---
         home_y = y_start + vertical_spacing
         if home_logo:
-            # Composite logo with alpha channel
-            logo_y = home_y
+            # Center logo vertically in bottom line (10px tall)
             img = draw._image
-            img.paste(home_logo, (x_start + 2, logo_y), home_logo)
+            paste_logo_centered(img, home_logo, x=x_start + 2, y=home_y, max_height=10)
     
     # --- AWAY TEAM TEXT ---
     away_text = f"{away_abbr} {away_score}"
@@ -680,7 +700,8 @@ def render_upcoming_games(games, width=64, height=40):
         # Away team logo (top half)
         away_logo = load_team_logo(away, league, max_size=(16, 16))
         if away_logo:
-            img.paste(away_logo, (2, 2), away_logo)
+            # Center logo vertically in top half (20px tall)
+            paste_logo_centered(img, away_logo, x=2, y=0, max_height=20)
         
         # Away team name
         draw.text((22, 4), away, fill=(200, 200, 200), font=font_medium)
@@ -691,7 +712,8 @@ def render_upcoming_games(games, width=64, height=40):
         # Home team logo (bottom half)
         home_logo = load_team_logo(home, league, max_size=(16, 16))
         if home_logo:
-            img.paste(home_logo, (2, 22), home_logo)
+            # Center logo vertically in bottom half (20px tall)
+            paste_logo_centered(img, home_logo, x=2, y=20, max_height=20)
         
         # Home team name
         draw.text((22, 24), home, fill=(255, 255, 255), font=font_medium)
@@ -717,7 +739,8 @@ def render_upcoming_games(games, width=64, height=40):
             # Away logo (small, 10x10) on left
             away_logo = load_team_logo(away, league, max_size=(10, 10))
             if away_logo:
-                img.paste(away_logo, (2, y_offset + 5), away_logo)
+                # Center logo in the top half of this game's section (10px tall)
+                paste_logo_centered(img, away_logo, x=2, y=y_offset, max_height=10)
             
             # Away team name next to logo
             draw.text((14, y_offset + 6), away, fill=(200, 200, 200), font=font_small)
@@ -728,7 +751,8 @@ def render_upcoming_games(games, width=64, height=40):
             # Home logo (small, 10x10) 
             home_logo = load_team_logo(home, league, max_size=(10, 10))
             if home_logo:
-                img.paste(home_logo, (34, y_offset + 5), home_logo)
+                # Center logo in the top half of this game's section (10px tall)
+                paste_logo_centered(img, home_logo, x=34, y=y_offset, max_height=10)
             
             # Home team name next to logo
             draw.text((46, y_offset + 6), home, fill=(255, 255, 255), font=font_small)
@@ -754,7 +778,8 @@ def render_upcoming_games(games, width=64, height=40):
             # Away logo (mini, 8x8)
             away_logo = load_team_logo(away, league, max_size=(8, 8))
             if away_logo:
-                img.paste(away_logo, (2, y_offset + 1), away_logo)
+                # Center logo vertically in line (10px tall)
+                paste_logo_centered(img, away_logo, x=2, y=y_offset, max_height=10)
             
             # Away team name (abbreviated)
             draw.text((12, y_offset + 1), away[:3], fill=(200, 200, 200), font=font_small)
