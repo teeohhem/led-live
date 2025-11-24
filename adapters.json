@@ -6,6 +6,13 @@
       "class": "BLEDisplayAdapter",
       "description": "iPixel BLE LED panels",
       "default": true
+    },
+    "emulator": {
+      "name": "LED Panel Emulator",
+      "module": "adapters.emulator.adapter",
+      "class": "EmulatorAdapter",
+      "description": "Web-based virtual LED panel for testing and development",
+      "default": false
     }
   },
   "schema_version": "1.0",

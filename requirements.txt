@@ -21,5 +21,8 @@ python-dateutil>=2.8.0
 # Hot Reload (optional - for development)
 watchdog>=3.0.0
 
+# Emulator (optional - for testing without hardware)
+aiohttp>=3.8.0
+
 # Note: Python 3.7+ required
 
