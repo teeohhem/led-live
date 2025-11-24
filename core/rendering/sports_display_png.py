@@ -76,7 +76,8 @@ TEAM_COLORS = {
         "DAL": (0, 83, 188),     # Dallas Mavericks
         "DEN": (13, 34, 64),     # Denver Nuggets
         "DET": (200, 16, 46),    # Detroit Pistons
-        "GSW": (0, 107, 182),    # Golden State Warriors
+        "GS": (0, 107, 182),     # Golden State Warriors
+        "GSW": (0, 107, 182),    # Golden State Warriors (alternate)
         "HOU": (206, 17, 65),    # Houston Rockets
         "IND": (0, 39, 93),      # Indiana Pacers
         "LAC": (200, 16, 46),    # LA Clippers
@@ -85,18 +86,23 @@ TEAM_COLORS = {
         "MIA": (152, 0, 46),     # Miami Heat
         "MIL": (0, 71, 27),      # Milwaukee Bucks
         "MIN": (0, 80, 131),     # Minnesota Timberwolves
-        "NOP": (0, 22, 65),      # New Orleans Pelicans
+        "NO": (0, 22, 65),       # New Orleans Pelicans
+        "NOP": (0, 22, 65),      # New Orleans Pelicans (alternate)
         "NYK": (0, 107, 182),    # New York Knicks
         "OKC": (0, 125, 195),    # Oklahoma City Thunder
         "ORL": (0, 125, 197),    # Orlando Magic
         "PHI": (0, 43, 92),      # Philadelphia 76ers
         "PHX": (229, 96, 32),    # Phoenix Suns
         "POR": (224, 58, 62),    # Portland Trail Blazers
+        "SA": (196, 206, 211),   # San Antonio Spurs
         "SAC": (91, 43, 130),    # Sacramento Kings
-        "SAS": (196, 206, 211),  # San Antonio Spurs
+        "SAS": (196, 206, 211),  # San Antonio Spurs (alternate)
         "TOR": (206, 17, 65),    # Toronto Raptors
-        "UTA": (0, 43, 92),      # Utah Jazz
+        "UT": (0, 43, 92),       # Utah Jazz
+        "UTA": (0, 43, 92),      # Utah Jazz (primary)
+        "UTH": (0, 43, 92),      # Utah Jazz (alternate)
         "WAS": (0, 34, 68),      # Washington Wizards
+        "WSH": (0, 34, 68),      # Washington Wizards (alternate)
     },
     "NFL": {
         "ARI": (151, 35, 63),    # Arizona Cardinals
@@ -146,7 +152,8 @@ TEAM_COLORS = {
         "DET": (200, 16, 46),    # Detroit Red Wings
         "EDM": (4, 30, 66),      # Edmonton Oilers
         "FLA": (200, 16, 46),    # Florida Panthers
-        "LAK": (0, 0, 0),        # Los Angeles Kings
+        "LA": (85, 37, 130),     # Los Angeles Kings
+        "LAK": (85, 37, 130),    # Los Angeles Kings (alternate)
         "MIN": (21, 71, 52),     # Minnesota Wild
         "MTL": (173, 216, 230),  # Montreal Canadiens
         "NSH": (255, 184, 28),   # Nashville Predators
@@ -157,10 +164,12 @@ TEAM_COLORS = {
         "PHI": (247, 73, 2),     # Philadelphia Flyers
         "PIT": (252, 181, 20),   # Pittsburgh Penguins
         "SEA": (111, 38, 51),    # Seattle Kraken
-        "SJS": (0, 108, 182),    # San Jose Sharks
+        "SJ": (0, 108, 182),     # San Jose Sharks
+        "SJS": (0, 108, 182),    # San Jose Sharks (alternate)
         "STL": (0, 47, 135),     # St. Louis Blues
         "TBL": (0, 32, 91),      # Tampa Bay Lightning
         "TOR": (0, 32, 91),      # Toronto Maple Leafs
+        "UTA": (111, 38, 61),    # Utah Hockey Club
         "VAN": (0, 32, 91),      # Vancouver Canucks
         "VGK": (185, 151, 91),   # Vegas Golden Knights
         "WPG": (4, 30, 66),      # Winnipeg Jets
@@ -236,6 +245,40 @@ def paste_logo_centered(img, logo, x, y, max_height):
     img.paste(logo, (x, y + y_offset), logo)
 
 # --- Logo Loading ---
+
+# Team abbreviation mapping (ESPN API → Logo filename)
+# Only include teams where ESPN's abbreviation differs from our logo filename
+TEAM_ABBR_MAP = {
+    "NBA": {
+        "GSW": "GS",   # Golden State Warriors
+        "SAS": "SA",   # San Antonio Spurs
+        "NOP": "NO",   # New Orleans Pelicans
+        "WAS": "WSH",  # Washington Wizards
+        "UTH": "UTA",  # Utah Jazz (alternate spelling)
+        "UT": "UTA",   # Utah Jazz (short version)
+    },
+    "NHL": {
+        "LAK": "LA",   # Los Angeles Kings
+        "SJS": "SJ",   # San Jose Sharks
+    },
+    "NFL": {},
+    "MLB": {},
+}
+
+def normalize_team_abbr(team_name, league):
+    """
+    Normalize team abbreviation from ESPN API to match logo filename.
+    
+    Args:
+        team_name: Team abbreviation from ESPN API
+        league: League name (NBA, NHL, NFL, MLB)
+    
+    Returns:
+        Normalized team abbreviation matching logo filename
+    """
+    league_map = TEAM_ABBR_MAP.get(league, {})
+    return league_map.get(team_name, team_name)
+
 def load_team_logo(team_name, league, max_size=(16, 16)):
     """
     Load team logo from league-specific folder.
@@ -250,6 +293,9 @@ def load_team_logo(team_name, league, max_size=(16, 16)):
     Automatically crops transparent borders and preserves aspect ratio!
     Returns PIL Image or None if neither logo nor fallback exists.
     """
+    # Normalize team abbreviation to match logo filename
+    team_name = normalize_team_abbr(team_name, league)
+    
     # Normalize league name to lowercase for folder
     league_folder = league.lower() if league else "unknown"
     logo_path = f"./logos/{league_folder}/{team_name}.png"
@@ -257,6 +303,7 @@ def load_team_logo(team_name, league, max_size=(16, 16)):
     # Try team-specific logo first
     if not os.path.exists(logo_path):
         # Fall back to NOT_FOUND.png
+        logger.warning(f"Logo not found: {logo_path}")
         logo_path = "./logos/NOT_FOUND.png"
         if not os.path.exists(logo_path):
             return None

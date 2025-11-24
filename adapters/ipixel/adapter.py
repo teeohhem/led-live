@@ -9,6 +9,7 @@ import logging
 from typing import Optional, List
 
 from bleak import BleakClient
+from bleak.exc import BleakError
 from PIL import Image
 
 from ..base import DisplayAdapter, ConnectionError, UploadError
@@ -32,6 +33,8 @@ class BLEDisplayAdapter(DisplayAdapter):
         self.panel_clients: List[Optional[BleakClient]] = []
         self.client: Optional[MultiPanelClient] = None
         self._connected = False
+        self._connection_attempts = 0
+        self._max_retries = 5
         
         # Load panel dimensions from config
         self._load_panel_dimensions()
@@ -56,34 +59,66 @@ class BLEDisplayAdapter(DisplayAdapter):
             set_panel_dimensions(64, 20)
 
     async def connect(self) -> None:
-        """Establish BLE connections to all configured LED panels."""
-        try:
-            # Get configured panel addresses
-            addresses = _get_panel_addresses()
-            panel_count = len(addresses)
-            
-            logger.info(f"Connecting to {panel_count} LED panel(s)...")
+        """Establish BLE connections to all configured LED panels with exponential backoff retry."""
+        retry_count = 0
+        last_error = None
+        
+        while retry_count <= self._max_retries:
+            try:
+                # Get configured panel addresses
+                addresses = _get_panel_addresses()
+                panel_count = len(addresses)
+                
+                if retry_count > 0:
+                    logger.info(f"Retry {retry_count}/{self._max_retries} - Connecting to {panel_count} LED panel(s)...")
+                else:
+                    logger.info(f"Connecting to {panel_count} LED panel(s)...")
 
-            # Create and connect BLE clients for each panel
-            for i, address in enumerate(addresses):
-                client = BleakClient(address)
-                await client.connect()
-                self.panel_clients.append(client)
-                logger.info(f"Connected to panel {i+1}/{panel_count}")
+                # Clear any existing clients
+                self.panel_clients = []
 
-            logger.info(f"Connected to all {panel_count} panel(s)!")
+                # Create and connect BLE clients for each panel
+                for i, address in enumerate(addresses):
+                    client = BleakClient(address)
+                    await client.connect()
+                    self.panel_clients.append(client)
+                    logger.info(f"Connected to panel {i+1}/{panel_count}")
 
-            # Create multi-panel wrapper
-            self.client = MultiPanelClient(self.panel_clients)
+                logger.info(f"Connected to all {panel_count} panel(s)!")
 
-            # Initialize panels
-            await init_panels(self.client)
+                # Create multi-panel wrapper
+                self.client = MultiPanelClient(self.panel_clients)
 
-            self._connected = True
+                # Initialize panels
+                await init_panels(self.client)
 
-        except Exception as e:
-            self._connected = False
-            raise ConnectionError(f"Failed to connect to BLE panels: {e}") from e
+                self._connected = True
+                self._connection_attempts = 0  # Reset on successful connection
+                return  # Success!
+
+            except Exception as e:
+                last_error = e
+                retry_count += 1
+                self._connected = False
+                
+                # Cleanup any partial connections
+                for client in self.panel_clients:
+                    try:
+                        if client.is_connected:
+                            await client.disconnect()
+                    except:
+                        pass
+                self.panel_clients = []
+                
+                if retry_count <= self._max_retries:
+                    # Exponential backoff: 2^retry seconds (2, 4, 8, 16, 32 seconds)
+                    wait_time = min(2 ** retry_count, 32)
+                    logger.warning(f"Connection failed: {e}")
+                    logger.info(f"Waiting {wait_time} seconds before retry...")
+                    await asyncio.sleep(wait_time)
+                else:
+                    logger.error(f"Failed to connect after {self._max_retries} retries")
+                    raise ConnectionError(f"Failed to connect to BLE panels after {self._max_retries} retries: {last_error}") from last_error
 
     async def disconnect(self) -> None:
         """Close BLE connections."""
@@ -91,6 +126,38 @@ class BLEDisplayAdapter(DisplayAdapter):
             await self.client.disconnect()
         self._connected = False
         logger.info("Disconnected from panels")
+    
+    async def _check_connection_health(self) -> bool:
+        """Check if BLE connection is still alive."""
+        if not self._connected or not self.client:
+            return False
+        
+        try:
+            # Check if all panel clients are still connected
+            for client in self.panel_clients:
+                if not client.is_connected:
+                    logger.warning("Panel client disconnected")
+                    return False
+            return True
+        except Exception as e:
+            logger.warning(f"Connection health check failed: {e}")
+            return False
+    
+    async def _auto_reconnect(self) -> bool:
+        """
+        Attempt to reconnect with exponential backoff.
+        Returns True if reconnection successful, False otherwise.
+        """
+        logger.warning("Connection lost - attempting to reconnect...")
+        self._connected = False
+        
+        try:
+            await self.connect()
+            logger.info("Reconnection successful!")
+            return True
+        except Exception as e:
+            logger.error(f"Reconnection failed: {e}")
+            return False
 
     async def upload_image(self, image, clear_first: bool = False, panels: list = None) -> None:
         """
@@ -107,6 +174,27 @@ class BLEDisplayAdapter(DisplayAdapter):
 
         try:
             await upload_png(self.client, image, clear_first, panels)
+        except BleakError as e:
+            # BLE-specific errors might indicate connection loss
+            logger.error(f"BLE error during upload: {e}")
+            
+            # Check if it's a connection-related error
+            error_msg = str(e).lower()
+            if any(keyword in error_msg for keyword in ['service discovery', 'not connected', 'disconnected', 'connection']):
+                logger.warning("Detected connection issue - attempting reconnection...")
+                if await self._auto_reconnect():
+                    # Retry upload after successful reconnection
+                    logger.info("Retrying upload after reconnection...")
+                    try:
+                        await upload_png(self.client, image, clear_first, panels)
+                        logger.info("Upload successful after reconnection")
+                        return
+                    except Exception as retry_error:
+                        raise UploadError(f"Failed to upload image after reconnection: {retry_error}") from retry_error
+                else:
+                    raise ConnectionError(f"Connection lost and reconnection failed: {e}") from e
+            else:
+                raise UploadError(f"Failed to upload image: {e}") from e
         except Exception as e:
             raise UploadError(f"Failed to upload image: {e}") from e
 
@@ -126,6 +214,27 @@ class BLEDisplayAdapter(DisplayAdapter):
 
         try:
             await upload_gif(self.client, gif_path_or_data, clear_first, max_frames, panels)
+        except BleakError as e:
+            # BLE-specific errors might indicate connection loss
+            logger.error(f"BLE error during GIF upload: {e}")
+            
+            # Check if it's a connection-related error
+            error_msg = str(e).lower()
+            if any(keyword in error_msg for keyword in ['service discovery', 'not connected', 'disconnected', 'connection']):
+                logger.warning("Detected connection issue - attempting reconnection...")
+                if await self._auto_reconnect():
+                    # Retry upload after successful reconnection
+                    logger.info("Retrying GIF upload after reconnection...")
+                    try:
+                        await upload_gif(self.client, gif_path_or_data, clear_first, max_frames, panels)
+                        logger.info("GIF upload successful after reconnection")
+                        return
+                    except Exception as retry_error:
+                        raise UploadError(f"Failed to upload GIF after reconnection: {retry_error}") from retry_error
+                else:
+                    raise ConnectionError(f"Connection lost and reconnection failed: {e}") from e
+            else:
+                raise UploadError(f"Failed to upload GIF: {e}") from e
         except Exception as e:
             raise UploadError(f"Failed to upload GIF: {e}") from e
 

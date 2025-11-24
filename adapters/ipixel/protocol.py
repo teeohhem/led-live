@@ -42,7 +42,7 @@ def CRC32_checksum(data):
         # Send the checksum by switching endian (like )
         return switch_endian(calculated_crc_hex)
     except ValueError as e:
-        logger.error(f"CRC32error:Invalidhexdata'{data[:50]}...'-{e}")
+        logger.error(f"CRC32 error: Invalid hex data'{data[:50]}...'-{e}")
         raise
 
 def get_frame_size(data, size):
@@ -220,7 +220,7 @@ def _gif_bytes(data: bytes, target_size: Optional[Tuple[int, int]], max_frames: 
 
             if getattr(img, "n_frames", 1) > 1:
                 frame_count = min(max(1, int(max_frames)), img.n_frames)
-                logger.info(f"🎬Processing{frame_count}frames...")
+                logger.info(f"Processing {frame_count} frames...")
                 frames = []
                 for idx in range(frame_count):
                     img.seek(idx)
@@ -238,20 +238,20 @@ def _gif_bytes(data: bytes, target_size: Optional[Tuple[int, int]], max_frames: 
                     optimize=False  # Don't optimize to preserve frames
                 )
                 result = output_buffer.getvalue()
-                logger.info(f"📦Createdmulti-frameGIF:{len(result)}bytes")
+                logger.info(f"Created multi-frame GIF: {len(result)} bytes")
                 return result
 
             # Single-frame GIF
-            logger.info("📸Processingsingle-frameGIF...")
+            logger.info("Processing single-frame GIF...")
             img = _resize_image_if_needed(img, target_size)
             output_buffer = io.BytesIO()
             img.save(output_buffer, format="GIF", loop=loop, duration=duration)
             result = output_buffer.getvalue()
-            logger.info(f"📦Createdsingle-frameGIF:{len(result)}bytes")
+            logger.info(f"Created single-frame GIF: {len(result)} bytes")
             return result
 
     except Exception as e:
-        logger.error(f"ErrorprocessingGIF:{e}")
+        logger.error(f"Error processing GIF:{e}")
         import traceback
         traceback.print_exc()
         raise
@@ -639,18 +639,30 @@ async def write_cmd_single(client, data: bytes):
 # --- Screen management ---
 async def clear_screen_completely(client):
     """Clear the screen by sending clear command (dual-panel compatible)"""
-    logger.info("Clearingpanels...")
+    logger.info("Clearing panels...")
     try:
         await write_cmd(client, CLEAR_SCREEN)
         await asyncio.sleep(0.3)
-        logger.info("Panelscleared")
+        logger.info("Panels cleared")
     except Exception as e:
-        logger.error(f"Clearfailed:{e}")
+        logger.error(f"Clear failed:{e}")
 
 
 async def init_panels(client):
     """Initialize panels after connection"""
-    logger.info("Bothpanelsconnected,initializing...")
+    logger.info("Both panels connected, initializing...")
+    
+    # Clear panel memory on startup to ensure clean state
+    logger.info("Clearing panel memory...")
+    memory_clear_cmd = bytes([
+        4,     # Command length
+        0,     # Reserved
+        3,     # Command ID
+        0x80,  # Command type ID
+    ])
+    await write_cmd(client, memory_clear_cmd)
+    await asyncio.sleep(0.3)
+    
     await write_cmd(client, SCREEN_ON)
     await asyncio.sleep(0.2)
     logger.info("Bothpanelsinitialized")
