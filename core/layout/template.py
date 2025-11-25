@@ -139,20 +139,64 @@ class StockLayoutTemplate:
 
 
 @dataclass
+class WeatherLayoutTemplate:
+    """
+    Layout template for rendering weather information.
+    
+    Contains element specs for weather display components.
+    """
+    weather_icon: Optional[ElementSpec] = None
+    temperature: Optional[ElementSpec] = None
+    feels_like: Optional[ElementSpec] = None
+    condition: Optional[ElementSpec] = None
+    condition_short: Optional[ElementSpec] = None
+    location: Optional[ElementSpec] = None
+    humidity: Optional[ElementSpec] = None
+    wind: Optional[ElementSpec] = None
+    high_temp: Optional[ElementSpec] = None
+    low_temp: Optional[ElementSpec] = None
+    forecast_icon: Optional[ElementSpec] = None
+    forecast_temp: Optional[ElementSpec] = None
+    forecast_time: Optional[ElementSpec] = None
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'WeatherLayoutTemplate':
+        """Create WeatherLayoutTemplate from config dict."""
+        def make_spec(key: str) -> Optional[ElementSpec]:
+            return ElementSpec.from_dict(data[key]) if key in data else None
+        
+        return cls(
+            weather_icon=make_spec('weather_icon'),
+            temperature=make_spec('temperature'),
+            feels_like=make_spec('feels_like'),
+            condition=make_spec('condition'),
+            condition_short=make_spec('condition_short'),
+            location=make_spec('location'),
+            humidity=make_spec('humidity'),
+            wind=make_spec('wind'),
+            high_temp=make_spec('high_temp'),
+            low_temp=make_spec('low_temp'),
+            forecast_icon=make_spec('forecast_icon'),
+            forecast_temp=make_spec('forecast_temp'),
+            forecast_time=make_spec('forecast_time'),
+        )
+
+
+@dataclass
 class LayoutTemplate:
     """
     Complete layout template for a display mode.
     
-    Contains scenario-based templates (one_game, two_games, etc.)
+    Contains scenario-based templates (one_item, two_items, etc.)
     with positioning for each element.
     """
-    mode: str  # Mode name (sports, stocks, etc.)
+    mode: str  # Mode name (sports, stocks, weather, etc.)
     canvas_width: int = 64
     canvas_height: int = 40
     logo_enabled: bool = True
     
     # Scenario-based templates
-    one_item: Optional[Any] = None  # GameLayoutTemplate or StockLayoutTemplate
+    one_item: Optional[Any] = None  # GameLayoutTemplate, StockLayoutTemplate, or WeatherLayoutTemplate
     two_items: Optional[Dict[str, Any]] = None
     three_items: Optional[Dict[str, Any]] = None
     four_items: Optional[Dict[str, Any]] = None
@@ -178,21 +222,28 @@ class LayoutTemplate:
         
         # Load scenario templates based on mode
         if mode == 'sports':
-            if 'one_game' in data:
-                template.one_item = GameLayoutTemplate.from_dict(data['one_game'])
-            if 'two_games' in data:
-                template.two_items = cls._load_multi_template(data['two_games'], GameLayoutTemplate)
-            if 'three_games' in data:
-                template.three_items = cls._load_multi_template(data['three_games'], GameLayoutTemplate)
-            if 'four_games' in data:
-                template.four_items = cls._load_multi_template(data['four_games'], GameLayoutTemplate)
+            if 'one_game' in data or 'one_item' in data:
+                template.one_item = GameLayoutTemplate.from_dict(data.get('one_game') or data.get('one_item'))
+            if 'two_games' in data or 'two_items' in data:
+                template.two_items = cls._load_multi_template(data.get('two_games') or data.get('two_items'), GameLayoutTemplate)
+            if 'three_games' in data or 'three_items' in data:
+                template.three_items = cls._load_multi_template(data.get('three_games') or data.get('three_items'), GameLayoutTemplate)
+            if 'four_games' in data or 'four_items' in data:
+                template.four_items = cls._load_multi_template(data.get('four_games') or data.get('four_items'), GameLayoutTemplate)
         elif mode == 'stocks':
-            if 'one_stock' in data:
-                template.one_item = StockLayoutTemplate.from_dict(data['one_stock'])
-            if 'two_stocks' in data:
-                template.two_items = cls._load_multi_template(data['two_stocks'], StockLayoutTemplate)
-            if 'four_stocks' in data:
-                template.four_items = cls._load_multi_template(data['four_stocks'], StockLayoutTemplate)
+            if 'one_stock' in data or 'one_item' in data:
+                template.one_item = StockLayoutTemplate.from_dict(data.get('one_stock') or data.get('one_item'))
+            if 'two_stocks' in data or 'two_items' in data:
+                template.two_items = cls._load_multi_template(data.get('two_stocks') or data.get('two_items'), StockLayoutTemplate)
+            if 'four_stocks' in data or 'four_items' in data:
+                template.four_items = cls._load_multi_template(data.get('four_stocks') or data.get('four_items'), StockLayoutTemplate)
+        elif mode == 'weather':
+            if 'one_item' in data:
+                template.one_item = WeatherLayoutTemplate.from_dict(data['one_item'])
+            if 'two_items' in data:
+                template.two_items = cls._load_multi_template(data['two_items'], WeatherLayoutTemplate)
+            if 'four_items' in data:
+                template.four_items = cls._load_multi_template(data['four_items'], WeatherLayoutTemplate)
         
         return template
     

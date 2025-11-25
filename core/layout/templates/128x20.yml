@@ -1,0 +1,180 @@
+# 128×20 Layout Template - iPixel Dual Panel
+# All mode layouts for 2× 64×20 panels side-by-side
+# Perfect for: Standard dual-panel iPixel setup
+
+# === SPORTS MODE ===
+sports:
+  canvas_width: 128
+  canvas_height: 20
+  logo_enabled: true
+  
+  one_item:
+    away_logo:
+      x: 2
+      y: 2
+      width: 16
+      height: 16
+    away_score:
+      x: 22
+      y: 2
+      font_size: 14
+      color: "away_team"
+    home_logo:
+      x: 66
+      y: 2
+      width: 16
+      height: 16
+    home_score:
+      x: 86
+      y: 2
+      font_size: 14
+      color: "home_team"
+    period:
+      x: 60
+      y: 2
+      font_size: 8
+      align: "right"
+      color: "time"
+    clock:
+      x: 60
+      y: 11
+      font_size: 8
+      align: "right"
+      color: "time"
+  
+  two_items:
+    item_height: 10
+    item_template:
+      away_logo:
+        x: 2
+        y: 1
+        width: 8
+        height: 8
+      away_text:
+        x: 12
+        y: 1
+        font_size: 9
+        color: "away_team"
+        format: "{abbr} {score}"
+      home_logo:
+        x: 66
+        y: 1
+        width: 8
+        height: 8
+      home_text:
+        x: 76
+        y: 1
+        font_size: 9
+        color: "home_team"
+        format: "{abbr} {score}"
+  
+  four_items:
+    item_height: 10
+    item_template:
+      away_text:
+        x: 1
+        y: 1
+        font_size: 8
+        color: "away_team"
+        format: "{abbr} {score}"
+      home_text:
+        x: 66
+        y: 1
+        font_size: 8
+        color: "home_team"
+        format: "{abbr} {score}"
+
+# === STOCKS MODE ===
+stocks:
+  canvas_width: 128
+  canvas_height: 20
+  logo_enabled: false
+  
+  one_item:
+    symbol:
+      x: 2
+      y: 2
+      font_size: 10
+      color: "white"
+    price:
+      x: 30
+      y: 2
+      font_size: 10
+      color: "change_color"
+    change:
+      x: 70
+      y: 4
+      font_size: 9
+      color: "change_color"
+  
+  two_items:
+    item_height: 10
+    item_template:
+      symbol:
+        x: 2
+        y: 1
+        font_size: 8
+        color: "white"
+      price:
+        x: 22
+        y: 1
+        font_size: 8
+        color: "change_color"
+      change:
+        x: 48
+        y: 1
+        font_size: 7
+        color: "change_color"
+  
+  four_items:
+    item_height: 10
+    item_template:
+      symbol:
+        x: 1
+        y: 1
+        font_size: 7
+        color: "white"
+      price:
+        x: 18
+        y: 1
+        font_size: 7
+        color: "change_color"
+
+# === WEATHER MODE ===
+weather:
+  canvas_width: 128
+  canvas_height: 20
+  logo_enabled: false
+  
+  one_item:
+    weather_icon:
+      x: 2
+      y: 2
+      width: 16
+      height: 16
+    temperature:
+      x: 22
+      y: 2
+      font_size: 14
+      color: "white"
+    condition:
+      x: 46
+      y: 4
+      font_size: 9
+      color: "cyan"
+    forecast_icon:
+      x: 66
+      y: 2
+      width: 16
+      height: 16
+    forecast_temp:
+      x: 86
+      y: 4
+      font_size: 10
+      color: "white"
+    forecast_time:
+      x: 106
+      y: 6
+      font_size: 8
+      color: "gray"
+

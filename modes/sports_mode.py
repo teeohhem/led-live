@@ -8,18 +8,10 @@ import logging
 
 from .base_mode import BaseMode
 from core.data import fetch_all_games, fetch_upcoming_games, fetch_live_games_by_leagues
-from core.rendering import render_scoreboard, render_upcoming_games
+from core.layout import LayoutLoader
+from core.rendering.templated_renderer import TemplatedSportsRenderer
 
 logger = logging.getLogger(__name__)
-
-# Check if layout templates are available
-try:
-    from core.layout import LayoutLoader
-    from core.rendering.templated_renderer import TemplatedSportsRenderer
-    LAYOUT_TEMPLATES_AVAILABLE = True
-except ImportError:
-    LAYOUT_TEMPLATES_AVAILABLE = False
-    logger.warning("Layout templates not available, using legacy renderer")
 
 
 class SportsMode(BaseMode):
@@ -55,20 +47,19 @@ class SportsMode(BaseMode):
         self.games_per_page = config.get('SPORTS_GAMES_PER_PAGE', 2)
         self.games_cycle_interval = config.get('SPORTS_GAMES_CYCLE_INTERVAL', 10)
         
-        # Load layout template if available
-        self.layout_renderer = None
-        if LAYOUT_TEMPLATES_AVAILABLE:
-            try:
-                from config import get_all_config
-                config_dict = get_all_config()
-                loader = LayoutLoader(config_dict)
-                layout_template = loader.get_template('sports')
-                # Override template's logo setting with config value
-                layout_template.logo_enabled = self.show_logos
-                self.layout_renderer = TemplatedSportsRenderer(layout_template)
-                logger.info("Using templated sports renderer")
-            except Exception as e:
-                logger.warning(f"Failed to load layout template, using legacy renderer: {e}")
+        # Load layout template (required)
+        try:
+            from config import get_all_config
+            config_dict = get_all_config()
+            loader = LayoutLoader(config_dict)
+            layout_template = loader.get_template('sports')
+            # Override template's logo setting with config value
+            layout_template.logo_enabled = self.show_logos
+            self.layout_renderer = TemplatedSportsRenderer(layout_template)
+            logger.info("Using templated sports renderer")
+        except Exception as e:
+            logger.error(f"Failed to load layout template: {e}")
+            raise RuntimeError("Sports mode requires layout templates. Check core/layout/templates/")
     
     async def fetch_data(self) -> bool:
         """Fetch game data from ESPN."""
@@ -153,25 +144,10 @@ class SportsMode(BaseMode):
         logger.info(f"Rendering {self.display_type} sports ({len(games_to_render)} of {len(self.display_games)} games)")
         
         try:
-            # Use templated renderer if available
-            if self.layout_renderer:
-                logger.debug("Using templated renderer")
-                result = self.layout_renderer.render_games(games_to_render, display_type=self.display_type)
-                if result is None:
-                    logger.warning("Templated renderer returned None")
-                return result
-            
-            # Fallback to legacy renderer
-            logger.debug("Using legacy renderer")
-            if self.display_type == 'live':
-                result = render_scoreboard(games_to_render, width=width, height=height, show_logos=self.show_logos)
-            else:  # upcoming
-                result = render_upcoming_games(games_to_render, width=width, height=height)
-            
+            result = self.layout_renderer.render_games(games_to_render, display_type=self.display_type)
             if result is None:
-                logger.warning("Legacy renderer returned None")
+                logger.warning("Renderer returned None")
             return result
-            
         except Exception as e:
             logger.error(f"Error rendering sports display: {e}", exc_info=True)
             return None

@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LED Panel Layout Builder</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+            height: 100vh;
+            display: flex;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 300px;
+            background: #2a2a2a;
+            padding: 20px;
+            overflow-y: auto;
+            border-right: 2px solid #3a3a3a;
+        }
+        
+        .sidebar h2 {
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+        
+        .control-group {
+            margin-bottom: 20px;
+        }
+        
+        .control-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #aaa;
+            font-size: 0.9rem;
+        }
+        
+        .control-group input,
+        .control-group select {
+            width: 100%;
+            padding: 8px;
+            background: #1a1a1a;
+            border: 1px solid #3a3a3a;
+            color: #fff;
+            border-radius: 4px;
+        }
+        
+        .control-group button {
+            width: 100%;
+            padding: 10px;
+            background: #667eea;
+            border: none;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-top: 5px;
+        }
+        
+        .control-group button:hover {
+            background: #5568d3;
+        }
+        
+        /* Canvas Area */
+        .canvas-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .toolbar {
+            background: #2a2a2a;
+            padding: 15px 20px;
+            border-bottom: 2px solid #3a3a3a;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .toolbar button {
+            padding: 8px 16px;
+            background: #667eea;
+            border: none;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .toolbar button:hover {
+            background: #5568d3;
+        }
+        
+        .canvas {
+            flex: 1;
+            display: flex;
+            align-items: flex-start;
+            justify-content: flex-start;
+            padding: 40px;
+            overflow: auto;
+            background: #1a1a1a;
+        }
+        
+        .display-preview {
+            position: relative;
+            background: #000;
+            border: 2px solid #667eea;
+            box-shadow: 0 0 30px rgba(102, 126, 234, 0.3);
+            background-image: 
+                linear-gradient(rgba(102, 126, 234, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(102, 126, 234, 0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        
+        /* Element Palette */
+        .element-palette {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .element-palette h3 {
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+            color: #667eea;
+        }
+        
+        .palette-item {
+            padding: 8px 12px;
+            margin-bottom: 5px;
+            background: #1a1a1a;
+            border: 1px solid #3a3a3a;
+            border-radius: 4px;
+            cursor: move;
+            font-size: 0.85rem;
+        }
+        
+        .palette-item:hover {
+            border-color: #667eea;
+        }
+        
+        /* Placed Elements */
+        .element {
+            position: absolute;
+            border: 2px dashed #667eea;
+            cursor: move;
+            min-width: 20px;
+            min-height: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+            transition: all 0.1s ease;
+        }
+        
+        .element:hover {
+            border-width: 3px;
+            background: rgba(102, 126, 234, 0.2);
+        }
+        
+        .element.selected {
+            border-color: #ffd700;
+            background: rgba(255, 215, 0, 0.1);
+        }
+        
+        .element.text {
+            border-color: #4ade80;
+        }
+        
+        .element.logo {
+            border-color: #f59e0b;
+        }
+        
+        /* Properties Panel */
+        .properties {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        .properties h3 {
+            margin-bottom: 10px;
+            color: #667eea;
+        }
+        
+        .prop-row {
+            margin-bottom: 10px;
+        }
+        
+        .prop-row label {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 0.85rem;
+            color: #aaa;
+        }
+        
+        .prop-row input {
+            width: 100%;
+            padding: 6px;
+            background: #2a2a2a;
+            border: 1px solid #3a3a3a;
+            color: #fff;
+            border-radius: 4px;
+        }
+        
+        .code-output {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .code-output pre {
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            color: #4ade80;
+            white-space: pre-wrap;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .tab {
+            padding: 8px 16px;
+            background: #1a1a1a;
+            border: none;
+            color: #aaa;
+            cursor: pointer;
+            border-radius: 4px 4px 0 0;
+        }
+        
+        .tab.active {
+            background: #667eea;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h2>⚙️ Configuration</h2>
+        
+        <div class="control-group">
+            <label>Panel Width (px)</label>
+            <input type="number" id="panelWidth" value="64" min="16" max="256">
+        </div>
+        
+        <div class="control-group">
+            <label>Panel Height (px)</label>
+            <input type="number" id="panelHeight" value="20" min="16" max="256">
+        </div>
+        
+        <div class="control-group">
+            <label>Number of Panels</label>
+            <input type="number" id="numPanels" value="2" min="1" max="8">
+        </div>
+        
+        <div class="control-group">
+            <label>Orientation</label>
+            <select id="orientation">
+                <option value="horizontal">Horizontal (Side-by-side)</option>
+                <option value="vertical">Vertical (Stacked)</option>
+            </select>
+        </div>
+        
+        <div class="control-group">
+            <button onclick="updateDisplay()">🔄 Update Display</button>
+            <button onclick="applyToEmulator()">✅ Apply to Emulator</button>
+        </div>
+        
+        <hr style="border-color: #3a3a3a; margin: 20px 0;">
+        
+        <div class="control-group">
+            <label>📦 Load Preset</label>
+            <select id="presetSelect" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #3a3a3a; color: #fff; border-radius: 4px;">
+                <option value="">-- Select Preset --</option>
+                <option value="16x16">16×16 - Tiny Square</option>
+                <option value="16x32">16×32 - Portrait</option>
+                <option value="32x32">32×32 - Square</option>
+                <option value="64x32">64×32 - Wide</option>
+                <option value="64x64">64×64 - Large Square</option>
+            </select>
+            <button onclick="loadPreset()">Load Preset</button>
+        </div>
+        
+        <div class="control-group">
+            <label>📂 Browse Templates</label>
+            <select id="templateBrowser" size="5" 
+                    style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #3a3a3a; color: #fff; border-radius: 4px; margin-bottom: 5px;">
+                <option>Loading templates...</option>
+            </select>
+            <button onclick="loadSelectedTemplate()">Load Template</button>
+        </div>
+        
+        <div class="control-group">
+            <label>💾 Save Template As</label>
+            <input type="text" id="saveFilename" placeholder="my_custom_layout.yml"
+                   style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #3a3a3a; color: #fff; border-radius: 4px; margin-bottom: 5px;">
+            <button onclick="saveTemplate()">Save to Server</button>
+        </div>
+        
+        <div class="control-group">
+            <label>📥 Import from File</label>
+            <input type="file" id="templateFile" accept=".json,.yml,.yaml" 
+                   style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #3a3a3a; color: #fff; border-radius: 4px;">
+            <button onclick="importFromFile()">Import</button>
+        </div>
+        
+        <hr style="border-color: #3a3a3a; margin: 20px 0;">
+        
+        <div class="control-group">
+            <label>
+                <input type="checkbox" id="snapGrid" checked onchange="toggleSnap()" 
+                       style="margin-right: 8px;">
+                📐 Snap to Grid (2px)
+            </label>
+        </div>
+        
+        <div class="control-group">
+            <label>Zoom Level</label>
+            <select id="zoomLevel" onchange="changeZoom()" 
+                    style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #3a3a3a; color: #fff; border-radius: 4px;">
+                <option value="6">6× (Small)</option>
+                <option value="8">8× (Medium)</option>
+                <option value="10" selected>10× (Large)</option>
+                <option value="12">12× (XL)</option>
+                <option value="15">15× (XXL)</option>
+            </select>
+        </div>
+        
+        <hr style="border-color: #3a3a3a; margin: 20px 0;">
+        
+        <div class="element-palette">
+            <h3>📦 Elements</h3>
+            <div class="palette-item" draggable="true" data-type="text">
+                📝 Text Element
+            </div>
+            <div class="palette-item" draggable="true" data-type="logo">
+                🖼️ Logo Element
+            </div>
+            <div class="palette-item" draggable="true" data-type="score">
+                🔢 Score Element
+            </div>
+        </div>
+        
+        <div class="properties" id="properties">
+            <h3>Properties</h3>
+            <p style="color: #666; font-size: 0.85rem;">Select an element to edit properties</p>
+        </div>
+    </div>
+    
+    <div class="canvas-area">
+        <div class="toolbar">
+            <div style="display: flex; gap: 5px; background: #1a1a1a; padding: 4px; border-radius: 6px;">
+                <button onclick="switchMode('sports')" id="btnSports" 
+                        style="padding: 8px 16px; background: #667eea; border: none; color: white; border-radius: 4px; cursor: pointer; position: relative;">
+                    🏀 Sports
+                    <span id="badgeSports" style="position: absolute; top: -6px; right: -6px; background: #4ade80; color: white; border-radius: 10px; padding: 2px 6px; font-size: 10px; font-weight: bold;">0</span>
+                </button>
+                <button onclick="switchMode('stocks')" id="btnStocks"
+                        style="padding: 8px 16px; background: #2a2a2a; border: none; color: #aaa; border-radius: 4px; cursor: pointer; position: relative;">
+                    📈 Stocks
+                    <span id="badgeStocks" style="position: absolute; top: -6px; right: -6px; background: #4ade80; color: white; border-radius: 10px; padding: 2px 6px; font-size: 10px; font-weight: bold;">0</span>
+                </button>
+                <button onclick="switchMode('weather')" id="btnWeather"
+                        style="padding: 8px 16px; background: #2a2a2a; border: none; color: #aaa; border-radius: 4px; cursor: pointer; position: relative;">
+                    🌤️ Weather
+                    <span id="badgeWeather" style="position: absolute; top: -6px; right: -6px; background: #4ade80; color: white; border-radius: 10px; padding: 2px 6px; font-size: 10px; font-weight: bold;">0</span>
+                </button>
+            </div>
+            <button onclick="clearCanvas()">🗑️ Clear Mode</button>
+            <button onclick="generateTemplate()">🔄 Refresh Output</button>
+            <button onclick="copyYAML()">📋 Copy YAML</button>
+            <button onclick="downloadTemplate('yaml')">⬇️ Download</button>
+            <div style="margin-left: auto; display: flex; gap: 10px; align-items: center;">
+                <span style="color: #667eea; font-weight: 600;" id="currentModeLabel">Sports Mode</span>
+                <span style="color: #aaa;" id="dimensions">64×20</span>
+                <span style="color: #4ade80; font-weight: 600;" id="elementCount">0 elements</span>
+            </div>
+        </div>
+        
+        <div class="canvas" id="canvas">
+            <div class="display-preview" id="displayPreview">
+                <!-- Elements will be placed here -->
+            </div>
+        </div>
+        
+        <div style="padding: 20px; background: #2a2a2a;">
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('yaml')">YAML (config.yml)</button>
+                <button class="tab" onclick="showTab('json')">JSON</button>
+                <button class="tab" onclick="showTab('preview')">Preview</button>
+            </div>
+            
+            <div class="code-output" id="yamlTab">
+                <pre id="yamlOutput"># Add this to your config.yml under layout_templates:
+sports:
+  canvas_width: 128
+  canvas_height: 20</pre>
+            </div>
+            
+            <div class="code-output" id="jsonTab" style="display: none;">
+                <pre id="templateOutput">{
+  "name": "custom_layout",
+  "canvas_width": 128,
+  "canvas_height": 20
+}</pre>
+            </div>
+            
+            <div class="code-output" id="previewTab" style="display: none;">
+                <pre>Element preview will appear here</pre>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let templates = {
+            sports: { elements: [], logo_enabled: true },
+            stocks: { elements: [], logo_enabled: false },
+            weather: { elements: [], logo_enabled: false }
+        };
+        let currentMode = 'sports';
+        let elements = [];
+        let selectedElement = null;
+        let scale = 10; // Display scale for visibility (increased from 4)
+        let snapToGrid = true;
+        let gridSize = 2; // Snap to 2-pixel grid
+        
+        // Initialize
+        updateDisplay();
+        loadTemplateList();
+        updateModeBadges();
+        
+        // Drag and drop from palette
+        document.querySelectorAll('.palette-item').forEach(item => {
+            item.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('elementType', item.dataset.type);
+            });
+        });
+        
+        document.getElementById('displayPreview').addEventListener('dragover', (e) => {
+            e.preventDefault();
+        });
+        
+        document.getElementById('displayPreview').addEventListener('drop', (e) => {
+            e.preventDefault();
+            const type = e.dataTransfer.getData('elementType');
+            const elementId = e.dataTransfer.getData('elementId');
+            const rect = e.currentTarget.getBoundingClientRect();
+            let x = Math.round((e.clientX - rect.left) / scale);
+            let y = Math.round((e.clientY - rect.top) / scale);
+            
+            // Snap to grid if enabled
+            if (snapToGrid) {
+                x = Math.round(x / gridSize) * gridSize;
+                y = Math.round(y / gridSize) * gridSize;
+            }
+            
+            if (elementId) {
+                // Moving existing element
+                moveElement(parseInt(elementId), x, y);
+            } else if (type) {
+                // Adding new element from palette
+                addElement(type, x, y);
+            }
+        });
+        
+        function updateDisplay() {
+            const width = parseInt(document.getElementById('panelWidth').value);
+            const height = parseInt(document.getElementById('panelHeight').value);
+            const panels = parseInt(document.getElementById('numPanels').value);
+            const orientation = document.getElementById('orientation').value;
+            
+            let totalWidth, totalHeight;
+            if (orientation === 'horizontal') {
+                totalWidth = width * panels;
+                totalHeight = height;
+            } else {
+                totalWidth = width;
+                totalHeight = height * panels;
+            }
+            
+            const preview = document.getElementById('displayPreview');
+            preview.style.width = (totalWidth * scale) + 'px';
+            preview.style.height = (totalHeight * scale) + 'px';
+            
+            document.getElementById('dimensions').textContent = 
+                `${totalWidth}×${totalHeight} (${panels} panels)`;
+            document.getElementById('elementCount').textContent = 
+                `${elements.length} element${elements.length !== 1 ? 's' : ''}`;
+            
+            updateModeBadges();
+            renderElements();
+            generateTemplate();
+        }
+        
+        function switchMode(mode) {
+            // Save current mode's elements
+            templates[currentMode].elements = [...elements];
+            
+            // Load new mode's elements
+            currentMode = mode;
+            elements = [...templates[mode].elements];
+            
+            // Update button states
+            ['sports', 'stocks', 'weather'].forEach(m => {
+                const btn = document.getElementById('btn' + m.charAt(0).toUpperCase() + m.slice(1));
+                if (m === mode) {
+                    btn.style.background = '#667eea';
+                    btn.style.color = 'white';
+                } else {
+                    btn.style.background = '#2a2a2a';
+                    btn.style.color = '#aaa';
+                }
+            });
+            
+            // Update mode label
+            const modeNames = {
+                sports: '🏀 Sports Mode',
+                stocks: '📈 Stocks Mode',
+                weather: '🌤️ Weather Mode'
+            };
+            document.getElementById('currentModeLabel').textContent = modeNames[mode];
+            
+            // Update badges
+            updateModeBadges();
+            
+            renderElements();
+            generateTemplate();
+        }
+        
+        function updateModeBadges() {
+            ['sports', 'stocks', 'weather'].forEach(mode => {
+                const badge = document.getElementById('badge' + mode.charAt(0).toUpperCase() + mode.slice(1));
+                const count = templates[mode].elements.length;
+                badge.textContent = count;
+                badge.style.display = count > 0 ? 'block' : 'none';
+            });
+        }
+        
+        function addElement(type, x, y) {
+            const element = {
+                id: Date.now(),
+                type: type,
+                x: x,
+                y: y,
+                width: type === 'logo' ? 16 : 40,
+                height: type === 'logo' ? 16 : 10,
+                text: type === 'text' ? 'Text' : type,
+                color: '#ffffff',
+                fontSize: 10,
+                align: 'left'
+            };
+            
+            elements.push(element);
+            templates[currentMode].elements = [...elements];
+            updateModeBadges();
+            renderElements();
+            generateTemplate();
+        }
+        
+        function renderElements() {
+            const preview = document.getElementById('displayPreview');
+            preview.innerHTML = '';
+            
+            elements.forEach(element => {
+                const div = document.createElement('div');
+                div.className = `element ${element.type}`;
+                div.style.left = (element.x * scale) + 'px';
+                div.style.top = (element.y * scale) + 'px';
+                div.style.width = (element.width * scale) + 'px';
+                div.style.height = (element.height * scale) + 'px';
+                div.textContent = element.text;
+                div.onclick = (e) => {
+                    e.stopPropagation();
+                    selectElement(element);
+                };
+                
+                if (selectedElement && selectedElement.id === element.id) {
+                    div.classList.add('selected');
+                }
+                
+                // Make draggable
+                div.draggable = true;
+                div.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('elementId', element.id);
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+                
+                preview.appendChild(div);
+            });
+        }
+        
+        function moveElement(elementId, newX, newY) {
+            const element = elements.find(e => e.id === elementId);
+            if (element) {
+                element.x = newX;
+                element.y = newY;
+                templates[currentMode].elements = [...elements];
+                renderElements();
+                generateTemplate();
+            }
+        }
+        
+        function selectElement(element) {
+            selectedElement = element;
+            renderElements();
+            showProperties(element);
+        }
+        
+        function showProperties(element) {
+            const props = document.getElementById('properties');
+            props.innerHTML = `
+                <h3>Properties: ${element.type}</h3>
+                <div class="prop-row">
+                    <label>X Position (px)</label>
+                    <input type="number" value="${element.x}" step="${gridSize}"
+                           onchange="updateProp('x', this.value)">
+                </div>
+                <div class="prop-row">
+                    <label>Y Position (px)</label>
+                    <input type="number" value="${element.y}" step="${gridSize}"
+                           onchange="updateProp('y', this.value)">
+                </div>
+                <div class="prop-row">
+                    <label>Width</label>
+                    <input type="number" value="${element.width}" 
+                           onchange="updateProp('width', this.value)">
+                </div>
+                <div class="prop-row">
+                    <label>Height</label>
+                    <input type="number" value="${element.height}" 
+                           onchange="updateProp('height', this.value)">
+                </div>
+                <div class="prop-row">
+                    <label>Text/Label</label>
+                    <input type="text" value="${element.text}" 
+                           onchange="updateProp('text', this.value)">
+                </div>
+                <div class="prop-row">
+                    <label>Font Size</label>
+                    <input type="number" value="${element.fontSize}" 
+                           onchange="updateProp('fontSize', this.value)">
+                </div>
+                <div class="prop-row">
+                    <button onclick="deleteElement()" style="background: #ef4444;">
+                        🗑️ Delete Element
+                    </button>
+                </div>
+            `;
+        }
+        
+        function updateProp(prop, value) {
+            if (selectedElement) {
+                let val = isNaN(value) ? value : Number(value);
+                
+                // Snap position changes to grid if enabled
+                if (snapToGrid && (prop === 'x' || prop === 'y')) {
+                    val = Math.round(val / gridSize) * gridSize;
+                }
+                
+                selectedElement[prop] = val;
+                templates[currentMode].elements = [...elements];
+                renderElements();
+                generateTemplate();
+            }
+        }
+        
+        function deleteElement() {
+            if (selectedElement) {
+                elements = elements.filter(e => e.id !== selectedElement.id);
+                templates[currentMode].elements = [...elements];
+                selectedElement = null;
+                document.getElementById('properties').innerHTML = 
+                    '<h3>Properties</h3><p style="color: #666;">Select an element</p>';
+                updateModeBadges();
+                renderElements();
+                generateTemplate();
+            }
+        }
+        
+        function clearCanvas() {
+            if (confirm(`Clear all ${currentMode} elements?`)) {
+                elements = [];
+                templates[currentMode].elements = [];
+                selectedElement = null;
+                updateModeBadges();
+                renderElements();
+                generateTemplate();
+            }
+        }
+        
+        function generateTemplate() {
+            // Save current mode's elements
+            templates[currentMode].elements = [...elements];
+            
+            const width = parseInt(document.getElementById('panelWidth').value);
+            const height = parseInt(document.getElementById('panelHeight').value);
+            const panels = parseInt(document.getElementById('numPanels').value);
+            const orientation = document.getElementById('orientation').value;
+            
+            let totalWidth, totalHeight;
+            if (orientation === 'horizontal') {
+                totalWidth = width * panels;
+                totalHeight = height;
+            } else {
+                totalWidth = width;
+                totalHeight = height * panels;
+            }
+            
+            // Generate unified YAML format with all modes
+            let yaml = `# ${totalWidth}×${totalHeight} Unified Layout Template\n`;
+            yaml += `# Contains layouts for all modes\n\n`;
+            
+            ['sports', 'stocks', 'weather'].forEach(mode => {
+                const modeData = templates[mode];
+                yaml += `# === ${mode.toUpperCase()} MODE ===\n`;
+                yaml += `${mode}:\n`;
+                yaml += `  canvas_width: ${totalWidth}\n`;
+                yaml += `  canvas_height: ${totalHeight}\n`;
+                yaml += `  logo_enabled: ${modeData.elements.some(e => e.type === 'logo')}\n`;
+                
+                if (modeData.elements.length > 0) {
+                    yaml += `  one_item:\n`;
+                    modeData.elements.forEach(element => {
+                        const key = element.text.toLowerCase().replace(/\s+/g, '_');
+                        yaml += `    ${key}:\n`;
+                        yaml += `      x: ${element.x}\n`;
+                        yaml += `      y: ${element.y}\n`;
+                        if (element.type === 'logo') {
+                            yaml += `      width: ${element.width}\n`;
+                            yaml += `      height: ${element.height}\n`;
+                        } else {
+                            yaml += `      font_size: ${element.fontSize}\n`;
+                            yaml += `      color: "${element.color}"\n`;
+                            yaml += `      align: ${element.align}\n`;
+                        }
+                    });
+                }
+                yaml += `\n`;
+            });
+            
+            document.getElementById('yamlOutput').textContent = yaml;
+            
+            // Also generate JSON format
+            const template = {
+                name: "custom_layout",
+                canvas_width: totalWidth,
+                canvas_height: totalHeight,
+                logo_enabled: elements.some(e => e.type === 'logo'),
+                single_game: {}
+            };
+            
+            elements.forEach(element => {
+                const key = element.text.toLowerCase().replace(/\s+/g, '_');
+                template.single_game[key] = {
+                    x: element.x,
+                    y: element.y,
+                    width: element.width,
+                    height: element.height,
+                    font_size: element.fontSize,
+                    color: element.color,
+                    align: element.align
+                };
+            });
+            
+            document.getElementById('templateOutput').textContent = 
+                JSON.stringify(template, null, 2);
+        }
+        
+        function downloadTemplate(format = 'yaml') {
+            let content, filename, mimeType;
+            
+            if (format === 'yaml') {
+                content = document.getElementById('yamlOutput').textContent;
+                filename = 'layout_template.yml';
+                mimeType = 'text/yaml';
+            } else {
+                content = document.getElementById('templateOutput').textContent;
+                filename = 'layout_template.json';
+                mimeType = 'application/json';
+            }
+            
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+        }
+        
+        function copyYAML() {
+            const yaml = document.getElementById('yamlOutput').textContent;
+            navigator.clipboard.writeText(yaml).then(() => {
+                alert('✅ YAML copied to clipboard! Paste it into your config.yml');
+            }).catch(err => {
+                alert('❌ Could not copy: ' + err);
+            });
+        }
+        
+        function applyToEmulator() {
+            const width = parseInt(document.getElementById('panelWidth').value);
+            const height = parseInt(document.getElementById('panelHeight').value);
+            const panels = parseInt(document.getElementById('numPanels').value);
+            const orientation = document.getElementById('orientation').value;
+            
+            fetch('/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    panel_width: width,
+                    panel_height: height,
+                    num_panels: panels,
+                    orientation: orientation
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                alert('✅ Configuration applied! Restart emulator to see changes.');
+            })
+            .catch(err => {
+                alert('⚠️ Could not apply config: ' + err);
+            });
+        }
+        
+        function showTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            document.getElementById('yamlTab').style.display = 
+                tab === 'yaml' ? 'block' : 'none';
+            document.getElementById('jsonTab').style.display = 
+                tab === 'json' ? 'block' : 'none';
+            document.getElementById('previewTab').style.display = 
+                tab === 'preview' ? 'block' : 'none';
+        }
+        
+        function loadPreset() {
+            const preset = document.getElementById('presetSelect').value;
+            if (!preset) {
+                alert('Please select a preset first');
+                return;
+            }
+            
+            const presets = getPresetData();
+            if (typeof presets[preset] === 'string') {
+                // Message pointing to template browser
+                alert(presets[preset]);
+                return;
+            }
+            
+            if (presets[preset]) {
+                loadTemplateData(presets[preset]);
+                alert(`✅ Loaded ${preset} preset!`);
+            }
+        }
+        
+        function getPresetData() {
+            // These match the unified template files
+            return {
+                '16x16': {
+                    sports: {
+                        canvas_width: 16,
+                        canvas_height: 16,
+                        logo_enabled: false,
+                        one_item: {
+                            away_text: { x: 1, y: 1, font_size: 6, color: 'away_team' },
+                            away_score: { x: 1, y: 7, font_size: 6, color: 'away_team' },
+                            home_text: { x: 1, y: 9, font_size: 6, color: 'home_team' },
+                            home_score: { x: 1, y: 15, font_size: 6, color: 'home_team' },
+                        }
+                    },
+                    stocks: {
+                        canvas_width: 16,
+                        canvas_height: 16,
+                        logo_enabled: false,
+                        one_item: {
+                            symbol: { x: 1, y: 1, font_size: 6, color: 'white' },
+                            price: { x: 1, y: 7, font_size: 6, color: 'change_color' },
+                            change: { x: 1, y: 13, font_size: 6, color: 'change_color' },
+                        }
+                    },
+                    weather: {
+                        canvas_width: 16,
+                        canvas_height: 16,
+                        logo_enabled: false,
+                        one_item: {
+                            temperature: { x: 2, y: 4, font_size: 8, color: 'white' },
+                            condition_short: { x: 1, y: 12, font_size: 6, color: 'cyan' },
+                        }
+                    }
+                },
+                '16x32': {
+                    canvas_width: 16,
+                    canvas_height: 32,
+                    logo_enabled: false,
+                    single_game: {
+                        away_text: { x: 1, y: 2, font_size: 8, color: 'away_team' },
+                        away_score: { x: 1, y: 10, font_size: 8, color: 'away_team' },
+                        home_text: { x: 1, y: 18, font_size: 8, color: 'home_team' },
+                        home_score: { x: 1, y: 26, font_size: 8, color: 'home_team' },
+                    }
+                },
+                '32x32': 'Use template browser to load 32x32.yml',
+                '64x32': 'Use template browser to load 64x32.yml',
+                '64x64': 'Use template browser to load 64x64.yml',
+            };
+        }
+        
+        function loadTemplateList() {
+            fetch('/templates')
+                .then(r => r.json())
+                .then(data => {
+                    const browser = document.getElementById('templateBrowser');
+                    browser.innerHTML = '';
+                    
+                    if (data.templates.length === 0) {
+                        browser.innerHTML = '<option>No templates found</option>';
+                        return;
+                    }
+                    
+                    data.templates.forEach(t => {
+                        const option = document.createElement('option');
+                        option.value = t.name;
+                        option.textContent = t.name;
+                        browser.appendChild(option);
+                    });
+                })
+                .catch(err => {
+                    console.error('Failed to load template list:', err);
+                });
+        }
+        
+        function loadSelectedTemplate() {
+            const browser = document.getElementById('templateBrowser');
+            const filename = browser.value;
+            
+            if (!filename || filename === 'No templates found') {
+                alert('Please select a template first');
+                return;
+            }
+            
+            fetch(`/templates/${filename}`)
+                .then(r => r.json())
+                .then(template => {
+                    loadTemplateData(template);
+                    alert(`✅ Loaded ${filename}`);
+                })
+                .catch(err => {
+                    alert('❌ Error loading template: ' + err);
+                });
+        }
+        
+        function saveTemplate() {
+            const filename = document.getElementById('saveFilename').value.trim();
+            
+            if (!filename) {
+                alert('Please enter a filename');
+                return;
+            }
+            
+            // Save current mode's elements
+            templates[currentMode].elements = [...elements];
+            
+            // Build unified template object with all modes
+            const width = parseInt(document.getElementById('panelWidth').value);
+            const height = parseInt(document.getElementById('panelHeight').value);
+            const panels = parseInt(document.getElementById('numPanels').value);
+            const orientation = document.getElementById('orientation').value;
+            
+            let totalWidth, totalHeight;
+            if (orientation === 'horizontal') {
+                totalWidth = width * panels;
+                totalHeight = height;
+            } else {
+                totalWidth = width;
+                totalHeight = height * panels;
+            }
+            
+            const unifiedTemplate = {};
+            
+            // Build each mode section
+            ['sports', 'stocks', 'weather'].forEach(mode => {
+                const modeData = templates[mode];
+                const modeTemplate = {
+                    canvas_width: totalWidth,
+                    canvas_height: totalHeight,
+                    logo_enabled: modeData.logo_enabled
+                };
+                
+                if (modeData.elements.length > 0) {
+                    modeTemplate.one_item = {};
+                    
+                    modeData.elements.forEach(element => {
+                        const key = element.text.toLowerCase().replace(/\s+/g, '_');
+                        const spec = {
+                            x: element.x,
+                            y: element.y
+                        };
+                        
+                        if (element.type === 'logo') {
+                            spec.width = element.width;
+                            spec.height = element.height;
+                        } else {
+                            spec.font_size = element.fontSize;
+                            spec.color = element.color;
+                            spec.align = element.align;
+                        }
+                        
+                        modeTemplate.one_item[key] = spec;
+                    });
+                }
+                
+                unifiedTemplate[mode] = modeTemplate;
+            });
+            
+            fetch('/templates', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    filename: filename,
+                    template: unifiedTemplate
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`✅ Saved as ${data.filename}\n\nContains all 3 modes:\n• Sports (${templates.sports.elements.length} elements)\n• Stocks (${templates.stocks.elements.length} elements)\n• Weather (${templates.weather.elements.length} elements)\n\nTemplate is now available for use!`);
+                    loadTemplateList(); // Refresh the list
+                } else {
+                    alert('❌ Save failed: ' + data.error);
+                }
+            })
+            .catch(err => {
+                alert('❌ Error saving: ' + err);
+            });
+        }
+        
+        function importFromFile() {
+            const fileInput = document.getElementById('templateFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a template file first');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const content = e.target.result;
+                    let template;
+                    
+                    // Try JSON first
+                    try {
+                        template = JSON.parse(content);
+                    } catch {
+                        // If JSON fails, assume YAML (basic parsing)
+                        // For now, just show error since we need yaml parser
+                        alert('❌ YAML import from file not yet supported. Use the template browser instead!');
+                        return;
+                    }
+                    
+                    loadTemplateData(template);
+                    alert('✅ Template loaded successfully!');
+                } catch (err) {
+                    alert('❌ Error loading template: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+        
+        function loadTemplateData(template) {
+            // Check if this is a unified template (has sports/stocks/weather keys)
+            const isUnified = template.sports || template.stocks || template.weather;
+            
+            if (isUnified) {
+                // Load unified template with all modes
+                loadUnifiedTemplate(template);
+            } else {
+                // Load single-mode template (legacy)
+                loadSingleModeTemplate(template);
+            }
+        }
+        
+        function loadUnifiedTemplate(template) {
+            // Load all three modes from unified template
+            ['sports', 'stocks', 'weather'].forEach(mode => {
+                if (template[mode]) {
+                    const modeTemplate = template[mode];
+                    
+                    // Set dimensions from first mode
+                    if (mode === Object.keys(template)[0]) {
+                        inferPanelDimensions(modeTemplate.canvas_width, modeTemplate.canvas_height);
+                    }
+                    
+                    // Parse elements for this mode
+                    templates[mode].elements = parseTemplateElements(modeTemplate);
+                    templates[mode].logo_enabled = modeTemplate.logo_enabled || false;
+                }
+            });
+            
+            // Switch to first available mode
+            const firstMode = ['sports', 'stocks', 'weather'].find(m => template[m]);
+            if (firstMode) {
+                switchMode(firstMode);
+            }
+            
+            updateModeBadges();
+        }
+        
+        function loadSingleModeTemplate(template) {
+            // Legacy single-mode template
+            if (template.canvas_width && template.canvas_height) {
+                inferPanelDimensions(template.canvas_width, template.canvas_height);
+            }
+            
+            templates[currentMode].elements = parseTemplateElements(template);
+            templates[currentMode].logo_enabled = template.logo_enabled || false;
+            
+            elements = [...templates[currentMode].elements];
+            renderElements();
+            generateTemplate();
+        }
+        
+        function inferPanelDimensions(width, height) {
+            // Guess panel configuration (assume standard sizes)
+            let panelWidth = 64;
+            let panelHeight = 20;
+            let numPanels = 2;
+            let orientation = 'horizontal';
+            
+            // Try to detect orientation and panel count
+            if (width > height && width % 64 === 0) {
+                panelWidth = 64;
+                panelHeight = height;
+                numPanels = width / 64;
+                orientation = 'horizontal';
+            } else if (height > width && height % 20 === 0) {
+                panelWidth = width;
+                panelHeight = 20;
+                numPanels = height / 20;
+                orientation = 'vertical';
+            } else {
+                panelWidth = width;
+                panelHeight = height;
+                numPanels = 1;
+            }
+            
+            document.getElementById('panelWidth').value = panelWidth;
+            document.getElementById('panelHeight').value = panelHeight;
+            document.getElementById('numPanels').value = numPanels;
+            document.getElementById('orientation').value = orientation;
+            
+            updateDisplay();
+        }
+        
+        function parseTemplateElements(template) {
+            const elements = [];
+            let idCounter = Date.now();
+            
+            // Parse one_item section
+            if (template.one_item) {
+                Object.entries(template.one_item).forEach(([key, spec]) => {
+                    // Determine element type from key
+                    let type = 'text';
+                    if (key.includes('logo') || key.includes('icon')) type = 'logo';
+                    else if (key.includes('score')) type = 'score';
+                    
+                    const element = {
+                        id: idCounter++,
+                        type: type,
+                        x: spec.x || 0,
+                        y: spec.y || 0,
+                        width: spec.width || (type === 'logo' ? 16 : 40),
+                        height: spec.height || (type === 'logo' ? 16 : 10),
+                        text: key.replace(/_/g, ' '),
+                        color: spec.color || '#ffffff',
+                        fontSize: spec.font_size || 10,
+                        align: spec.align || 'left'
+                    };
+                    
+                    elements.push(element);
+                });
+            }
+            
+            return elements;
+        }
+    </script>
+</body>
+</html>
+

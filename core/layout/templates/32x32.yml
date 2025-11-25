@@ -1,0 +1,125 @@
+# 32×32 Layout Template - Square Display
+# All mode layouts for 32×32 square panel
+# Perfect for: Compact balanced displays
+
+# === SPORTS MODE ===
+sports:
+  canvas_width: 32
+  canvas_height: 32
+  logo_enabled: true
+  
+  one_item:
+    away_logo:
+      x: 1
+      y: 1
+      width: 8
+      height: 8
+    away_score:
+      x: 11
+      y: 2
+      font_size: 10
+      color: "away_team"
+    home_logo:
+      x: 1
+      y: 18
+      width: 8
+      height: 8
+    home_score:
+      x: 11
+      y: 19
+      font_size: 10
+      color: "home_team"
+    period:
+      x: 26
+      y: 2
+      font_size: 6
+      align: "right"
+      color: "time"
+    clock:
+      x: 26
+      y: 19
+      font_size: 6
+      align: "right"
+      color: "time"
+  
+  two_items:
+    item_height: 16
+    item_template:
+      away_text:
+        x: 1
+        y: 1
+        font_size: 8
+        color: "away_team"
+        format: "{abbr} {score}"
+      home_text:
+        x: 1
+        y: 8
+        font_size: 8
+        color: "home_team"
+        format: "{abbr} {score}"
+
+# === STOCKS MODE ===
+stocks:
+  canvas_width: 32
+  canvas_height: 32
+  logo_enabled: false
+  
+  one_item:
+    symbol:
+      x: 2
+      y: 2
+      font_size: 9
+      color: "white"
+    price:
+      x: 2
+      y: 12
+      font_size: 9
+      color: "change_color"
+    change:
+      x: 2
+      y: 22
+      font_size: 8
+      color: "change_color"
+  
+  two_items:
+    item_height: 16
+    item_template:
+      symbol:
+        x: 1
+        y: 1
+        font_size: 8
+        color: "white"
+      price:
+        x: 1
+        y: 8
+        font_size: 8
+        color: "change_color"
+
+# === WEATHER MODE ===
+weather:
+  canvas_width: 32
+  canvas_height: 32
+  logo_enabled: false
+  
+  one_item:
+    weather_icon:
+      x: 2
+      y: 2
+      width: 12
+      height: 12
+    temperature:
+      x: 16
+      y: 4
+      font_size: 10
+      color: "white"
+    condition:
+      x: 2
+      y: 16
+      font_size: 7
+      color: "cyan"
+    location:
+      x: 2
+      y: 24
+      font_size: 6
+      color: "gray"
+

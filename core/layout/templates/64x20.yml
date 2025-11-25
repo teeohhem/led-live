@@ -1,0 +1,110 @@
+# 64×20 Layout Template - iPixel Standard Panel
+# All mode layouts for single 64×20 panel
+# Perfect for: Standard iPixel setup
+
+# === SPORTS MODE ===
+sports:
+  canvas_width: 64
+  canvas_height: 20
+  logo_enabled: true
+  
+  one_item:
+    away_logo:
+      x: 2
+      y: 2
+      width: 16
+      height: 16
+    away_score:
+      x: 22
+      y: 2
+      font_size: 14
+      color: "away_team"
+    period:
+      x: 3
+      y: 2
+      font_size: 8
+      align: "right"
+      color: "time"
+    clock:
+      x: 3
+      y: 11
+      font_size: 8
+      align: "right"
+      color: "time"
+  
+  two_items:
+    item_height: 10
+    item_template:
+      away_text:
+        x: 2
+        y: 1
+        font_size: 9
+        color: "away_team"
+        format: "{abbr} {score}"
+      home_text:
+        x: 32
+        y: 1
+        font_size: 9
+        color: "home_team"
+        format: "{abbr} {score}"
+
+# === STOCKS MODE ===
+stocks:
+  canvas_width: 64
+  canvas_height: 20
+  logo_enabled: false
+  
+  one_item:
+    symbol:
+      x: 2
+      y: 2
+      font_size: 9
+      color: "white"
+    price:
+      x: 2
+      y: 10
+      font_size: 9
+      color: "change_color"
+  
+  two_items:
+    item_height: 10
+    item_template:
+      symbol:
+        x: 2
+        y: 1
+        font_size: 8
+        color: "white"
+      price:
+        x: 22
+        y: 1
+        font_size: 8
+        color: "change_color"
+      change:
+        x: 46
+        y: 1
+        font_size: 7
+        color: "change_color"
+
+# === WEATHER MODE ===
+weather:
+  canvas_width: 64
+  canvas_height: 20
+  logo_enabled: false
+  
+  one_item:
+    weather_icon:
+      x: 2
+      y: 2
+      width: 16
+      height: 16
+    temperature:
+      x: 22
+      y: 2
+      font_size: 12
+      color: "white"
+    condition:
+      x: 22
+      y: 12
+      font_size: 8
+      color: "cyan"
+

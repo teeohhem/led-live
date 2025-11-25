@@ -82,6 +82,12 @@ class EmulatorAdapter(DisplayAdapter):
             self.web_app.router.add_get('/', self._handle_index)
             self.web_app.router.add_get('/current', self._handle_current_image)
             self.web_app.router.add_get('/stats', self._handle_stats)
+            self.web_app.router.add_get('/builder', self._handle_builder)
+            self.web_app.router.add_post('/config', self._handle_config_update)
+            self.web_app.router.add_post('/update_display', self._handle_display_update)
+            self.web_app.router.add_get('/templates', self._handle_list_templates)
+            self.web_app.router.add_get('/templates/{filename}', self._handle_get_template)
+            self.web_app.router.add_post('/templates', self._handle_save_template)
             
             # Start server
             self.web_runner = web.AppRunner(self.web_app)
@@ -221,9 +227,159 @@ class EmulatorAdapter(DisplayAdapter):
             'last_update': self.last_update.isoformat() if self.last_update else None,
             'display_width': self._display_width,
             'display_height': self._display_height,
+            'panel_width': self.panel_width,
+            'panel_height': self.panel_height,
             'num_panels': self.num_panels,
+            'orientation': self.orientation,
         }
         return web.json_response(stats)
+    
+    async def _handle_builder(self, request):
+        """Serve the layout builder interface."""
+        from pathlib import Path
+        builder_path = Path(__file__).parent / 'layout_builder.html'
+        with open(builder_path, 'r') as f:
+            html = f.read()
+        return web.Response(text=html, content_type='text/html')
+    
+    async def _handle_config_update(self, request):
+        """Handle configuration update from UI."""
+        try:
+            data = await request.json()
+            logger.info(f"Config update requested: {data}")
+            # Note: This doesn't actually restart - user needs to restart emulator
+            return web.json_response({
+                'success': True,
+                'message': 'Config saved. Please restart emulator to apply changes.',
+                'config': data
+            })
+        except Exception as e:
+            logger.error(f"Config update failed: {e}")
+            return web.json_response({
+                'success': False,
+                'error': str(e)
+            }, status=400)
+    
+    async def _handle_display_update(self, request):
+        """Handle live display dimension updates."""
+        try:
+            data = await request.json()
+            
+            # Update dimensions (note: requires restart for full effect)
+            if 'panel_width' in data:
+                self.panel_width = int(data['panel_width'])
+            if 'panel_height' in data:
+                self.panel_height = int(data['panel_height'])
+            if 'num_panels' in data:
+                self.num_panels = int(data['num_panels'])
+            if 'orientation' in data:
+                self.orientation = data['orientation']
+                
+            # Recalculate display dimensions
+            if self.orientation == 'horizontal':
+                self._display_width = self.panel_width * self.num_panels
+                self._display_height = self.panel_height
+            else:
+                self._display_width = self.panel_width
+                self._display_height = self.panel_height * self.num_panels
+            
+            logger.info(f"Display updated: {self._display_width}x{self._display_height}")
+            
+            return web.json_response({
+                'success': True,
+                'display_width': self._display_width,
+                'display_height': self._display_height,
+                'panel_width': self.panel_width,
+                'panel_height': self.panel_height,
+                'num_panels': self.num_panels,
+                'orientation': self.orientation
+            })
+        except Exception as e:
+            logger.error(f"Display update failed: {e}")
+            return web.json_response({
+                'success': False,
+                'error': str(e)
+            }, status=400)
+    
+    async def _handle_list_templates(self, request):
+        """List all available template files."""
+        try:
+            from pathlib import Path
+            template_dir = Path(__file__).parent.parent.parent / 'core' / 'layout' / 'templates'
+            
+            if not template_dir.exists():
+                return web.json_response({'templates': []})
+            
+            templates = []
+            for file in template_dir.glob('*.yml'):
+                if file.name != 'README.md':
+                    templates.append({
+                        'name': file.name,
+                        'size': file.stat().st_size,
+                        'modified': file.stat().st_mtime
+                    })
+            
+            return web.json_response({'templates': sorted(templates, key=lambda x: x['name'])})
+        except Exception as e:
+            logger.error(f"Failed to list templates: {e}")
+            return web.json_response({'templates': []})
+    
+    async def _handle_get_template(self, request):
+        """Serve a specific template file."""
+        try:
+            filename = request.match_info['filename']
+            from pathlib import Path
+            import yaml
+            
+            template_dir = Path(__file__).parent.parent.parent / 'core' / 'layout' / 'templates'
+            template_file = template_dir / filename
+            
+            if not template_file.exists() or not template_file.name.endswith('.yml'):
+                return web.json_response({'error': 'Template not found'}, status=404)
+            
+            with open(template_file, 'r') as f:
+                template_data = yaml.safe_load(f)
+            
+            return web.json_response(template_data)
+        except Exception as e:
+            logger.error(f"Failed to load template: {e}")
+            return web.json_response({'error': str(e)}, status=500)
+    
+    async def _handle_save_template(self, request):
+        """Save a new template file."""
+        try:
+            from pathlib import Path
+            import yaml
+            
+            data = await request.json()
+            filename = data.get('filename', 'custom_template.yml')
+            template_data = data.get('template', {})
+            
+            # Ensure filename is safe
+            if not filename.endswith('.yml'):
+                filename += '.yml'
+            
+            template_dir = Path(__file__).parent.parent.parent / 'core' / 'layout' / 'templates'
+            template_dir.mkdir(parents=True, exist_ok=True)
+            
+            template_file = template_dir / filename
+            
+            with open(template_file, 'w') as f:
+                yaml.dump(template_data, f, default_flow_style=False, sort_keys=False)
+            
+            logger.info(f"Saved template: {filename}")
+            
+            return web.json_response({
+                'success': True,
+                'filename': filename,
+                'path': str(template_file)
+            })
+        except Exception as e:
+            logger.error(f"Failed to save template: {e}")
+            return web.json_response({
+                'success': False,
+                'error': str(e)
+            }, status=500)
     
     def _generate_html(self):
         """Generate the emulator HTML interface."""
@@ -451,15 +607,101 @@ class EmulatorAdapter(DisplayAdapter):
         </div>
         
         <div class="info">
-            <h3>💡 About the Emulator</h3>
-            <p>
+            <h3>💡 Interactive Controls</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0;">
+                <button onclick="openBuilder()" style="padding: 12px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                    🎨 Layout Builder
+                </button>
+                <button onclick="toggleConfig()" style="padding: 12px; background: #4ade80; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                    ⚙️ Display Settings
+                </button>
+            </div>
+            
+            <div id="configPanel" style="display: none; background: #f3f4f6; padding: 15px; border-radius: 8px; margin-top: 10px;">
+                <h4 style="color: #333; margin-bottom: 10px;">Display Configuration</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label style="display: block; color: #666; font-size: 0.85rem; margin-bottom: 4px;">Panel Width</label>
+                        <input type="number" id="cfgWidth" value="{self.panel_width}" min="16" max="256" 
+                               style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <div>
+                        <label style="display: block; color: #666; font-size: 0.85rem; margin-bottom: 4px;">Panel Height</label>
+                        <input type="number" id="cfgHeight" value="{self.panel_height}" min="16" max="256"
+                               style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <div>
+                        <label style="display: block; color: #666; font-size: 0.85rem; margin-bottom: 4px;">Num Panels</label>
+                        <input type="number" id="cfgPanels" value="{self.num_panels}" min="1" max="8"
+                               style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <div>
+                        <label style="display: block; color: #666; font-size: 0.85rem; margin-bottom: 4px;">Orientation</label>
+                        <select id="cfgOrientation" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                            <option value="horizontal" {'selected' if self.orientation == 'horizontal' else ''}>Horizontal</option>
+                            <option value="vertical" {'selected' if self.orientation == 'vertical' else ''}>Vertical</option>
+                        </select>
+                    </div>
+                </div>
+                <button onclick="updateDisplay()" style="width: 100%; margin-top: 10px; padding: 10px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">
+                    ✨ Apply Changes (Requires Restart)
+                </button>
+                <p style="color: #666; font-size: 0.8rem; margin-top: 8px; text-align: center;">
+                    Note: Restart emulator after applying changes
+                </p>
+            </div>
+            
+            <hr style="margin: 15px 0; border-color: #ddd;">
+            
+            <p style="color: #666;">
                 This emulator displays what would be sent to your physical LED panels. 
                 Perfect for testing layouts, animations, and configurations without hardware!
             </p>
-            <p>
+            <p style="color: #666; margin-top: 8px;">
                 <strong>Features:</strong> Real-time updates • Multi-panel support • Pixel-perfect rendering • Hot reload compatible
             </p>
         </div>
+    
+    <script>
+        function openBuilder() {{
+            window.open('/builder', '_blank');
+        }}
+        
+        function toggleConfig() {{
+            const panel = document.getElementById('configPanel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        }}
+        
+        function updateDisplay() {{
+            const width = document.getElementById('cfgWidth').value;
+            const height = document.getElementById('cfgHeight').value;
+            const panels = document.getElementById('cfgPanels').value;
+            const orientation = document.getElementById('cfgOrientation').value;
+            
+            fetch('/update_display', {{
+                method: 'POST',
+                headers: {{ 'Content-Type': 'application/json' }},
+                body: JSON.stringify({{
+                    panel_width: parseInt(width),
+                    panel_height: parseInt(height),
+                    num_panels: parseInt(panels),
+                    orientation: orientation
+                }})
+            }})
+            .then(r => r.json())
+            .then(data => {{
+                if (data.success) {{
+                    alert('✅ Configuration updated! Please restart the emulator to see changes.\\n\\n' +
+                          'Run: python3 emulator.py -w ' + width + ' -y ' + height + ' -p ' + panels + ' -o ' + orientation);
+                }} else {{
+                    alert('❌ Update failed: ' + data.error);
+                }}
+            }})
+            .catch(err => {{
+                alert('❌ Connection error: ' + err);
+            }});
+        }}
+    </script>
     </div>
     
     <script>

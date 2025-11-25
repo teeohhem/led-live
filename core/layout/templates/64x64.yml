@@ -1,0 +1,203 @@
+# 64×64 Layout Template - Large Square
+# All mode layouts for 64×64 panel
+# Perfect for: Feature-rich displays, detailed info
+
+# === SPORTS MODE ===
+sports:
+  canvas_width: 64
+  canvas_height: 64
+  logo_enabled: true
+  
+  one_item:
+    away_logo:
+      x: 4
+      y: 4
+      width: 20
+      height: 20
+    away_score:
+      x: 28
+      y: 8
+      font_size: 16
+      color: "away_team"
+    home_logo:
+      x: 4
+      y: 40
+      width: 20
+      height: 20
+    home_score:
+      x: 28
+      y: 44
+      font_size: 16
+      color: "home_team"
+    period:
+      x: 54
+      y: 8
+      font_size: 10
+      align: "right"
+      color: "time"
+    clock:
+      x: 54
+      y: 44
+      font_size: 10
+      align: "right"
+      color: "time"
+  
+  two_items:
+    item_height: 32
+    item_template:
+      away_logo:
+        x: 2
+        y: 2
+        width: 12
+        height: 12
+      away_score:
+        x: 16
+        y: 4
+        font_size: 12
+        color: "away_team"
+      home_logo:
+        x: 2
+        y: 18
+        width: 12
+        height: 12
+      home_score:
+        x: 16
+        y: 20
+        font_size: 12
+        color: "home_team"
+      period:
+        x: 56
+        y: 4
+        font_size: 8
+        align: "right"
+        color: "time"
+      clock:
+        x: 56
+        y: 20
+        font_size: 8
+        align: "right"
+        color: "time"
+  
+  four_items:
+    item_height: 16
+    item_template:
+      away_logo:
+        x: 1
+        y: 1
+        width: 8
+        height: 8
+      away_score:
+        x: 11
+        y: 2
+        font_size: 9
+        color: "away_team"
+      home_logo:
+        x: 32
+        y: 1
+        width: 8
+        height: 8
+      home_score:
+        x: 42
+        y: 2
+        font_size: 9
+        color: "home_team"
+
+# === STOCKS MODE ===
+stocks:
+  canvas_width: 64
+  canvas_height: 64
+  logo_enabled: false
+  
+  one_item:
+    symbol:
+      x: 4
+      y: 8
+      font_size: 12
+      color: "white"
+    price:
+      x: 4
+      y: 26
+      font_size: 14
+      color: "change_color"
+    change:
+      x: 4
+      y: 44
+      font_size: 10
+      color: "change_color"
+  
+  two_items:
+    item_height: 32
+    item_template:
+      symbol:
+        x: 2
+        y: 4
+        font_size: 10
+        color: "white"
+      price:
+        x: 2
+        y: 14
+        font_size: 10
+        color: "change_color"
+      change:
+        x: 2
+        y: 24
+        font_size: 9
+        color: "change_color"
+  
+  four_items:
+    item_height: 16
+    item_template:
+      symbol:
+        x: 2
+        y: 2
+        font_size: 8
+        color: "white"
+      price:
+        x: 20
+        y: 2
+        font_size: 8
+        color: "change_color"
+      change:
+        x: 44
+        y: 2
+        font_size: 7
+        color: "change_color"
+
+# === WEATHER MODE ===
+weather:
+  canvas_width: 64
+  canvas_height: 64
+  logo_enabled: false
+  
+  one_item:
+    weather_icon:
+      x: 4
+      y: 4
+      width: 24
+      height: 24
+    temperature:
+      x: 32
+      y: 8
+      font_size: 16
+      color: "white"
+    feels_like:
+      x: 32
+      y: 24
+      font_size: 10
+      color: "gray"
+    condition:
+      x: 4
+      y: 32
+      font_size: 10
+      color: "cyan"
+    humidity:
+      x: 4
+      y: 42
+      font_size: 9
+      color: "blue"
+    wind:
+      x: 4
+      y: 52
+      font_size: 9
+      color: "white"
+

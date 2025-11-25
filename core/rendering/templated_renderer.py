@@ -7,7 +7,7 @@ from PIL import Image, ImageDraw, ImageFont
 from typing import Dict, Any, Optional, Tuple, List
 import logging
 
-from core.layout import LayoutTemplate, GameLayoutTemplate, StockLayoutTemplate, ElementSpec
+from core.layout import LayoutTemplate, GameLayoutTemplate, StockLayoutTemplate, WeatherLayoutTemplate, ElementSpec
 
 logger = logging.getLogger(__name__)
 
@@ -170,13 +170,13 @@ class TemplatedSportsRenderer:
         scenario_template = self.template.get_template_for_count(num_games)
         
         if scenario_template is None:
-            logger.warning(f"No template for {num_games} games, falling back to legacy renderer")
-            # Fall back to legacy renderer when template not available
-            from core.rendering.sports_display_png import render_scoreboard, render_upcoming_games
-            if display_type == 'live':
-                return render_scoreboard(games, width=self.width, height=self.height)
-            else:
-                return render_upcoming_games(games, width=self.width, height=self.height)
+            logger.error(f"No template for {num_games} games. Add a template for {num_games} items.")
+            # Return blank image instead of crashing
+            draw = ImageDraw.Draw(img)
+            font = load_font(9)
+            draw.text((2, 5), f"No template for {num_games} games", fill=(255, 255, 0), font=font)
+            draw.text((2, 15), f"Add '{num_games}_items' to template", fill=(180, 180, 180), font=font)
+            return img
         
         # Handle single game (full template)
         if num_games == 1 and isinstance(scenario_template, GameLayoutTemplate):
@@ -192,7 +192,7 @@ class TemplatedSportsRenderer:
         draw = ImageDraw.Draw(img)
         
         # Prepare context for color resolution
-        from core.rendering.sports_display_png import get_team_color, load_team_logo
+        from .sports_helpers import get_team_color, load_team_logo
         
         league = game.get('league', '')
         away_name = game['away']
@@ -250,7 +250,7 @@ class TemplatedSportsRenderer:
     
     def _render_multi_games(self, img: Image, games: List[Dict[str, Any]], scenario_template: Dict[str, Any], display_type: str):
         """Render multiple games using repeating or per-item templates."""
-        from core.rendering.sports_display_png import get_team_color, load_team_logo
+        from .sports_helpers import get_team_color, load_team_logo
         
         draw = ImageDraw.Draw(img)
         item_height = scenario_template.get('item_height', 20)
@@ -365,10 +365,13 @@ class TemplatedStocksRenderer:
         scenario_template = self.template.get_template_for_count(num_stocks)
         
         if scenario_template is None:
-            logger.warning(f"No template for {num_stocks} stocks, falling back to legacy renderer")
-            # Fall back to legacy renderer when template not available
-            from core.rendering.stocks_display_png import render_stocks
-            return render_stocks(quotes, width=self.width, height=self.height)
+            logger.error(f"No template for {num_stocks} stocks. Add a template for {num_stocks} items.")
+            # Return helpful message instead of crashing
+            draw = ImageDraw.Draw(img)
+            font = load_font(9)
+            draw.text((2, 5), f"No template for {num_stocks} stocks", fill=(255, 255, 0), font=font)
+            draw.text((2, 15), f"Add '{num_stocks}_items' to template", fill=(180, 180, 180), font=font)
+            return img
         
         # Handle single stock
         if num_stocks == 1 and isinstance(scenario_template, StockLayoutTemplate):
@@ -450,4 +453,120 @@ class TemplatedStocksRenderer:
                 change_text = f"{arrow}{abs(change_pct):.1f}%"
                 spec = stock_template.change or stock_template.change_percent
                 render_element_text(draw, offset_spec(spec, y_offset), change_text, context, self.width)
+
+
+class TemplatedWeatherRenderer:
+    """
+    Renders weather information using layout templates.
+    """
+    
+    def __init__(self, layout_template: LayoutTemplate):
+        self.template = layout_template
+        self.width = layout_template.canvas_width
+        self.height = layout_template.canvas_height
+    
+    def render_weather(self, current_weather: Dict[str, Any], forecasts: List[Dict[str, Any]] = None) -> Image.Image:
+        """
+        Render weather display using appropriate template.
+        
+        Args:
+            current_weather: Current weather data dict
+            forecasts: Optional list of forecast dicts
+        
+        Returns:
+            PIL Image
+        """
+        img = Image.new('RGB', (self.width, self.height), color=(0, 0, 0))
+        
+        if not current_weather:
+            draw = ImageDraw.Draw(img)
+            font = load_font(9)
+            draw.text((2, 15), "No Weather Data", fill=(180, 180, 180), font=font)
+            return img
+        
+        # Use one_item template for current weather
+        template = self.template.one_item
+        
+        if template is None or not isinstance(template, WeatherLayoutTemplate):
+            logger.error("No weather template defined")
+            draw = ImageDraw.Draw(img)
+            font = load_font(9)
+            draw.text((2, 5), "No weather template", fill=(255, 255, 0), font=font)
+            draw.text((2, 15), "Add 'one_item' to template", fill=(180, 180, 180), font=font)
+            return img
+        
+        self._render_current_weather(img, current_weather, template)
+        
+        return img
+    
+    def _render_current_weather(self, img: Image, weather: Dict[str, Any], template: WeatherLayoutTemplate):
+        """Render current weather with template."""
+        draw = ImageDraw.Draw(img)
+        
+        # Get temperature-based color
+        temp = weather.get('temp', 70)
+        if temp <= 45:
+            temp_color = (0, 100, 255)  # Blue (cold)
+        elif temp <= 60:
+            temp_color = (255, 140, 0)  # Orange (cool)
+        else:
+            temp_color = (255, 255, 0)  # Yellow (warm)
+        
+        context = {'temp_color': temp_color}
+        
+        # Render weather icon
+        if template.weather_icon:
+            from core.data.weather_data import load_weather_icon
+            icon = load_weather_icon(
+                weather.get('condition', 'clear'),
+                size=(template.weather_icon.width or 16, template.weather_icon.height or 16)
+            )
+            if icon:
+                render_element_logo(img, template.weather_icon, icon)
+        
+        # Render temperature
+        if template.temperature:
+            temp_text = f"{weather.get('temp', '--')}°F"
+            color = resolve_color(template.temperature.color, context) if template.temperature.color != 'white' else temp_color
+            spec_with_color = template.temperature
+            render_element_text(draw, spec_with_color, temp_text, {'temp_color': color}, self.width)
+        
+        # Render feels like
+        if template.feels_like and 'feels_like' in weather:
+            feels_text = f"Feels {weather['feels_like']}°"
+            render_element_text(draw, template.feels_like, feels_text, context, self.width)
+        
+        # Render condition
+        if template.condition:
+            condition_text = weather.get('description', weather.get('condition', 'N/A'))
+            render_element_text(draw, template.condition, condition_text, context, self.width)
+        
+        # Render short condition (for small displays)
+        if template.condition_short:
+            condition = weather.get('condition', 'clear')
+            short_text = condition[:4].upper()  # First 4 chars
+            render_element_text(draw, template.condition_short, short_text, context, self.width)
+        
+        # Render location
+        if template.location and 'city' in weather:
+            render_element_text(draw, template.location, weather['city'], context, self.width)
+        
+        # Render humidity
+        if template.humidity and 'humidity' in weather:
+            humidity_text = f"{weather['humidity']}%"
+            render_element_text(draw, template.humidity, humidity_text, context, self.width)
+        
+        # Render wind
+        if template.wind and 'wind_speed' in weather:
+            wind_text = f"{weather['wind_speed']}mph"
+            render_element_text(draw, template.wind, wind_text, context, self.width)
+        
+        # Render high/low temps
+        if template.high_temp and 'temp_max' in weather:
+            high_text = f"H{weather['temp_max']}°"
+            render_element_text(draw, template.high_temp, high_text, context, self.width)
+        
+        if template.low_temp and 'temp_min' in weather:
+            low_text = f"L{weather['temp_min']}°"
+            render_element_text(draw, template.low_temp, low_text, context, self.width)
 

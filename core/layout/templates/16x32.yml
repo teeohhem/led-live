@@ -1,0 +1,110 @@
+# 16×32 Layout Template - Portrait
+# All mode layouts for 16×32 panel
+# Perfect for: Vertical displays, narrow panels
+
+# === SPORTS MODE ===
+sports:
+  canvas_width: 16
+  canvas_height: 32
+  logo_enabled: false
+  
+  one_item:
+    away_text:
+      x: 1
+      y: 2
+      font_size: 8
+      color: "away_team"
+      format: "{abbr}"
+    away_score:
+      x: 1
+      y: 10
+      font_size: 8
+      color: "away_team"
+    home_text:
+      x: 1
+      y: 18
+      font_size: 8
+      color: "home_team"
+      format: "{abbr}"
+    home_score:
+      x: 1
+      y: 26
+      font_size: 8
+      color: "home_team"
+  
+  two_items:
+    item_height: 16
+    item_template:
+      away_text:
+        x: 1
+        y: 1
+        font_size: 7
+        color: "away_team"
+        format: "{abbr} {score}"
+      home_text:
+        x: 1
+        y: 8
+        font_size: 7
+        color: "home_team"
+        format: "{abbr} {score}"
+
+# === STOCKS MODE ===
+stocks:
+  canvas_width: 16
+  canvas_height: 32
+  logo_enabled: false
+  
+  one_item:
+    symbol:
+      x: 1
+      y: 2
+      font_size: 8
+      color: "white"
+    price:
+      x: 1
+      y: 12
+      font_size: 8
+      color: "change_color"
+    change:
+      x: 1
+      y: 22
+      font_size: 7
+      color: "change_color"
+  
+  two_items:
+    item_height: 16
+    item_template:
+      symbol:
+        x: 1
+        y: 1
+        font_size: 7
+        color: "white"
+      price:
+        x: 1
+        y: 8
+        font_size: 7
+        color: "change_color"
+
+# === WEATHER MODE ===
+weather:
+  canvas_width: 16
+  canvas_height: 32
+  logo_enabled: false
+  
+  one_item:
+    weather_icon:
+      x: 1
+      y: 2
+      width: 14
+      height: 14
+    temperature:
+      x: 2
+      y: 18
+      font_size: 8
+      color: "white"
+    condition:
+      x: 1
+      y: 26
+      font_size: 6
+      color: "cyan"
+

@@ -8,7 +8,8 @@ import logging
 
 from .base_mode import BaseMode
 from core.data import fetch_current_weather, fetch_hourly_forecast, fetch_daily_forecast
-from core.rendering import render_weather
+from core.layout import LayoutLoader
+from core.rendering.templated_renderer import TemplatedWeatherRenderer
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,18 @@ class WeatherMode(BaseMode):
         self.check_interval = config.get('WEATHER_CHECK_INTERVAL', 300)
         self.refresh_interval = config.get('DISPLAY_WEATHER_REFRESH_INTERVAL', 2)
         self.forecast_mode = config.get('WEATHER_FORECAST_MODE', 'daily')
+        
+        # Load layout template (required)
+        try:
+            from config import get_all_config
+            config_dict = get_all_config()
+            loader = LayoutLoader(config_dict)
+            layout_template = loader.get_template('weather')
+            self.layout_renderer = TemplatedWeatherRenderer(layout_template)
+            logger.info("Using templated weather renderer")
+        except Exception as e:
+            logger.error(f"Failed to load layout template: {e}")
+            raise RuntimeError("Weather mode requires layout templates. Check core/layout/templates/")
     
     async def fetch_data(self) -> bool:
         """Fetch weather data."""
@@ -76,11 +89,9 @@ class WeatherMode(BaseMode):
     
     async def render(self, width: int, height: int) -> Optional[Image.Image]:
         """Render weather display."""
-        return render_weather(
+        return self.layout_renderer.render_weather(
             self.current_weather,
-            self.forecasts,
-            width=width,
-            height=height
+            self.forecasts
         )
     
     def has_priority(self) -> bool:

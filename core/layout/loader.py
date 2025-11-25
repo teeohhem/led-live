@@ -1,11 +1,19 @@
 """
-Layout template loader with built-in defaults.
+Layout template loader with file-based templates and defaults.
+
+Templates are loaded from core/layout/templates/ directory.
+Auto-detects based on display dimensions.
 """
 from typing import Dict, Any, Optional
+from pathlib import Path
+import yaml
 import logging
 from .template import LayoutTemplate, GameLayoutTemplate, StockLayoutTemplate, ElementSpec
 
 logger = logging.getLogger(__name__)
+
+# Template directory
+TEMPLATE_DIR = Path(__file__).parent / 'templates'
 
 
 class LayoutLoader:
@@ -78,8 +86,32 @@ class LayoutLoader:
         """
         Get default layout template for a mode.
         
-        These defaults replicate the current hardcoded behavior.
+        Priority:
+        1. Unified template file ({width}x{height}.yml) - contains all modes
+        2. Mode-specific template file ({width}x{height}_{mode}.yml) - legacy
+        3. Generic mode template ({mode}.yml)
+        4. Hardcoded defaults
         """
+        # Try unified template file first (NEW - best practice)
+        unified_file = TEMPLATE_DIR / f"{width}x{height}.yml"
+        if unified_file.exists():
+            logger.info(f"Loading {mode} template from unified {unified_file.name}")
+            return self._load_unified_template_file(unified_file, mode, width, height)
+        
+        # Try dimension-specific mode template file (legacy)
+        template_file = TEMPLATE_DIR / f"{width}x{height}_{mode}.yml"
+        if template_file.exists():
+            logger.info(f"Loading template from {template_file.name}")
+            return self._load_template_file(template_file, width, height, mode)
+        
+        # Try generic mode template file
+        generic_file = TEMPLATE_DIR / f"{mode}.yml"
+        if generic_file.exists():
+            logger.info(f"Loading template from {generic_file.name}")
+            return self._load_template_file(generic_file, width, height, mode)
+        
+        # Fall back to hardcoded defaults
+        logger.debug(f"Using hardcoded default for {mode} ({width}×{height})")
         if mode == 'sports':
             return self._get_default_sports_template(width, height)
         elif mode == 'stocks':
@@ -87,6 +119,101 @@ class LayoutLoader:
         else:
             # Generic default
             return LayoutTemplate(mode=mode, canvas_width=width, canvas_height=height)
+    
+    def _load_unified_template_file(self, file_path: Path, mode: str, width: int, height: int) -> LayoutTemplate:
+        """
+        Load a specific mode's template from a unified template file.
+        
+        Unified files contain all modes in one file:
+        sports:
+          canvas_width: 64
+          # ...
+        stocks:
+          canvas_width: 64
+          # ...
+        
+        Args:
+            file_path: Path to unified template YAML file
+            mode: Which mode to extract (sports, stocks, weather)
+            width: Canvas width (used if not in file)
+            height: Canvas height (used if not in file)
+        
+        Returns:
+            LayoutTemplate instance for the specified mode
+        """
+        try:
+            with open(file_path, 'r') as f:
+                all_templates = yaml.safe_load(f)
+            
+            if mode not in all_templates:
+                logger.warning(f"Mode '{mode}' not found in {file_path.name}, using defaults")
+                return LayoutTemplate(mode=mode, canvas_width=width, canvas_height=height)
+            
+            template_dict = all_templates[mode]
+            
+            return LayoutTemplate.from_dict(
+                mode=mode,
+                data=template_dict,
+                canvas_width=template_dict.get('canvas_width', width),
+                canvas_height=template_dict.get('canvas_height', height)
+            )
+        except Exception as e:
+            logger.error(f"Failed to load {mode} from {file_path}: {e}")
+            return LayoutTemplate(mode=mode, canvas_width=width, canvas_height=height)
+    
+    def _load_template_file(self, file_path: Path, width: int, height: int, mode: str = None) -> LayoutTemplate:
+        """
+        Load a template from a mode-specific YAML file (legacy format).
+        
+        Args:
+            file_path: Path to template YAML file
+            width: Canvas width (used if not in file)
+            height: Canvas height (used if not in file)
+            mode: Mode name (inferred from filename if not provided)
+        
+        Returns:
+            LayoutTemplate instance
+        """
+        try:
+            with open(file_path, 'r') as f:
+                template_dict = yaml.safe_load(f)
+            
+            # Infer mode from filename if not specified
+            if mode is None:
+                mode = file_path.stem.split('_')[-1]  # e.g., "64x32_sports" -> "sports"
+            
+            return LayoutTemplate.from_dict(
+                mode=mode,
+                data=template_dict,
+                canvas_width=template_dict.get('canvas_width', width),
+                canvas_height=template_dict.get('canvas_height', height)
+            )
+        except Exception as e:
+            logger.error(f"Failed to load template from {file_path}: {e}")
+            # Return basic default
+            return LayoutTemplate(mode=mode or 'unknown', canvas_width=width, canvas_height=height)
+    
+    def list_available_templates(self, mode: Optional[str] = None) -> list:
+        """
+        List all available template files.
+        
+        Args:
+            mode: Optional mode filter (e.g., 'sports')
+        
+        Returns:
+            List of template filenames
+        """
+        if not TEMPLATE_DIR.exists():
+            return []
+        
+        templates = []
+        for file in TEMPLATE_DIR.glob('*.yml'):
+            if file.name == 'README.md':
+                continue
+            if mode is None or mode in file.stem:
+                templates.append(file.name)
+        
+        return sorted(templates)
     
     def _get_default_sports_template(self, width: int, height: int) -> LayoutTemplate:
         """

@@ -1,0 +1,9 @@
+# User-created custom templates (optional - you can commit them if you want)
+# Only ignore completely custom ones if desired
+# Standard presets should be committed
+
+# Ignore any backup files
+*.bak
+*.backup
+*~
+
