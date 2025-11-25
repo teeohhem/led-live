@@ -91,6 +91,7 @@ class EmulatorAdapter(DisplayAdapter):
             self.web_app.router.add_get('/api/sports', self._handle_get_sports_data)
             self.web_app.router.add_get('/api/stocks', self._handle_get_stocks_data)
             self.web_app.router.add_get('/api/weather', self._handle_get_weather_data)
+            self.web_app.router.add_post('/api/preview', self._handle_render_preview)
             
             # Start server
             self.web_runner = web.AppRunner(self.web_app)
@@ -445,6 +446,77 @@ class EmulatorAdapter(DisplayAdapter):
             logger.debug(f"Using sample weather data: {e}")
         
         return web.json_response({'weather': sample_weather})
+    
+    async def _handle_render_preview(self, request):
+        """Render a template preview using actual renderer."""
+        try:
+            import io
+            from core.layout import LayoutTemplate
+            from core.rendering.templated_renderer import (
+                TemplatedSportsRenderer, 
+                TemplatedStocksRenderer,
+                TemplatedWeatherRenderer
+            )
+            
+            data = await request.json()
+            mode = data.get('mode', 'sports')
+            template_dict = data.get('template', {})
+            scenario = data.get('scenario', 'one_item')
+            
+            # Get sample data
+            if mode == 'sports':
+                sample_data = [
+                    {'home': 'DET', 'away': 'BOS', 'home_score': 95, 'away_score': 102, 
+                     'clock': '2:45', 'period': 'Q4', 'league': 'NBA', 'state': 'inProgress'},
+                    {'home': 'LAL', 'away': 'GSW', 'home_score': 88, 'away_score': 91,
+                     'clock': '5:12', 'period': 'Q3', 'league': 'NBA', 'state': 'inProgress'},
+                ]
+            elif mode == 'stocks':
+                sample_data = [
+                    {'symbol': 'AAPL', 'price': 195.50, 'change_percent': 2.3, 'is_up': True},
+                    {'symbol': 'TSLA', 'price': 245.10, 'change_percent': -1.2, 'is_up': False},
+                ]
+            else:  # weather
+                sample_data = {
+                    'temp': 45, 'feels_like': 42, 'temp_max': 50, 'temp_min': 38,
+                    'condition': 'clouds', 'description': 'Cloudy', 'city': 'Brighton',
+                    'humidity': 65, 'wind_speed': 10
+                }
+            
+            # Create template from dict
+            width = template_dict.get('canvas_width', 64)
+            height = template_dict.get('canvas_height', 20)
+            template = LayoutTemplate.from_dict(mode, template_dict, width, height)
+            
+            # Render using actual renderer
+            if mode == 'sports':
+                renderer = TemplatedSportsRenderer(template)
+                # Get number of games based on scenario
+                num_games = {'one_item': 1, 'two_items': 2, 'three_items': 3, 'four_items': 4}.get(scenario, 1)
+                image = renderer.render_games(sample_data[:num_games], display_type='live')
+            elif mode == 'stocks':
+                renderer = TemplatedStocksRenderer(template)
+                num_stocks = {'one_item': 1, 'two_items': 2, 'four_items': 4}.get(scenario, 1)
+                image = renderer.render_stocks(sample_data[:num_stocks])
+            else:  # weather
+                renderer = TemplatedWeatherRenderer(template)
+                image = renderer.render_weather(sample_data)
+            
+            # Convert to PNG bytes
+            buffer = io.BytesIO()
+            image.save(buffer, format='PNG')
+            buffer.seek(0)
+            
+            return web.Response(body=buffer.getvalue(), content_type='image/png')
+            
+        except Exception as e:
+            logger.error(f"Preview render failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return web.json_response({
+                'error': str(e),
+                'traceback': traceback.format_exc()
+            }, status=500)
     
     def _generate_html(self):
         """Generate the emulator HTML interface."""

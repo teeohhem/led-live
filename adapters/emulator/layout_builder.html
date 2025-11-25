@@ -419,7 +419,7 @@
         
         <div class="control-group">
             <label>
-                <input type="checkbox" id="snapGrid" onchange="toggleSnap()" 
+                <input type="checkbox" id="snapGrid" onchange="toggleSnap()" checked readonly" 
                        style="margin-right: 8px;">
                 📐 Snap to Grid (2px)
             </label>
@@ -515,15 +515,18 @@ sports:
             </div>
             
             <div class="code-output" id="previewTab" style="display: none;">
-                <div style="text-align: center; margin-bottom: 10px;">
-                    <button onclick="loadPreviewData()" style="padding: 10px 20px; background: #4ade80; border: none; color: white; border-radius: 6px; cursor: pointer; font-weight: 600;">
-                        🔄 Fetch Real Data
+                <div style="text-align: center; margin-bottom: 15px;">
+                    <button onclick="refreshPreview()" style="padding: 10px 20px; background: #4ade80; border: none; color: white; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                        🔄 Refresh Preview
                     </button>
+                    <p style="color: #aaa; font-size: 0.85rem; margin-top: 8px;">
+                        Uses actual templated renderer (same as emulator)
+                    </p>
                 </div>
-                <div id="previewContainer" style="text-align: center; padding: 20px;">
-                    <canvas id="previewCanvas" style="border: 2px solid #667eea; background: #000; image-rendering: pixelated;"></canvas>
+                <div id="previewContainer" style="text-align: center; padding: 20px; background: #1a1a1a; border-radius: 8px;">
+                    <img id="previewImage" style="border: 2px solid #667eea; background: #000; image-rendering: pixelated; max-width: 100%;">
                     <p style="color: #aaa; font-size: 0.85rem; margin-top: 10px;" id="previewStatus">
-                        Click "Fetch Real Data" to see live preview
+                        Click "Refresh Preview" to see actual rendered output
                     </p>
                 </div>
             </div>
@@ -794,9 +797,9 @@ sports:
             // Update badges
             updateModeBadges();
             
-            // Reload preview data for new mode
-            if (previewData) {
-                loadPreviewData();
+            // Reload preview for new mode if visible
+            if (document.getElementById('previewTab').style.display !== 'none') {
+                refreshPreview();
             }
             
             renderElements();
@@ -831,8 +834,8 @@ sports:
             }
             
             // Refresh preview if visible
-            if (previewData) {
-                renderPreview(previewData);
+            if (document.getElementById('previewTab').style.display !== 'none') {
+                refreshPreview();
             }
             
             renderElements();
@@ -1111,8 +1114,8 @@ sports:
             templates[currentMode][currentScenario].elements = [...elements];
             
             // Auto-refresh preview if it's visible
-            if (document.getElementById('previewTab').style.display !== 'none' && previewData) {
-                renderPreview(previewData);
+            if (document.getElementById('previewTab').style.display !== 'none') {
+                refreshPreview();
             }
             
             const width = parseInt(document.getElementById('panelWidth').value);
@@ -1291,48 +1294,142 @@ sports:
             document.getElementById('previewTab').style.display = 
                 tab === 'preview' ? 'block' : 'none';
             
-            // Auto-load preview when switching to preview tab
+            // Auto-refresh preview when switching to preview tab
             if (tab === 'preview') {
-                loadPreviewData();
+                refreshPreview();
             }
         }
         
-        async function loadPreviewData() {
+        async function refreshPreview() {
             const status = document.getElementById('previewStatus');
-            status.textContent = 'Loading preview data...';
+            const previewImg = document.getElementById('previewImage');
+            status.textContent = 'Rendering preview...';
             
             try {
-                // Try to fetch real data from API
-                let data;
+                // Save current scenario
+                templates[currentMode][currentScenario].elements = [...elements];
                 
-                try {
-                    let response;
-                    if (currentMode === 'sports') {
-                        response = await fetch('/api/sports');
-                    } else if (currentMode === 'stocks') {
-                        response = await fetch('/api/stocks');
-                    } else if (currentMode === 'weather') {
-                        response = await fetch('/api/weather');
-                    }
-                    
-                    if (response && response.ok) {
-                        data = await response.json();
-                    } else {
-                        throw new Error('API not available');
-                    }
-                } catch (apiError) {
-                    // Use sample data if API fails
-                    console.log('Using sample data:', apiError.message);
-                    data = getSampleData(currentMode);
+                // Build template dict for current mode
+                const width = parseInt(document.getElementById('panelWidth').value);
+                const height = parseInt(document.getElementById('panelHeight').value);
+                const panels = parseInt(document.getElementById('numPanels').value);
+                const orientation = document.getElementById('orientation').value;
+                
+                let totalWidth, totalHeight;
+                if (orientation === 'horizontal') {
+                    totalWidth = width * panels;
+                    totalHeight = height;
+                } else {
+                    totalWidth = width;
+                    totalHeight = height * panels;
                 }
                 
-                previewData = data; // Cache it
-                renderPreview(data);
-                status.textContent = `✅ Preview with ${currentMode} data (auto-updates as you edit)`;
+                const templateDict = buildTemplateDict(currentMode, totalWidth, totalHeight);
+                
+                // Send to server for rendering
+                const response = await fetch('/api/preview', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        mode: currentMode,
+                        template: templateDict,
+                        scenario: currentScenario
+                    })
+                });
+                
+                if (!response.ok) {
+                    // Try to get error message
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        const error = await response.json();
+                        throw new Error(error.error || 'Render failed');
+                    } else {
+                        const text = await response.text();
+                        throw new Error(`Server error: ${text}`);
+                    }
+                }
+                
+                // Check if response is an image
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('image')) {
+                    const text = await response.text();
+                    console.error('Unexpected response:', text);
+                    throw new Error('Expected image but got: ' + contentType);
+                }
+                
+                // Get image blob
+                const blob = await response.blob();
+                const imageUrl = URL.createObjectURL(blob);
+                
+                // Display rendered image (actual output!)
+                previewImg.src = imageUrl;
+                previewImg.style.width = (totalWidth * 8) + 'px';
+                previewImg.style.height = (totalHeight * 8) + 'px';
+                
+                status.textContent = `✅ Actual rendered output from TemplatedRenderer`;
+                
             } catch (err) {
-                status.textContent = '❌ Failed to render preview: ' + err.message;
+                status.textContent = '❌ Preview failed: ' + err.message;
                 console.error('Preview error:', err);
+                
+                // Check if endpoint exists
+                if (err.message.includes('404') || err.message.includes('Not Found')) {
+                    status.textContent = '⚠️ Restart emulator to enable live preview (new endpoint added)';
+                }
             }
+        }
+        
+        function buildTemplateDict(mode, width, height) {
+            const modeData = templates[mode];
+            const dict = {
+                canvas_width: width,
+                canvas_height: height,
+                logo_enabled: modeData.logo_enabled
+            };
+            
+            // Add current scenario
+            const scenario = modeData[currentScenario];
+            if (scenario && scenario.elements && scenario.elements.length > 0) {
+                if (currentScenario === 'one_item') {
+                    dict.one_item = {};
+                    scenario.elements.forEach(elem => {
+                        const key = elem.type;
+                        const spec = { x: elem.x, y: elem.y };
+                        
+                        if (elem.type.includes('logo') || elem.type.includes('icon')) {
+                            spec.width = elem.width;
+                            spec.height = elem.height;
+                        } else {
+                            spec.font_size = elem.fontSize;
+                            spec.color = elem.color;
+                            spec.align = elem.align;
+                        }
+                        dict.one_item[key] = spec;
+                    });
+                } else {
+                    dict[currentScenario] = {
+                        item_height: scenario.item_height || 10,
+                        item_template: {}
+                    };
+                    
+                    scenario.elements.forEach(elem => {
+                        const key = elem.type;
+                        const spec = { x: elem.x, y: elem.y };
+                        
+                        if (elem.type.includes('logo') || elem.type.includes('icon')) {
+                            spec.width = elem.width;
+                            spec.height = elem.height;
+                        } else {
+                            spec.font_size = elem.fontSize;
+                            spec.color = elem.color;
+                            spec.align = elem.align;
+                        }
+                        dict[currentScenario].item_template[key] = spec;
+                    });
+                }
+            }
+            
+            return dict;
         }
         
         function getSampleData(mode) {
@@ -1367,137 +1464,6 @@ sports:
             };
             
             return samples[mode];
-        }
-        
-        function renderPreview(data) {
-            const canvas = document.getElementById('previewCanvas');
-            const ctx = canvas.getContext('2d');
-            
-            const width = parseInt(document.getElementById('panelWidth').value);
-            const height = parseInt(document.getElementById('panelHeight').value);
-            const panels = parseInt(document.getElementById('numPanels').value);
-            const orientation = document.getElementById('orientation').value;
-            
-            let totalWidth, totalHeight;
-            if (orientation === 'horizontal') {
-                totalWidth = width * panels;
-                totalHeight = height;
-            } else {
-                totalWidth = width;
-                totalHeight = height * panels;
-            }
-            
-            // Set canvas size (scaled for visibility)
-            const previewScale = 8;
-            canvas.width = totalWidth * previewScale;
-            canvas.height = totalHeight * previewScale;
-            
-            // Clear canvas
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Render elements with real data
-            const scenario = templates[currentMode][currentScenario];
-            if (!scenario || !scenario.elements || scenario.elements.length === 0) {
-                ctx.fillStyle = '#888';
-                ctx.font = '12px sans-serif';
-                ctx.fillText('No elements in current scenario', 10, 40);
-                return;
-            }
-            
-            // Render each element with real data
-            scenario.elements.forEach(elem => {
-                const x = elem.x * previewScale;
-                const y = elem.y * previewScale;
-                const w = elem.width * previewScale;
-                const h = elem.height * previewScale;
-                
-                // Draw element background (subtle)
-                ctx.fillStyle = 'rgba(102, 126, 234, 0.05)';
-                ctx.fillRect(x, y, w, h);
-                
-                // Draw element border
-                ctx.strokeStyle = '#667eea33';
-                ctx.lineWidth = 1;
-                ctx.strokeRect(x, y, w, h);
-                
-                // Get real data value for this element
-                let text = elem.type;
-                let color = '#fff';
-                
-                if (currentMode === 'sports' && data.games && data.games[0]) {
-                    const game = data.games[0];
-                    if (elem.type === 'away_score') text = String(game.away_score);
-                    else if (elem.type === 'home_score') text = String(game.home_score);
-                    else if (elem.type.includes('away')) text = game.away;
-                    else if (elem.type.includes('home')) text = game.home;
-                    else if (elem.type === 'period') text = game.period || '';
-                    else if (elem.type === 'clock') text = game.clock || '';
-                } else if (currentMode === 'stocks' && data.quotes && data.quotes[0]) {
-                    const quote = data.quotes[0];
-                    if (elem.type === 'symbol') text = quote.symbol;
-                    else if (elem.type === 'price') text = '$' + quote.price.toFixed(2);
-                    else if (elem.type.includes('change')) {
-                        const arrow = quote.is_up ? '▲' : '▼';
-                        text = arrow + Math.abs(quote.change_percent).toFixed(1) + '%';
-                        color = quote.is_up ? '#0f0' : '#f00';
-                    }
-                } else if (currentMode === 'weather' && data.weather) {
-                    const weather = data.weather;
-                    if (elem.type === 'temperature') text = weather.temp + '°F';
-                    else if (elem.type === 'feels_like') text = 'Feels ' + weather.feels_like + '°';
-                    else if (elem.type === 'condition') text = weather.description;
-                    else if (elem.type === 'humidity') text = weather.humidity + '%';
-                    else if (elem.type === 'wind') text = weather.wind_speed + 'mph';
-                    else if (elem.type === 'location') text = weather.city;
-                }
-                
-                // Render text (if not an icon/logo element)
-                if (!elem.type.includes('icon') && !elem.type.includes('logo')) {
-                    ctx.fillStyle = color;
-                    ctx.font = `bold ${Math.max(8, elem.fontSize * previewScale / 10)}px monospace`;
-                    ctx.textBaseline = 'middle';
-                    
-                    let textX = x + 4;
-                    if (elem.align === 'right') {
-                        ctx.textAlign = 'right';
-                        textX = x + w - 4;
-                    } else if (elem.align === 'center') {
-                        ctx.textAlign = 'center';
-                        textX = x + w/2;
-                    } else {
-                        ctx.textAlign = 'left';
-                    }
-                    
-                    ctx.fillText(text, textX, y + h/2);
-                } else {
-                    // For icons/logos, show a placeholder
-                    ctx.fillStyle = '#f59e0b';
-                    ctx.font = `${Math.min(w, h) * 0.6}px sans-serif`;
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    
-                    const icon = elem.type.includes('weather') ? '🌤️' : 
-                                elem.type.includes('forecast') ? '🔮' : '🏀';
-                    ctx.fillText(icon, x + w/2, y + h/2);
-                }
-            });
-            
-            // Add helpful grid overlay
-            ctx.strokeStyle = 'rgba(102, 126, 234, 0.1)';
-            ctx.lineWidth = 1;
-            for (let i = 0; i <= totalWidth; i += 10) {
-                ctx.beginPath();
-                ctx.moveTo(i * previewScale, 0);
-                ctx.lineTo(i * previewScale, totalHeight * previewScale);
-                ctx.stroke();
-            }
-            for (let j = 0; j <= totalHeight; j += 10) {
-                ctx.beginPath();
-                ctx.moveTo(0, j * previewScale);
-                ctx.lineTo(totalWidth * previewScale, j * previewScale);
-                ctx.stroke();
-            }
         }
         
         function loadPreset() {
