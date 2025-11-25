@@ -4,6 +4,7 @@
     <title>LED Panel Layout Builder</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/interactjs@1.10.19/dist/interact.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -21,7 +22,7 @@
         
         /* Sidebar */
         .sidebar {
-            width: 300px;
+            width: 280px;
             background: #2a2a2a;
             padding: 20px;
             overflow-y: auto;
@@ -118,34 +119,61 @@
                 linear-gradient(rgba(102, 126, 234, 0.1) 1px, transparent 1px),
                 linear-gradient(90deg, rgba(102, 126, 234, 0.1) 1px, transparent 1px);
             background-size: 20px 20px;
+            min-height: 160px;
         }
         
-        /* Element Palette */
+        .display-preview.drag-over {
+            border-color: #4ade80;
+            box-shadow: 0 0 40px rgba(74, 222, 128, 0.5);
+        }
+        
+        /* Element Palette - Now below canvas */
         .element-palette {
             background: #2a2a2a;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
+            padding: 20px;
+            border-top: 2px solid #3a3a3a;
+            margin-top: 0;
         }
         
         .element-palette h3 {
-            margin-bottom: 10px;
-            font-size: 0.9rem;
+            margin-bottom: 15px;
+            font-size: 1rem;
             color: #667eea;
+            text-align: center;
+        }
+        
+        #paletteItems {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 10px;
+            max-height: 200px;
+            overflow-y: auto;
         }
         
         .palette-item {
-            padding: 8px 12px;
-            margin-bottom: 5px;
+            padding: 12px;
             background: #1a1a1a;
-            border: 1px solid #3a3a3a;
-            border-radius: 4px;
-            cursor: move;
-            font-size: 0.85rem;
+            border: 2px solid #3a3a3a;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: #ddd;
+            user-select: none;
+            text-align: center;
+            transition: all 0.2s;
         }
         
         .palette-item:hover {
             border-color: #667eea;
+            background: #222;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+        }
+        
+        .palette-item:active {
+            background: #667eea;
+            color: white;
+            transform: translateY(0);
         }
         
         /* Placed Elements */
@@ -161,12 +189,25 @@
             font-size: 10px;
             color: #667eea;
             background: rgba(102, 126, 234, 0.1);
-            transition: all 0.1s ease;
+            touch-action: none;
+            user-select: none;
         }
         
         .element:hover {
             border-width: 3px;
             background: rgba(102, 126, 234, 0.2);
+            z-index: 10;
+        }
+        
+        .element.selected {
+            border-color: #ffd700;
+            background: rgba(255, 215, 0, 0.15);
+            z-index: 20;
+        }
+        
+        .element.dragging {
+            opacity: 0.7;
+            z-index: 100;
         }
         
         .element.selected {
@@ -174,12 +215,22 @@
             background: rgba(255, 215, 0, 0.1);
         }
         
-        .element.text {
+        .element.text, .element.period, .element.clock, .element.condition, .element.location {
             border-color: #4ade80;
         }
         
-        .element.logo {
+        .element.logo, .element.weather_icon, .element.forecast_icon {
             border-color: #f59e0b;
+        }
+        
+        .element.score, .element.price, .element.symbol {
+            border-color: #667eea;
+        }
+        
+        .element.change, .element.change_percent, .element.temperature, 
+        .element.feels_like, .element.humidity, .element.wind,
+        .element.high_temp, .element.low_temp, .element.forecast_temp {
+            border-color: #ec4899;
         }
         
         /* Properties Panel */
@@ -326,10 +377,13 @@
         
         <div class="control-group">
             <label>
-                <input type="checkbox" id="snapGrid" checked onchange="toggleSnap()" 
+                <input type="checkbox" id="snapGrid" onchange="toggleSnap()" 
                        style="margin-right: 8px;">
                 📐 Snap to Grid (2px)
             </label>
+            <p style="color: #666; font-size: 0.75rem; margin-top: 4px;">
+                Tip: Disable snap for precise pixel placement
+            </p>
         </div>
         
         <div class="control-group">
@@ -345,19 +399,6 @@
         </div>
         
         <hr style="border-color: #3a3a3a; margin: 20px 0;">
-        
-        <div class="element-palette">
-            <h3>📦 Elements</h3>
-            <div class="palette-item" draggable="true" data-type="text">
-                📝 Text Element
-            </div>
-            <div class="palette-item" draggable="true" data-type="logo">
-                🖼️ Logo Element
-            </div>
-            <div class="palette-item" draggable="true" data-type="score">
-                🔢 Score Element
-            </div>
-        </div>
         
         <div class="properties" id="properties">
             <h3>Properties</h3>
@@ -401,6 +442,13 @@
             </div>
         </div>
         
+        <div class="element-palette" id="elementPalette">
+            <h3>📦 Drag Elements to Canvas</h3>
+            <div id="paletteItems">
+                <!-- Elements will be populated based on mode -->
+            </div>
+        </div>
+        
         <div style="padding: 20px; background: #2a2a2a;">
             <div class="tabs">
                 <button class="tab active" onclick="showTab('yaml')">YAML (config.yml)</button>
@@ -439,47 +487,140 @@ sports:
         let elements = [];
         let selectedElement = null;
         let scale = 10; // Display scale for visibility (increased from 4)
-        let snapToGrid = true;
-        let gridSize = 2; // Snap to 2-pixel grid
+        let snapToGrid = false; // Disabled by default for precise placement
+        let gridSize = 2; // Snap to 2-pixel grid when enabled
         
-        // Initialize
+        // Element definitions by mode (MUST be defined before initialization)
+        const modeElements = {
+            sports: [
+                { type: 'logo', icon: '🏀', label: 'Team Logo', width: 16, height: 16 },
+                { type: 'score', icon: '🔢', label: 'Score', width: 30, height: 14 },
+                { type: 'text', icon: '📝', label: 'Team Name', width: 40, height: 10 },
+                { type: 'period', icon: '⏱️', label: 'Period (Q1, P2)', width: 20, height: 8 },
+                { type: 'clock', icon: '🕐', label: 'Game Clock', width: 40, height: 8 },
+            ],
+            stocks: [
+                { type: 'symbol', icon: '💼', label: 'Stock Symbol', width: 30, height: 10 },
+                { type: 'price', icon: '💵', label: 'Price', width: 40, height: 10 },
+                { type: 'change', icon: '📊', label: 'Change ($)', width: 35, height: 8 },
+                { type: 'change_percent', icon: '📈', label: 'Change (%)', width: 35, height: 8 },
+            ],
+            weather: [
+                { type: 'weather_icon', icon: '🌤️', label: 'Weather Icon', width: 16, height: 16 },
+                { type: 'temperature', icon: '🌡️', label: 'Temperature', width: 40, height: 12 },
+                { type: 'feels_like', icon: '🥶', label: 'Feels Like', width: 40, height: 8 },
+                { type: 'condition', icon: '☁️', label: 'Condition Text', width: 50, height: 8 },
+                { type: 'humidity', icon: '💧', label: 'Humidity', width: 30, height: 8 },
+                { type: 'wind', icon: '💨', label: 'Wind Speed', width: 35, height: 8 },
+                { type: 'high_temp', icon: '🔥', label: 'High Temp', width: 30, height: 8 },
+                { type: 'low_temp', icon: '🧊', label: 'Low Temp', width: 30, height: 8 },
+                { type: 'location', icon: '📍', label: 'Location', width: 50, height: 8 },
+                { type: 'forecast_icon', icon: '🔮', label: 'Forecast Icon', width: 12, height: 12 },
+                { type: 'forecast_temp', icon: '📅', label: 'Forecast Temp', width: 30, height: 8 },
+            ]
+        };
+        
+        // Initialize (AFTER modeElements is defined)
         updateDisplay();
         loadTemplateList();
+        updatePalette();
         updateModeBadges();
         
-        // Drag and drop from palette
-        document.querySelectorAll('.palette-item').forEach(item => {
-            item.addEventListener('dragstart', (e) => {
-                e.dataTransfer.setData('elementType', item.dataset.type);
+        function updatePalette() {
+            const paletteContainer = document.getElementById('paletteItems');
+            const elems = modeElements[currentMode];
+            
+            if (!paletteContainer) {
+                console.error('Palette container not found');
+                return;
+            }
+            
+            paletteContainer.innerHTML = '';
+            
+            elems.forEach(elem => {
+                const div = document.createElement('div');
+                div.className = 'palette-item';
+                div.dataset.type = elem.type;
+                div.dataset.defaultWidth = elem.width;
+                div.dataset.defaultHeight = elem.height;
+                div.innerHTML = `${elem.icon} ${elem.label}`;
+                
+                // Click to add to canvas center
+                div.onclick = () => {
+                    const canvasWidth = parseInt(document.getElementById('panelWidth').value);
+                    const canvasHeight = parseInt(document.getElementById('panelHeight').value);
+                    const x = Math.floor(canvasWidth / 2);
+                    const y = Math.floor(canvasHeight / 2);
+                    console.log('Adding element from click:', elem.type, 'at center', x, y);
+                    addElement(elem.type, x, y, elem.width, elem.height);
+                };
+                
+                paletteContainer.appendChild(div);
             });
-        });
-        
-        document.getElementById('displayPreview').addEventListener('dragover', (e) => {
-            e.preventDefault();
-        });
-        
-        document.getElementById('displayPreview').addEventListener('drop', (e) => {
-            e.preventDefault();
-            const type = e.dataTransfer.getData('elementType');
-            const elementId = e.dataTransfer.getData('elementId');
-            const rect = e.currentTarget.getBoundingClientRect();
-            let x = Math.round((e.clientX - rect.left) / scale);
-            let y = Math.round((e.clientY - rect.top) / scale);
             
-            // Snap to grid if enabled
-            if (snapToGrid) {
-                x = Math.round(x / gridSize) * gridSize;
-                y = Math.round(y / gridSize) * gridSize;
-            }
+            console.log(`Palette updated for ${currentMode}: ${elems.length} elements`);
+        }
+        
+        // Setup interact.js for canvas elements
+        function makeElementDraggable(elementDiv, elementData) {
+            let startX, startY;
             
-            if (elementId) {
-                // Moving existing element
-                moveElement(parseInt(elementId), x, y);
-            } else if (type) {
-                // Adding new element from palette
-                addElement(type, x, y);
-            }
-        });
+            interact(elementDiv).draggable({
+                inertia: false,
+                autoScroll: true,
+                listeners: {
+                    start(event) {
+                        event.target.classList.add('dragging');
+                        // Store starting position
+                        startX = elementData.x;
+                        startY = elementData.y;
+                        console.log('Started dragging element:', elementData.id, 'from', startX, startY);
+                    },
+                    move(event) {
+                        // Calculate new position from cumulative delta
+                        const newX = startX + Math.floor(event.page.x - event.x0) / scale;
+                        const newY = startY + Math.floor(event.page.y - event.y0) / scale;
+                        
+                        // Update data
+                        elementData.x = newX;
+                        elementData.y = newY;
+                        
+                        // Update visual position
+                        event.target.style.left = (newX * scale) + 'px';
+                        event.target.style.top = (newY * scale) + 'px';
+                        
+                        // Update property inputs if selected
+                        if (selectedElement && selectedElement.id === elementData.id) {
+                            const propX = document.getElementById('propX');
+                            const propY = document.getElementById('propY');
+                            if (propX) propX.value = newX;
+                            if (propY) propY.value = newY;
+                        }
+                    },
+                    end(event) {
+                        event.target.classList.remove('dragging');
+                        
+                        // Snap to grid after drag if enabled
+                        if (snapToGrid) {
+                            elementData.x = Math.round(elementData.x / gridSize) * gridSize;
+                            elementData.y = Math.round(elementData.y / gridSize) * gridSize;
+                            event.target.style.left = (elementData.x * scale) + 'px';
+                            event.target.style.top = (elementData.y * scale) + 'px';
+                        }
+                        
+                        // Ensure within bounds
+                        elementData.x = Math.max(0, elementData.x);
+                        elementData.y = Math.max(0, elementData.y);
+                        event.target.style.left = (elementData.x * scale) + 'px';
+                        event.target.style.top = (elementData.y * scale) + 'px';
+                        
+                        templates[currentMode].elements = [...elements];
+                        generateTemplate();
+                        console.log('Moved to:', elementData.x, elementData.y);
+                    }
+                }
+            });
+        }
         
         function updateDisplay() {
             const width = parseInt(document.getElementById('panelWidth').value);
@@ -538,6 +679,9 @@ sports:
             };
             document.getElementById('currentModeLabel').textContent = modeNames[mode];
             
+            // Update palette for this mode
+            updatePalette();
+            
             // Update badges
             updateModeBadges();
             
@@ -554,15 +698,47 @@ sports:
             });
         }
         
-        function addElement(type, x, y) {
+        function addElement(type, x, y, defaultWidth, defaultHeight) {
+            // Get default dimensions from palette or fallback
+            const width = defaultWidth ? parseInt(defaultWidth) : (type.includes('icon') || type.includes('logo') ? 16 : 40);
+            const height = defaultHeight ? parseInt(defaultHeight) : (type.includes('icon') || type.includes('logo') ? 16 : 10);
+            
+            // Get friendly label for element
+            const labels = {
+                // Sports
+                logo: 'Team Logo',
+                score: 'Score',
+                period: 'Period',
+                clock: 'Clock',
+                // Stocks
+                symbol: 'Symbol',
+                price: 'Price',
+                change: 'Change $',
+                change_percent: 'Change %',
+                // Weather
+                weather_icon: 'Weather Icon',
+                temperature: 'Temperature',
+                feels_like: 'Feels Like',
+                condition: 'Condition',
+                condition_short: 'Condition',
+                humidity: 'Humidity',
+                wind: 'Wind',
+                high_temp: 'High',
+                low_temp: 'Low',
+                location: 'Location',
+                forecast_icon: 'Forecast Icon',
+                forecast_temp: 'Forecast Temp',
+                forecast_time: 'Forecast Time',
+            };
+            
             const element = {
                 id: Date.now(),
                 type: type,
                 x: x,
                 y: y,
-                width: type === 'logo' ? 16 : 40,
-                height: type === 'logo' ? 16 : 10,
-                text: type === 'text' ? 'Text' : type,
+                width: width,
+                height: height,
+                text: labels[type] || type,
                 color: '#ffffff',
                 fontSize: 10,
                 align: 'left'
@@ -573,6 +749,9 @@ sports:
             updateModeBadges();
             renderElements();
             generateTemplate();
+            
+            // Select the newly added element
+            selectElement(element);
         }
         
         function renderElements() {
@@ -586,7 +765,13 @@ sports:
                 div.style.top = (element.y * scale) + 'px';
                 div.style.width = (element.width * scale) + 'px';
                 div.style.height = (element.height * scale) + 'px';
-                div.textContent = element.text;
+                div.dataset.elementId = element.id;
+                
+                // Show element type and position info
+                const info = element.type.replace(/_/g, ' ');
+                div.textContent = info;
+                div.title = `${element.text} (${element.x}, ${element.y})`;
+                
                 div.onclick = (e) => {
                     e.stopPropagation();
                     selectElement(element);
@@ -596,27 +781,13 @@ sports:
                     div.classList.add('selected');
                 }
                 
-                // Make draggable
-                div.draggable = true;
-                div.addEventListener('dragstart', (e) => {
-                    e.dataTransfer.setData('elementId', element.id);
-                    e.dataTransfer.effectAllowed = 'move';
-                });
+                // Make element draggable with interact.js
+                makeElementDraggable(div, element);
                 
                 preview.appendChild(div);
             });
         }
         
-        function moveElement(elementId, newX, newY) {
-            const element = elements.find(e => e.id === elementId);
-            if (element) {
-                element.x = newX;
-                element.y = newY;
-                templates[currentMode].elements = [...elements];
-                renderElements();
-                generateTemplate();
-            }
-        }
         
         function selectElement(element) {
             selectedElement = element;
@@ -628,14 +799,31 @@ sports:
             const props = document.getElementById('properties');
             props.innerHTML = `
                 <h3>Properties: ${element.type}</h3>
+                
+                <div style="background: #1a1a1a; padding: 10px; border-radius: 4px; margin-bottom: 10px;">
+                    <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 10px;">
+                        <button onclick="nudge(0, -1)" style="padding: 8px 12px; background: #3a3a3a; border: none; color: white; border-radius: 4px; cursor: pointer;" title="Move up">↑</button>
+                    </div>
+                    <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 10px;">
+                        <button onclick="nudge(-1, 0)" style="padding: 8px 12px; background: #3a3a3a; border: none; color: white; border-radius: 4px; cursor: pointer;" title="Move left">←</button>
+                        <button onclick="nudge(1, 0)" style="padding: 8px 12px; background: #3a3a3a; border: none; color: white; border-radius: 4px; cursor: pointer;" title="Move right">→</button>
+                    </div>
+                    <div style="display: flex; gap: 10px; justify-content: center;">
+                        <button onclick="nudge(0, 1)" style="padding: 8px 12px; background: #3a3a3a; border: none; color: white; border-radius: 4px; cursor: pointer;" title="Move down">↓</button>
+                    </div>
+                    <p style="text-align: center; color: #aaa; font-size: 0.75rem; margin-top: 8px;">
+                        Use arrow keys or click buttons
+                    </p>
+                </div>
+                
                 <div class="prop-row">
                     <label>X Position (px)</label>
-                    <input type="number" value="${element.x}" step="${gridSize}"
+                    <input type="number" value="${element.x}" step="1" id="propX"
                            onchange="updateProp('x', this.value)">
                 </div>
                 <div class="prop-row">
                     <label>Y Position (px)</label>
-                    <input type="number" value="${element.y}" step="${gridSize}"
+                    <input type="number" value="${element.y}" step="1" id="propY"
                            onchange="updateProp('y', this.value)">
                 </div>
                 <div class="prop-row">
@@ -659,7 +847,7 @@ sports:
                            onchange="updateProp('fontSize', this.value)">
                 </div>
                 <div class="prop-row">
-                    <button onclick="deleteElement()" style="background: #ef4444;">
+                    <button onclick="deleteElement()" style="background: #ef4444; width: 100%; padding: 10px; border: none; color: white; border-radius: 4px; cursor: pointer;">
                         🗑️ Delete Element
                     </button>
                 </div>
@@ -1178,18 +1366,16 @@ sports:
             // Parse one_item section
             if (template.one_item) {
                 Object.entries(template.one_item).forEach(([key, spec]) => {
-                    // Determine element type from key
-                    let type = 'text';
-                    if (key.includes('logo') || key.includes('icon')) type = 'logo';
-                    else if (key.includes('score')) type = 'score';
+                    // Use the key as the type (it's already the element type)
+                    const type = key;
                     
                     const element = {
                         id: idCounter++,
                         type: type,
                         x: spec.x || 0,
                         y: spec.y || 0,
-                        width: spec.width || (type === 'logo' ? 16 : 40),
-                        height: spec.height || (type === 'logo' ? 16 : 10),
+                        width: spec.width || (type.includes('icon') || type.includes('logo') ? 16 : 40),
+                        height: spec.height || (type.includes('icon') || type.includes('logo') ? 16 : 10),
                         text: key.replace(/_/g, ' '),
                         color: spec.color || '#ffffff',
                         fontSize: spec.font_size || 10,
