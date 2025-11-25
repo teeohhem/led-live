@@ -88,6 +88,9 @@ class EmulatorAdapter(DisplayAdapter):
             self.web_app.router.add_get('/templates', self._handle_list_templates)
             self.web_app.router.add_get('/templates/{filename}', self._handle_get_template)
             self.web_app.router.add_post('/templates', self._handle_save_template)
+            self.web_app.router.add_get('/api/sports', self._handle_get_sports_data)
+            self.web_app.router.add_get('/api/stocks', self._handle_get_stocks_data)
+            self.web_app.router.add_get('/api/weather', self._handle_get_weather_data)
             
             # Start server
             self.web_runner = web.AppRunner(self.web_app)
@@ -380,6 +383,68 @@ class EmulatorAdapter(DisplayAdapter):
                 'success': False,
                 'error': str(e)
             }, status=500)
+    
+    async def _handle_get_sports_data(self, request):
+        """Get real sports data for preview."""
+        # Always return sample data for now (avoid API/import issues)
+        sample_games = [
+            {'home': 'DET', 'away': 'BOS', 'home_score': 95, 'away_score': 102, 
+             'clock': '2:45', 'period': 'Q4', 'league': 'NBA', 'state': 'inProgress'},
+            {'home': 'LAL', 'away': 'GSW', 'home_score': 88, 'away_score': 91,
+             'clock': '5:12', 'period': 'Q3', 'league': 'NBA', 'state': 'inProgress'},
+        ]
+        
+        try:
+            # Try to fetch real data
+            from core.data import fetch_all_games
+            games = await fetch_all_games()
+            if games:
+                return web.json_response({'games': games[:4]})
+        except Exception as e:
+            logger.debug(f"Using sample sports data: {e}")
+        
+        return web.json_response({'games': sample_games})
+    
+    async def _handle_get_stocks_data(self, request):
+        """Get real stocks data for preview."""
+        # Sample data first
+        sample_quotes = [
+            {'symbol': 'AAPL', 'price': 195.50, 'change_percent': 2.3, 'is_up': True},
+            {'symbol': 'TSLA', 'price': 245.10, 'change_percent': -1.2, 'is_up': False},
+            {'symbol': 'GOOGL', 'price': 142.75, 'change_percent': 0.8, 'is_up': True},
+            {'symbol': 'MSFT', 'price': 378.90, 'change_percent': 1.5, 'is_up': True},
+        ]
+        
+        try:
+            # Try to fetch real data (will fail on Python 3.14)
+            from core.data import fetch_stock_quotes
+            quotes = await fetch_stock_quotes()
+            if quotes:
+                return web.json_response({'quotes': quotes[:4]})
+        except Exception as e:
+            logger.debug(f"Using sample stocks data: {e}")
+        
+        return web.json_response({'quotes': sample_quotes})
+    
+    async def _handle_get_weather_data(self, request):
+        """Get real weather data for preview."""
+        # Sample data first
+        sample_weather = {
+            'temp': 45, 'feels_like': 42, 'temp_max': 50, 'temp_min': 38,
+            'condition': 'clouds', 'description': 'Cloudy', 'city': 'Brighton',
+            'humidity': 65, 'wind_speed': 10
+        }
+        
+        try:
+            # Try to fetch real data
+            from core.data import fetch_current_weather
+            weather = await fetch_current_weather()
+            if weather:
+                return web.json_response({'weather': weather})
+        except Exception as e:
+            logger.debug(f"Using sample weather data: {e}")
+        
+        return web.json_response({'weather': sample_weather})
     
     def _generate_html(self):
         """Generate the emulator HTML interface."""

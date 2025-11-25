@@ -191,6 +191,7 @@
             background: rgba(102, 126, 234, 0.1);
             touch-action: none;
             user-select: none;
+            box-sizing: border-box;
         }
         
         .element:hover {
@@ -205,9 +206,26 @@
             z-index: 20;
         }
         
+        .element.selected::after {
+            content: '';
+            position: absolute;
+            right: -4px;
+            bottom: -4px;
+            width: 8px;
+            height: 8px;
+            background: #ffd700;
+            border: 2px solid #000;
+            cursor: nwse-resize;
+        }
+        
         .element.dragging {
             opacity: 0.7;
             z-index: 100;
+        }
+        
+        .element.resizing {
+            opacity: 0.8;
+            border-style: solid;
         }
         
         .element.selected {
@@ -376,6 +394,30 @@
         <hr style="border-color: #3a3a3a; margin: 20px 0;">
         
         <div class="control-group">
+            <label>📊 Item Scenario</label>
+            <select id="scenarioSelect" onchange="switchScenario(this.value)"
+                    style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #3a3a3a; color: #fff; border-radius: 4px;">
+                <option value="one_item">One Item (Full Screen)</option>
+                <option value="two_items">Two Items (Split)</option>
+                <option value="three_items">Three Items (Compact)</option>
+                <option value="four_items">Four Items (Mini)</option>
+            </select>
+            <p style="color: #666; font-size: 0.75rem; margin-top: 4px;">
+                Design layouts for different item counts
+            </p>
+        </div>
+        
+        <div class="control-group" id="itemHeightControl" style="display: none;">
+            <label>Item Height (px)</label>
+            <input type="number" id="itemHeight" value="10" min="8" max="40"
+                   onchange="updateItemHeight()"
+                   style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #3a3a3a; color: #fff; border-radius: 4px;">
+            <p style="color: #666; font-size: 0.75rem; margin-top: 4px;">
+                Height per item in multi-item layouts
+            </p>
+        </div>
+        
+        <div class="control-group">
             <label>
                 <input type="checkbox" id="snapGrid" onchange="toggleSnap()" 
                        style="margin-right: 8px;">
@@ -431,6 +473,7 @@
             <button onclick="downloadTemplate('yaml')">⬇️ Download</button>
             <div style="margin-left: auto; display: flex; gap: 10px; align-items: center;">
                 <span style="color: #667eea; font-weight: 600;" id="currentModeLabel">Sports Mode</span>
+                <span style="color: #f59e0b; font-weight: 600;" id="currentScenarioLabel">One Item</span>
                 <span style="color: #aaa;" id="dimensions">64×20</span>
                 <span style="color: #4ade80; font-weight: 600;" id="elementCount">0 elements</span>
             </div>
@@ -453,7 +496,7 @@
             <div class="tabs">
                 <button class="tab active" onclick="showTab('yaml')">YAML (config.yml)</button>
                 <button class="tab" onclick="showTab('json')">JSON</button>
-                <button class="tab" onclick="showTab('preview')">Preview</button>
+                <button class="tab" onclick="showTab('preview')">Live Preview</button>
             </div>
             
             <div class="code-output" id="yamlTab">
@@ -472,18 +515,44 @@ sports:
             </div>
             
             <div class="code-output" id="previewTab" style="display: none;">
-                <pre>Element preview will appear here</pre>
+                <div style="text-align: center; margin-bottom: 10px;">
+                    <button onclick="loadPreviewData()" style="padding: 10px 20px; background: #4ade80; border: none; color: white; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                        🔄 Fetch Real Data
+                    </button>
+                </div>
+                <div id="previewContainer" style="text-align: center; padding: 20px;">
+                    <canvas id="previewCanvas" style="border: 2px solid #667eea; background: #000; image-rendering: pixelated;"></canvas>
+                    <p style="color: #aaa; font-size: 0.85rem; margin-top: 10px;" id="previewStatus">
+                        Click "Fetch Real Data" to see live preview
+                    </p>
+                </div>
             </div>
         </div>
     </div>
     
     <script>
         let templates = {
-            sports: { elements: [], logo_enabled: true },
-            stocks: { elements: [], logo_enabled: false },
-            weather: { elements: [], logo_enabled: false }
+            sports: {
+                one_item: { elements: [] },
+                two_items: { elements: [], item_height: 10 },
+                three_items: { elements: [], item_height: 10 },
+                four_items: { elements: [], item_height: 10 },
+                logo_enabled: true
+            },
+            stocks: {
+                one_item: { elements: [] },
+                two_items: { elements: [], item_height: 10 },
+                four_items: { elements: [], item_height: 10 },
+                logo_enabled: false
+            },
+            weather: {
+                one_item: { elements: [] },
+                two_items: { elements: [], item_height: 10 },
+                logo_enabled: false
+            }
         };
         let currentMode = 'sports';
+        let currentScenario = 'one_item'; // Current item count scenario
         let elements = [];
         let selectedElement = null;
         let scale = 10; // Display scale for visibility (increased from 4)
@@ -524,6 +593,7 @@ sports:
         updateDisplay();
         loadTemplateList();
         updatePalette();
+        updateScenarioOptions();
         updateModeBadges();
         
         function updatePalette() {
@@ -561,65 +631,101 @@ sports:
             console.log(`Palette updated for ${currentMode}: ${elems.length} elements`);
         }
         
-        // Setup interact.js for canvas elements
+        // Setup interact.js for canvas elements (drag AND resize)
         function makeElementDraggable(elementDiv, elementData) {
             let startX, startY;
             
-            interact(elementDiv).draggable({
-                inertia: false,
-                autoScroll: true,
-                listeners: {
-                    start(event) {
-                        event.target.classList.add('dragging');
-                        // Store starting position
-                        startX = elementData.x;
-                        startY = elementData.y;
-                        console.log('Started dragging element:', elementData.id, 'from', startX, startY);
-                    },
-                    move(event) {
-                        // Calculate new position from cumulative delta
-                        const newX = startX + Math.floor(event.page.x - event.x0) / scale;
-                        const newY = startY + Math.floor(event.page.y - event.y0) / scale;
-                        
-                        // Update data
-                        elementData.x = newX;
-                        elementData.y = newY;
-                        
-                        // Update visual position
-                        event.target.style.left = (newX * scale) + 'px';
-                        event.target.style.top = (newY * scale) + 'px';
-                        
-                        // Update property inputs if selected
-                        if (selectedElement && selectedElement.id === elementData.id) {
-                            const propX = document.getElementById('propX');
-                            const propY = document.getElementById('propY');
-                            if (propX) propX.value = newX;
-                            if (propY) propY.value = newY;
-                        }
-                    },
-                    end(event) {
-                        event.target.classList.remove('dragging');
-                        
-                        // Snap to grid after drag if enabled
-                        if (snapToGrid) {
-                            elementData.x = Math.round(elementData.x / gridSize) * gridSize;
-                            elementData.y = Math.round(elementData.y / gridSize) * gridSize;
+            interact(elementDiv)
+                .draggable({
+                    inertia: false,
+                    autoScroll: true,
+                    listeners: {
+                        start(event) {
+                            event.target.classList.add('dragging');
+                            // Store starting position
+                            startX = elementData.x;
+                            startY = elementData.y;
+                            console.log('Started dragging element:', elementData.id, 'from', startX, startY);
+                        },
+                        move(event) {
+                            // Calculate new position from cumulative delta
+                            const newX = startX + Math.floor(event.page.x - event.x0) / scale;
+                            const newY = startY + Math.floor(event.page.y - event.y0) / scale;
+                            
+                            // Update data
+                            elementData.x = newX;
+                            elementData.y = newY;
+                            
+                            // Update visual position
+                            event.target.style.left = (newX * scale) + 'px';
+                            event.target.style.top = (newY * scale) + 'px';
+                            
+                            // Update property inputs if selected
+                            if (selectedElement && selectedElement.id === elementData.id) {
+                                const propX = document.getElementById('propX');
+                                const propY = document.getElementById('propY');
+                                if (propX) propX.value = newX;
+                                if (propY) propY.value = newY;
+                            }
+                        },
+                        end(event) {
+                            event.target.classList.remove('dragging');
+                            
+                            // Snap to grid after drag if enabled
+                            if (snapToGrid) {
+                                elementData.x = Math.round(elementData.x / gridSize) * gridSize;
+                                elementData.y = Math.round(elementData.y / gridSize) * gridSize;
+                                event.target.style.left = (elementData.x * scale) + 'px';
+                                event.target.style.top = (elementData.y * scale) + 'px';
+                            }
+                            
+                            // Ensure within bounds
+                            elementData.x = Math.max(0, elementData.x);
+                            elementData.y = Math.max(0, elementData.y);
                             event.target.style.left = (elementData.x * scale) + 'px';
                             event.target.style.top = (elementData.y * scale) + 'px';
+                            
+                            templates[currentMode][currentScenario].elements = [...elements];
+                            generateTemplate();
+                            console.log('Moved to:', elementData.x, elementData.y);
                         }
-                        
-                        // Ensure within bounds
-                        elementData.x = Math.max(0, elementData.x);
-                        elementData.y = Math.max(0, elementData.y);
-                        event.target.style.left = (elementData.x * scale) + 'px';
-                        event.target.style.top = (elementData.y * scale) + 'px';
-                        
-                        templates[currentMode].elements = [...elements];
-                        generateTemplate();
-                        console.log('Moved to:', elementData.x, elementData.y);
                     }
-                }
-            });
+                })
+                .resizable({
+                    edges: { left: false, right: true, bottom: true, top: false },
+                    listeners: {
+                        start(event) {
+                            event.target.classList.add('resizing');
+                            console.log('Started resizing element:', elementData.id);
+                        },
+                        move(event) {
+                            // Update size based on resize delta
+                            const newWidth = Math.max(10, Math.floor(event.rect.width / scale));
+                            const newHeight = Math.max(8, Math.floor(event.rect.height / scale));
+                            
+                            elementData.width = newWidth;
+                            elementData.height = newHeight;
+                            
+                            // Update visual size
+                            event.target.style.width = (newWidth * scale) + 'px';
+                            event.target.style.height = (newHeight * scale) + 'px';
+                            
+                            // Update property inputs if selected
+                            if (selectedElement && selectedElement.id === elementData.id) {
+                                const propW = document.getElementById('propWidth');
+                                const propH = document.getElementById('propHeight');
+                                if (propW) propW.value = newWidth;
+                                if (propH) propH.value = newHeight;
+                            }
+                        },
+                        end(event) {
+                            event.target.classList.remove('resizing');
+                            templates[currentMode][currentScenario].elements = [...elements];
+                            generateTemplate();
+                            console.log('Resized to:', elementData.width, 'x', elementData.height);
+                        }
+                    }
+                });
         }
         
         function updateDisplay() {
@@ -652,12 +758,12 @@ sports:
         }
         
         function switchMode(mode) {
-            // Save current mode's elements
-            templates[currentMode].elements = [...elements];
+            // Save current scenario's elements
+            templates[currentMode][currentScenario].elements = [...elements];
             
-            // Load new mode's elements
+            // Load new mode's current scenario elements
             currentMode = mode;
-            elements = [...templates[mode].elements];
+            elements = [...(templates[mode][currentScenario]?.elements || [])];
             
             // Update button states
             ['sports', 'stocks', 'weather'].forEach(m => {
@@ -682,20 +788,120 @@ sports:
             // Update palette for this mode
             updatePalette();
             
+            // Update scenario selector options based on mode
+            updateScenarioOptions();
+            
             // Update badges
             updateModeBadges();
+            
+            // Reload preview data for new mode
+            if (previewData) {
+                loadPreviewData();
+            }
             
             renderElements();
             generateTemplate();
         }
         
+        function switchScenario(scenario) {
+            // Save current scenario's elements
+            templates[currentMode][currentScenario].elements = [...elements];
+            
+            // Load new scenario's elements
+            currentScenario = scenario;
+            elements = [...(templates[currentMode][scenario]?.elements || [])];
+            
+            // Update labels
+            const scenarioLabels = {
+                one_item: 'One Item',
+                two_items: 'Two Items',
+                three_items: 'Three Items',
+                four_items: 'Four Items'
+            };
+            document.getElementById('currentScenarioLabel').textContent = scenarioLabels[scenario];
+            
+            // Show/hide item height control
+            const itemHeightControl = document.getElementById('itemHeightControl');
+            if (scenario === 'one_item') {
+                itemHeightControl.style.display = 'none';
+            } else {
+                itemHeightControl.style.display = 'block';
+                const itemHeight = templates[currentMode][scenario]?.item_height || 10;
+                document.getElementById('itemHeight').value = itemHeight;
+            }
+            
+            // Refresh preview if visible
+            if (previewData) {
+                renderPreview(previewData);
+            }
+            
+            renderElements();
+            generateTemplate();
+        }
+        
+        function updateScenarioOptions() {
+            const scenarioSelect = document.getElementById('scenarioSelect');
+            scenarioSelect.innerHTML = '';
+            
+            // Add available scenarios for current mode
+            const scenarios = {
+                sports: [
+                    { value: 'one_item', label: 'One Game (Full Screen)' },
+                    { value: 'two_items', label: 'Two Games (Split)' },
+                    { value: 'three_items', label: 'Three Games (Compact)' },
+                    { value: 'four_items', label: 'Four Games (Mini)' }
+                ],
+                stocks: [
+                    { value: 'one_item', label: 'One Stock (Full)' },
+                    { value: 'two_items', label: 'Two Stocks (Split)' },
+                    { value: 'four_items', label: 'Four Stocks (Compact)' }
+                ],
+                weather: [
+                    { value: 'one_item', label: 'Current Weather' },
+                    { value: 'two_items', label: 'Current + Forecast' }
+                ]
+            };
+            
+            scenarios[currentMode].forEach(s => {
+                const option = document.createElement('option');
+                option.value = s.value;
+                option.textContent = s.label;
+                if (s.value === currentScenario) {
+                    option.selected = true;
+                }
+                scenarioSelect.appendChild(option);
+            });
+        }
+        
+        function updateItemHeight() {
+            const height = parseInt(document.getElementById('itemHeight').value);
+            if (templates[currentMode][currentScenario]) {
+                templates[currentMode][currentScenario].item_height = height;
+                generateTemplate();
+            }
+        }
+        
         function updateModeBadges() {
             ['sports', 'stocks', 'weather'].forEach(mode => {
                 const badge = document.getElementById('badge' + mode.charAt(0).toUpperCase() + mode.slice(1));
-                const count = templates[mode].elements.length;
-                badge.textContent = count;
-                badge.style.display = count > 0 ? 'block' : 'none';
+                // Count total elements across all scenarios
+                let totalCount = 0;
+                Object.keys(templates[mode]).forEach(key => {
+                    if (key !== 'logo_enabled' && templates[mode][key].elements) {
+                        totalCount += templates[mode][key].elements.length;
+                    }
+                });
+                badge.textContent = totalCount;
+                badge.style.display = totalCount > 0 ? 'block' : 'none';
             });
+        }
+        
+        function updateItemHeight() {
+            const height = parseInt(document.getElementById('itemHeight').value);
+            if (templates[currentMode][currentScenario]) {
+                templates[currentMode][currentScenario].item_height = height;
+                generateTemplate();
+            }
         }
         
         function addElement(type, x, y, defaultWidth, defaultHeight) {
@@ -745,7 +951,7 @@ sports:
             };
             
             elements.push(element);
-            templates[currentMode].elements = [...elements];
+            templates[currentMode][currentScenario].elements = [...elements];
             updateModeBadges();
             renderElements();
             generateTemplate();
@@ -827,13 +1033,13 @@ sports:
                            onchange="updateProp('y', this.value)">
                 </div>
                 <div class="prop-row">
-                    <label>Width</label>
-                    <input type="number" value="${element.width}" 
+                    <label>Width (px)</label>
+                    <input type="number" value="${element.width}" id="propWidth"
                            onchange="updateProp('width', this.value)">
                 </div>
                 <div class="prop-row">
-                    <label>Height</label>
-                    <input type="number" value="${element.height}" 
+                    <label>Height (px)</label>
+                    <input type="number" value="${element.height}" id="propHeight"
                            onchange="updateProp('height', this.value)">
                 </div>
                 <div class="prop-row">
@@ -863,8 +1069,12 @@ sports:
                     val = Math.round(val / gridSize) * gridSize;
                 }
                 
+                // Ensure minimum sizes
+                if (prop === 'width') val = Math.max(10, val);
+                if (prop === 'height') val = Math.max(8, val);
+                
                 selectedElement[prop] = val;
-                templates[currentMode].elements = [...elements];
+                templates[currentMode][currentScenario].elements = [...elements];
                 renderElements();
                 generateTemplate();
             }
@@ -873,7 +1083,7 @@ sports:
         function deleteElement() {
             if (selectedElement) {
                 elements = elements.filter(e => e.id !== selectedElement.id);
-                templates[currentMode].elements = [...elements];
+                templates[currentMode][currentScenario].elements = [...elements];
                 selectedElement = null;
                 document.getElementById('properties').innerHTML = 
                     '<h3>Properties</h3><p style="color: #666;">Select an element</p>';
@@ -884,9 +1094,9 @@ sports:
         }
         
         function clearCanvas() {
-            if (confirm(`Clear all ${currentMode} elements?`)) {
+            if (confirm(`Clear ${currentScenario.replace('_', ' ')} for ${currentMode}?`)) {
                 elements = [];
-                templates[currentMode].elements = [];
+                templates[currentMode][currentScenario].elements = [];
                 selectedElement = null;
                 updateModeBadges();
                 renderElements();
@@ -894,9 +1104,16 @@ sports:
             }
         }
         
+        let previewData = null; // Cache for preview data
+        
         function generateTemplate() {
-            // Save current mode's elements
-            templates[currentMode].elements = [...elements];
+            // Save current scenario's elements
+            templates[currentMode][currentScenario].elements = [...elements];
+            
+            // Auto-refresh preview if it's visible
+            if (document.getElementById('previewTab').style.display !== 'none' && previewData) {
+                renderPreview(previewData);
+            }
             
             const width = parseInt(document.getElementById('panelWidth').value);
             const height = parseInt(document.getElementById('panelHeight').value);
@@ -922,25 +1139,61 @@ sports:
                 yaml += `${mode}:\n`;
                 yaml += `  canvas_width: ${totalWidth}\n`;
                 yaml += `  canvas_height: ${totalHeight}\n`;
-                yaml += `  logo_enabled: ${modeData.elements.some(e => e.type === 'logo')}\n`;
                 
-                if (modeData.elements.length > 0) {
-                    yaml += `  one_item:\n`;
-                    modeData.elements.forEach(element => {
-                        const key = element.text.toLowerCase().replace(/\s+/g, '_');
-                        yaml += `    ${key}:\n`;
-                        yaml += `      x: ${element.x}\n`;
-                        yaml += `      y: ${element.y}\n`;
-                        if (element.type === 'logo') {
-                            yaml += `      width: ${element.width}\n`;
-                            yaml += `      height: ${element.height}\n`;
+                // Check if any scenario has logos
+                let hasLogos = false;
+                Object.keys(modeData).forEach(scenario => {
+                    if (scenario !== 'logo_enabled' && modeData[scenario].elements) {
+                        hasLogos = hasLogos || modeData[scenario].elements.some(e => e.type.includes('logo') || e.type.includes('icon'));
+                    }
+                });
+                yaml += `  logo_enabled: ${hasLogos}\n`;
+                
+                // Output all scenarios
+                ['one_item', 'two_items', 'three_items', 'four_items'].forEach(scenario => {
+                    if (modeData[scenario] && modeData[scenario].elements && modeData[scenario].elements.length > 0) {
+                        yaml += `  ${scenario}:\n`;
+                        
+                        if (scenario !== 'one_item') {
+                            // Multi-item layouts need item_height
+                            yaml += `    item_height: ${modeData[scenario].item_height || 10}\n`;
+                            yaml += `    item_template:\n`;
+                            const indent = '      '; // Extra indent for item_template
+                            
+                            modeData[scenario].elements.forEach(element => {
+                                const key = element.text.toLowerCase().replace(/\s+/g, '_');
+                                yaml += `${indent}${key}:\n`;
+                                yaml += `${indent}  x: ${element.x}\n`;
+                                yaml += `${indent}  y: ${element.y}\n`;
+                                if (element.type.includes('logo') || element.type.includes('icon')) {
+                                    yaml += `${indent}  width: ${element.width}\n`;
+                                    yaml += `${indent}  height: ${element.height}\n`;
+                                } else {
+                                    yaml += `${indent}  font_size: ${element.fontSize}\n`;
+                                    yaml += `${indent}  color: "${element.color}"\n`;
+                                    yaml += `${indent}  align: ${element.align}\n`;
+                                }
+                            });
                         } else {
-                            yaml += `      font_size: ${element.fontSize}\n`;
-                            yaml += `      color: "${element.color}"\n`;
-                            yaml += `      align: ${element.align}\n`;
+                            // one_item layout
+                            modeData[scenario].elements.forEach(element => {
+                                const key = element.text.toLowerCase().replace(/\s+/g, '_');
+                                yaml += `    ${key}:\n`;
+                                yaml += `      x: ${element.x}\n`;
+                                yaml += `      y: ${element.y}\n`;
+                                if (element.type.includes('logo') || element.type.includes('icon')) {
+                                    yaml += `      width: ${element.width}\n`;
+                                    yaml += `      height: ${element.height}\n`;
+                                } else {
+                                    yaml += `      font_size: ${element.fontSize}\n`;
+                                    yaml += `      color: "${element.color}"\n`;
+                                    yaml += `      align: ${element.align}\n`;
+                                }
+                            });
                         }
-                    });
-                }
+                    }
+                });
+                
                 yaml += `\n`;
             });
             
@@ -1037,6 +1290,214 @@ sports:
                 tab === 'json' ? 'block' : 'none';
             document.getElementById('previewTab').style.display = 
                 tab === 'preview' ? 'block' : 'none';
+            
+            // Auto-load preview when switching to preview tab
+            if (tab === 'preview') {
+                loadPreviewData();
+            }
+        }
+        
+        async function loadPreviewData() {
+            const status = document.getElementById('previewStatus');
+            status.textContent = 'Loading preview data...';
+            
+            try {
+                // Try to fetch real data from API
+                let data;
+                
+                try {
+                    let response;
+                    if (currentMode === 'sports') {
+                        response = await fetch('/api/sports');
+                    } else if (currentMode === 'stocks') {
+                        response = await fetch('/api/stocks');
+                    } else if (currentMode === 'weather') {
+                        response = await fetch('/api/weather');
+                    }
+                    
+                    if (response && response.ok) {
+                        data = await response.json();
+                    } else {
+                        throw new Error('API not available');
+                    }
+                } catch (apiError) {
+                    // Use sample data if API fails
+                    console.log('Using sample data:', apiError.message);
+                    data = getSampleData(currentMode);
+                }
+                
+                previewData = data; // Cache it
+                renderPreview(data);
+                status.textContent = `✅ Preview with ${currentMode} data (auto-updates as you edit)`;
+            } catch (err) {
+                status.textContent = '❌ Failed to render preview: ' + err.message;
+                console.error('Preview error:', err);
+            }
+        }
+        
+        function getSampleData(mode) {
+            const samples = {
+                sports: {
+                    games: [
+                        { home: 'DET', away: 'BOS', home_score: 95, away_score: 102, 
+                          clock: '2:45', period: 'Q4', league: 'NBA', state: 'inProgress' },
+                        { home: 'LAL', away: 'GSW', home_score: 88, away_score: 91,
+                          clock: '5:12', period: 'Q3', league: 'NBA', state: 'inProgress' },
+                        { home: 'NYK', away: 'MIA', home_score: 76, away_score: 82,
+                          clock: '0:45', period: 'Q4', league: 'NBA', state: 'inProgress' },
+                        { home: 'PHI', away: 'CHI', home_score: 103, away_score: 98,
+                          clock: '8:30', period: 'Q2', league: 'NBA', state: 'inProgress' }
+                    ]
+                },
+                stocks: {
+                    quotes: [
+                        { symbol: 'AAPL', price: 195.50, change_percent: 2.3, is_up: true },
+                        { symbol: 'TSLA', price: 245.10, change_percent: -1.2, is_up: false },
+                        { symbol: 'GOOGL', price: 142.75, change_percent: 0.8, is_up: true },
+                        { symbol: 'MSFT', price: 378.90, change_percent: 1.5, is_up: true }
+                    ]
+                },
+                weather: {
+                    weather: {
+                        temp: 45, feels_like: 42, temp_max: 50, temp_min: 38,
+                        condition: 'clouds', description: 'Cloudy', city: 'Brighton',
+                        humidity: 65, wind_speed: 10
+                    }
+                }
+            };
+            
+            return samples[mode];
+        }
+        
+        function renderPreview(data) {
+            const canvas = document.getElementById('previewCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            const width = parseInt(document.getElementById('panelWidth').value);
+            const height = parseInt(document.getElementById('panelHeight').value);
+            const panels = parseInt(document.getElementById('numPanels').value);
+            const orientation = document.getElementById('orientation').value;
+            
+            let totalWidth, totalHeight;
+            if (orientation === 'horizontal') {
+                totalWidth = width * panels;
+                totalHeight = height;
+            } else {
+                totalWidth = width;
+                totalHeight = height * panels;
+            }
+            
+            // Set canvas size (scaled for visibility)
+            const previewScale = 8;
+            canvas.width = totalWidth * previewScale;
+            canvas.height = totalHeight * previewScale;
+            
+            // Clear canvas
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Render elements with real data
+            const scenario = templates[currentMode][currentScenario];
+            if (!scenario || !scenario.elements || scenario.elements.length === 0) {
+                ctx.fillStyle = '#888';
+                ctx.font = '12px sans-serif';
+                ctx.fillText('No elements in current scenario', 10, 40);
+                return;
+            }
+            
+            // Render each element with real data
+            scenario.elements.forEach(elem => {
+                const x = elem.x * previewScale;
+                const y = elem.y * previewScale;
+                const w = elem.width * previewScale;
+                const h = elem.height * previewScale;
+                
+                // Draw element background (subtle)
+                ctx.fillStyle = 'rgba(102, 126, 234, 0.05)';
+                ctx.fillRect(x, y, w, h);
+                
+                // Draw element border
+                ctx.strokeStyle = '#667eea33';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(x, y, w, h);
+                
+                // Get real data value for this element
+                let text = elem.type;
+                let color = '#fff';
+                
+                if (currentMode === 'sports' && data.games && data.games[0]) {
+                    const game = data.games[0];
+                    if (elem.type === 'away_score') text = String(game.away_score);
+                    else if (elem.type === 'home_score') text = String(game.home_score);
+                    else if (elem.type.includes('away')) text = game.away;
+                    else if (elem.type.includes('home')) text = game.home;
+                    else if (elem.type === 'period') text = game.period || '';
+                    else if (elem.type === 'clock') text = game.clock || '';
+                } else if (currentMode === 'stocks' && data.quotes && data.quotes[0]) {
+                    const quote = data.quotes[0];
+                    if (elem.type === 'symbol') text = quote.symbol;
+                    else if (elem.type === 'price') text = '$' + quote.price.toFixed(2);
+                    else if (elem.type.includes('change')) {
+                        const arrow = quote.is_up ? '▲' : '▼';
+                        text = arrow + Math.abs(quote.change_percent).toFixed(1) + '%';
+                        color = quote.is_up ? '#0f0' : '#f00';
+                    }
+                } else if (currentMode === 'weather' && data.weather) {
+                    const weather = data.weather;
+                    if (elem.type === 'temperature') text = weather.temp + '°F';
+                    else if (elem.type === 'feels_like') text = 'Feels ' + weather.feels_like + '°';
+                    else if (elem.type === 'condition') text = weather.description;
+                    else if (elem.type === 'humidity') text = weather.humidity + '%';
+                    else if (elem.type === 'wind') text = weather.wind_speed + 'mph';
+                    else if (elem.type === 'location') text = weather.city;
+                }
+                
+                // Render text (if not an icon/logo element)
+                if (!elem.type.includes('icon') && !elem.type.includes('logo')) {
+                    ctx.fillStyle = color;
+                    ctx.font = `bold ${Math.max(8, elem.fontSize * previewScale / 10)}px monospace`;
+                    ctx.textBaseline = 'middle';
+                    
+                    let textX = x + 4;
+                    if (elem.align === 'right') {
+                        ctx.textAlign = 'right';
+                        textX = x + w - 4;
+                    } else if (elem.align === 'center') {
+                        ctx.textAlign = 'center';
+                        textX = x + w/2;
+                    } else {
+                        ctx.textAlign = 'left';
+                    }
+                    
+                    ctx.fillText(text, textX, y + h/2);
+                } else {
+                    // For icons/logos, show a placeholder
+                    ctx.fillStyle = '#f59e0b';
+                    ctx.font = `${Math.min(w, h) * 0.6}px sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    
+                    const icon = elem.type.includes('weather') ? '🌤️' : 
+                                elem.type.includes('forecast') ? '🔮' : '🏀';
+                    ctx.fillText(icon, x + w/2, y + h/2);
+                }
+            });
+            
+            // Add helpful grid overlay
+            ctx.strokeStyle = 'rgba(102, 126, 234, 0.1)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= totalWidth; i += 10) {
+                ctx.beginPath();
+                ctx.moveTo(i * previewScale, 0);
+                ctx.lineTo(i * previewScale, totalHeight * previewScale);
+                ctx.stroke();
+            }
+            for (let j = 0; j <= totalHeight; j += 10) {
+                ctx.beginPath();
+                ctx.moveTo(0, j * previewScale);
+                ctx.lineTo(totalWidth * previewScale, j * previewScale);
+                ctx.stroke();
+            }
         }
         
         function loadPreset() {
@@ -1163,8 +1624,8 @@ sports:
                 return;
             }
             
-            // Save current mode's elements
-            templates[currentMode].elements = [...elements];
+            // Save current scenario's elements
+            templates[currentMode][currentScenario].elements = [...elements];
             
             // Build unified template object with all modes
             const width = parseInt(document.getElementById('panelWidth').value);
@@ -1183,7 +1644,7 @@ sports:
             
             const unifiedTemplate = {};
             
-            // Build each mode section
+            // Build each mode section with all scenarios
             ['sports', 'stocks', 'weather'].forEach(mode => {
                 const modeData = templates[mode];
                 const modeTemplate = {
@@ -1192,28 +1653,49 @@ sports:
                     logo_enabled: modeData.logo_enabled
                 };
                 
-                if (modeData.elements.length > 0) {
-                    modeTemplate.one_item = {};
-                    
-                    modeData.elements.forEach(element => {
-                        const key = element.text.toLowerCase().replace(/\s+/g, '_');
-                        const spec = {
-                            x: element.x,
-                            y: element.y
-                        };
-                        
-                        if (element.type === 'logo') {
-                            spec.width = element.width;
-                            spec.height = element.height;
+                // Add all scenarios that have elements
+                ['one_item', 'two_items', 'three_items', 'four_items'].forEach(scenario => {
+                    if (modeData[scenario] && modeData[scenario].elements && modeData[scenario].elements.length > 0) {
+                        if (scenario === 'one_item') {
+                            modeTemplate.one_item = {};
+                            modeData[scenario].elements.forEach(element => {
+                                const key = element.text.toLowerCase().replace(/\s+/g, '_');
+                                const spec = { x: element.x, y: element.y };
+                                
+                                if (element.type.includes('logo') || element.type.includes('icon')) {
+                                    spec.width = element.width;
+                                    spec.height = element.height;
+                                } else {
+                                    spec.font_size = element.fontSize;
+                                    spec.color = element.color;
+                                    spec.align = element.align;
+                                }
+                                modeTemplate.one_item[key] = spec;
+                            });
                         } else {
-                            spec.font_size = element.fontSize;
-                            spec.color = element.color;
-                            spec.align = element.align;
+                            // Multi-item scenarios
+                            modeTemplate[scenario] = {
+                                item_height: modeData[scenario].item_height || 10,
+                                item_template: {}
+                            };
+                            
+                            modeData[scenario].elements.forEach(element => {
+                                const key = element.text.toLowerCase().replace(/\s+/g, '_');
+                                const spec = { x: element.x, y: element.y };
+                                
+                                if (element.type.includes('logo') || element.type.includes('icon')) {
+                                    spec.width = element.width;
+                                    spec.height = element.height;
+                                } else {
+                                    spec.font_size = element.fontSize;
+                                    spec.color = element.color;
+                                    spec.align = element.align;
+                                }
+                                modeTemplate[scenario].item_template[key] = spec;
+                            });
                         }
-                        
-                        modeTemplate.one_item[key] = spec;
-                    });
-                }
+                    }
+                });
                 
                 unifiedTemplate[mode] = modeTemplate;
             });
@@ -1229,7 +1711,17 @@ sports:
             .then(r => r.json())
             .then(data => {
                 if (data.success) {
-                    alert(`✅ Saved as ${data.filename}\n\nContains all 3 modes:\n• Sports (${templates.sports.elements.length} elements)\n• Stocks (${templates.stocks.elements.length} elements)\n• Weather (${templates.weather.elements.length} elements)\n\nTemplate is now available for use!`);
+                    // Count total scenarios across all modes
+                    let totalScenarios = 0;
+                    ['sports', 'stocks', 'weather'].forEach(mode => {
+                        ['one_item', 'two_items', 'three_items', 'four_items'].forEach(scenario => {
+                            if (templates[mode][scenario]?.elements?.length > 0) {
+                                totalScenarios++;
+                            }
+                        });
+                    });
+                    
+                    alert(`✅ Saved as ${data.filename}\n\nContains ${totalScenarios} scenario layouts across 3 modes!\n\nTemplate is now available for use!`);
                     loadTemplateList(); // Refresh the list
                 } else {
                     alert('❌ Save failed: ' + data.error);
@@ -1298,16 +1790,34 @@ sports:
                         inferPanelDimensions(modeTemplate.canvas_width, modeTemplate.canvas_height);
                     }
                     
-                    // Parse elements for this mode
-                    templates[mode].elements = parseTemplateElements(modeTemplate);
+                    // Parse all scenarios for this mode
                     templates[mode].logo_enabled = modeTemplate.logo_enabled || false;
+                    
+                    ['one_item', 'two_items', 'three_items', 'four_items'].forEach(scenario => {
+                        if (modeTemplate[scenario]) {
+                            templates[mode][scenario] = {
+                                elements: parseScenarioElements(modeTemplate[scenario], scenario),
+                                item_height: modeTemplate[scenario].item_height || 10
+                            };
+                        }
+                    });
                 }
             });
             
-            // Switch to first available mode
+            // Switch to first available mode and scenario
             const firstMode = ['sports', 'stocks', 'weather'].find(m => template[m]);
             if (firstMode) {
                 switchMode(firstMode);
+                // Find first populated scenario
+                const firstScenario = ['one_item', 'two_items', 'three_items', 'four_items'].find(s => 
+                    templates[firstMode][s]?.elements?.length > 0
+                );
+                if (firstScenario) {
+                    currentScenario = firstScenario;
+                    elements = [...templates[firstMode][firstScenario].elements];
+                    document.getElementById('scenarioSelect').value = firstScenario;
+                    switchScenario(firstScenario);
+                }
             }
             
             updateModeBadges();
@@ -1359,13 +1869,19 @@ sports:
             updateDisplay();
         }
         
-        function parseTemplateElements(template) {
+        function parseScenarioElements(scenarioData, scenarioName) {
             const elements = [];
             let idCounter = Date.now();
             
-            // Parse one_item section
-            if (template.one_item) {
-                Object.entries(template.one_item).forEach(([key, spec]) => {
+            // For one_item, parse directly
+            // For multi-item, parse from item_template
+            const dataSource = scenarioName === 'one_item' ? scenarioData : scenarioData.item_template;
+            
+            if (dataSource) {
+                Object.entries(dataSource).forEach(([key, spec]) => {
+                    // Skip non-element properties
+                    if (key === 'item_height') return;
+                    
                     // Use the key as the type (it's already the element type)
                     const type = key;
                     
@@ -1388,6 +1904,61 @@ sports:
             
             return elements;
         }
+        
+        // Utility functions
+        function toggleSnap() {
+            snapToGrid = document.getElementById('snapGrid').checked;
+            console.log('Snap to grid:', snapToGrid);
+        }
+        
+        function changeZoom() {
+            scale = parseInt(document.getElementById('zoomLevel').value);
+            updateDisplay();
+            console.log('Zoom changed to:', scale);
+        }
+        
+        function nudge(dx, dy) {
+            if (!selectedElement) return;
+            
+            selectedElement.x += dx;
+            selectedElement.y += dy;
+            
+            // Update property inputs if visible
+            const propX = document.getElementById('propX');
+            const propY = document.getElementById('propY');
+            if (propX) propX.value = selectedElement.x;
+            if (propY) propY.value = selectedElement.y;
+            
+            templates[currentMode][currentScenario].elements = [...elements];
+            renderElements();
+            generateTemplate();
+        }
+        
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            if (!selectedElement) return;
+            
+            // Ignore if typing in input field
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            
+            // Arrow keys for precise positioning
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                nudge(0, -1);
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                nudge(0, 1);
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                nudge(-1, 0);
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                nudge(1, 0);
+            } else if (e.key === 'Delete' || e.key === 'Backspace') {
+                e.preventDefault();
+                deleteElement();
+            }
+        });
     </script>
 </body>
 </html>
