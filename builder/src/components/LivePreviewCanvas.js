@@ -7,7 +7,8 @@ export default function LivePreviewCanvas({
   displayConfig, 
   currentMode, 
   currentScenario,
-  scale 
+  scale,
+  opacity = 0.8
 }) {
   const [previewImage, setPreviewImage] = useState(null);
   const canvasRef = useRef(null);
@@ -15,7 +16,6 @@ export default function LivePreviewCanvas({
   useEffect(() => {
     const updatePreview = async () => {
       try {
-        // Build template dict for current mode
         const { panel_width, panel_height, num_panels, orientation } = displayConfig;
         const totalWidth = orientation === 'horizontal' 
           ? panel_width * num_panels 
@@ -32,21 +32,10 @@ export default function LivePreviewCanvas({
           totalHeight
         );
 
-        console.log('Rendering preview for:', currentMode, currentScenario);
-        console.log('Template dict:', templateDict);
-        console.log('Elements in scenario:', templates[currentMode][currentScenario]?.elements?.length);
-
-        // Render preview using actual renderer
-        console.log('Calling renderPreview API...');
         const blob = await renderPreview(currentMode, templateDict, currentScenario);
-        console.log('Got blob:', blob.size, 'bytes');
         const imageUrl = URL.createObjectURL(blob);
-        console.log('Created image URL:', imageUrl);
         setPreviewImage(imageUrl);
-        console.log('✅ Preview image set, should display now');
       } catch (err) {
-        console.error('❌ Preview failed:', err);
-        console.error('Error message:', err.message);
         setPreviewImage(null);
       }
     };
@@ -73,7 +62,8 @@ export default function LivePreviewCanvas({
         height: `${totalHeight * scale}px`,
         pointerEvents: 'none',
         zIndex: 1,
-        opacity: 0.8
+        opacity: opacity,
+        border: '2px solid rgba(74, 222, 128, 0.3)' // Subtle green border to show it's there
       }}
     >
       {previewImage ? (
@@ -85,8 +75,6 @@ export default function LivePreviewCanvas({
             height: '100%',
             imageRendering: 'pixelated'
           }}
-          onLoad={() => console.log('✅ Preview image loaded and displayed')}
-          onError={(e) => console.error('❌ Preview image failed to load:', e)}
         />
       ) : (
         <div style={{
@@ -113,18 +101,14 @@ function buildTemplateDict(modeData, mode, scenario, width, height) {
   };
 
   const scenarioData = modeData[scenario];
-  console.log(`Building template dict for ${mode}.${scenario}:`, scenarioData);
   
   if (scenarioData && scenarioData.elements && scenarioData.elements.length > 0) {
-    console.log(`  ${scenarioData.elements.length} elements found`);
-    
     if (scenario === 'one_item') {
       dict.one_item = {};
       scenarioData.elements.forEach(elem => {
-        console.log(`    Adding ${elem.type} at (${elem.x}, ${elem.y})`);
         const spec = { 
-          x: Math.round(elem.x), // Ensure integer
-          y: Math.round(elem.y)  // Ensure integer
+          x: Math.round(elem.x),
+          y: Math.round(elem.y)
         };
         
         if (elem.type.includes('logo') || elem.type.includes('icon')) {
@@ -137,7 +121,6 @@ function buildTemplateDict(modeData, mode, scenario, width, height) {
         }
         dict.one_item[elem.type] = spec;
       });
-      console.log('  Built one_item dict:', dict.one_item);
     } else {
       dict[scenario] = {
         item_height: scenarioData.item_height || 10,
@@ -145,10 +128,9 @@ function buildTemplateDict(modeData, mode, scenario, width, height) {
       };
       
       scenarioData.elements.forEach(elem => {
-        console.log(`    Adding ${elem.type} at (${elem.x}, ${elem.y})`);
         const spec = { 
-          x: Math.round(elem.x), // Ensure integer
-          y: Math.round(elem.y)  // Ensure integer
+          x: Math.round(elem.x),
+          y: Math.round(elem.y)
         };
         
         if (elem.type.includes('logo') || elem.type.includes('icon')) {
@@ -161,10 +143,7 @@ function buildTemplateDict(modeData, mode, scenario, width, height) {
         }
         dict[scenario].item_template[elem.type] = spec;
       });
-      console.log(`  Built ${scenario} dict:`, dict[scenario]);
     }
-  } else {
-    console.log('  No elements to render');
   }
 
   return dict;

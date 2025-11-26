@@ -37,14 +37,11 @@ function App() {
   useEffect(() => {
     const autoLoad = async () => {
       try {
-        console.log("Auto-loading config template...");
         const data = await loadConfigTemplate();
-        console.log("Config template response:", data);
 
         if (data.has_templates) {
           // Load display config FIRST, then templates
           if (data.display) {
-            console.log("Setting display config:", data.display);
             // MERGE with existing config instead of replacing
             setDisplayConfig((prev) => ({
               ...prev,
@@ -57,22 +54,15 @@ function App() {
             await new Promise((resolve) => setTimeout(resolve, 100));
           }
 
-          console.log("Loading templates...");
           loadTemplates(data.templates);
-          console.log("✅ Config template loaded successfully");
-        } else {
-          console.log("No templates in config");
         }
       } catch (err) {
-        console.log(
-          "Auto-load failed (emulator not running or config empty):",
-          err.message
-        );
+        // Silent fail if emulator not running
       }
     };
 
     setTimeout(autoLoad, 500);
-  }, [loadTemplates, setDisplayConfig]); // Added dependencies
+  }, [loadTemplates, setDisplayConfig]);
 
   const handleContextMenu = (e, element) => {
     e.preventDefault();
@@ -130,12 +120,12 @@ function App() {
 
           <ElementPalette currentMode={currentMode} addElement={addElement} />
 
-          <OutputPanel
+          {/* <OutputPanel
             templates={templates}
             displayConfig={displayConfig}
             currentMode={currentMode}
             currentScenario={currentScenario}
-          />
+          /> */}
         </div>
       </div>
 

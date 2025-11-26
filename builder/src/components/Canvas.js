@@ -1,7 +1,8 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import './Canvas.css';
 import LivePreviewCanvas from './LivePreviewCanvas';
 import ItemBoundaryOverlay from './ItemBoundaryOverlay';
+import PreviewToggle from './PreviewToggle';
 import { getOptimalElementSize } from '../utils/contentSize';
 import interact from 'interactjs';
 
@@ -30,6 +31,10 @@ export default function Canvas({
   const canvasHeight = totalHeight * scale;
   const canvasRef = useRef(null);
   const updateElementRef = useRef(updateElement);
+  
+  // Preview visibility controls
+  const [showPreview, setShowPreview] = useState(true);
+  const [previewOpacity, setPreviewOpacity] = useState(80);
   
   // Keep ref updated
   useEffect(() => {
@@ -99,23 +104,17 @@ export default function Canvas({
       interact('.element').unset();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [elements.length, scale, totalWidth, totalHeight]); // Only recreate when needed
-  
-  console.log('Canvas render:', { 
-    totalWidth, 
-    totalHeight, 
-    canvasWidth, 
-    canvasHeight,
-    panel_width, 
-    panel_height, 
-    num_panels, 
-    orientation: orientation || 'undefined!',
-    elementCount: elements.length,
-    calculation: `${orientation} === 'horizontal' ? ${panel_width} * ${num_panels} : ${panel_width}`
-  });
+  }, [elements.length, scale, totalWidth, totalHeight]);
 
   return (
     <div className="canvas-container">
+      <PreviewToggle
+        showPreview={showPreview}
+        setShowPreview={setShowPreview}
+        previewOpacity={previewOpacity}
+        setPreviewOpacity={setPreviewOpacity}
+      />
+      
       <div 
         ref={canvasRef}
         className="canvas-preview"
@@ -126,13 +125,16 @@ export default function Canvas({
         }}
       >
         {/* Live preview as background */}
-        <LivePreviewCanvas
-          templates={templates}
-          displayConfig={displayConfig}
-          currentMode={currentMode}
-          currentScenario={currentScenario}
-          scale={scale}
-        />
+        {showPreview && (
+          <LivePreviewCanvas
+            templates={templates}
+            displayConfig={displayConfig}
+            currentMode={currentMode}
+            currentScenario={currentScenario}
+            scale={scale}
+            opacity={previewOpacity / 100}
+          />
+        )}
         
         {/* Item boundary overlay for multi-item scenarios */}
         <ItemBoundaryOverlay

@@ -499,7 +499,6 @@ class EmulatorAdapter(DisplayAdapter):
             # Render using actual renderer
             if mode == 'sports':
                 renderer = TemplatedSportsRenderer(template)
-                # Get number of games based on scenario
                 num_games = {'one_item': 1, 'two_items': 2, 'three_items': 3, 'four_items': 4}.get(scenario, 1)
                 image = renderer.render_games(sample_data[:num_games], display_type='live')
             elif mode == 'stocks':
