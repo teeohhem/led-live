@@ -1,0 +1,91 @@
+.toolbar {
+  background: #2a2a2a;
+  padding: 15px 20px;
+  border-bottom: 2px solid #3a3a3a;
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.mode-tabs {
+  display: flex;
+  gap: 5px;
+  background: #1a1a1a;
+  padding: 4px;
+  border-radius: 6px;
+}
+
+.mode-tab {
+  padding: 8px 16px;
+  background: #2a2a2a;
+  border: none;
+  color: #aaa;
+  border-radius: 4px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+
+.mode-tab.active {
+  background: #667eea;
+  color: white;
+  font-weight: 600;
+}
+
+.mode-tab .badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #4ade80;
+  color: white;
+  border-radius: 10px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.toolbar-actions button {
+  padding: 8px 16px;
+  background: #667eea;
+  border: none;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toolbar-actions button:hover {
+  background: #5568d3;
+}
+
+.toolbar-actions .save-btn {
+  background: #4ade80;
+  font-weight: 600;
+}
+
+.toolbar-actions .save-btn:hover {
+  background: #3bc970;
+}
+
+.toolbar-info {
+  margin-left: auto;
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.dimension-label {
+  color: #aaa;
+}
+
+.element-count {
+  color: #4ade80;
+  font-weight: 600;
+}
+

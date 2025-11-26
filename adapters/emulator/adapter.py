@@ -465,18 +465,24 @@ class EmulatorAdapter(DisplayAdapter):
             template_dict = data.get('template', {})
             scenario = data.get('scenario', 'one_item')
             
-            # Get sample data
+            # Get sample data with enough items for all scenarios
             if mode == 'sports':
                 sample_data = [
                     {'home': 'DET', 'away': 'BOS', 'home_score': 95, 'away_score': 102, 
                      'clock': '2:45', 'period': 'Q4', 'league': 'NBA', 'state': 'inProgress'},
                     {'home': 'LAL', 'away': 'GSW', 'home_score': 88, 'away_score': 91,
                      'clock': '5:12', 'period': 'Q3', 'league': 'NBA', 'state': 'inProgress'},
+                    {'home': 'NYK', 'away': 'MIA', 'home_score': 76, 'away_score': 82,
+                     'clock': '0:45', 'period': 'Q4', 'league': 'NBA', 'state': 'inProgress'},
+                    {'home': 'PHI', 'away': 'CHI', 'home_score': 103, 'away_score': 98,
+                     'clock': '8:30', 'period': 'Q2', 'league': 'NBA', 'state': 'inProgress'},
                 ]
             elif mode == 'stocks':
                 sample_data = [
                     {'symbol': 'AAPL', 'price': 195.50, 'change_percent': 2.3, 'is_up': True},
                     {'symbol': 'TSLA', 'price': 245.10, 'change_percent': -1.2, 'is_up': False},
+                    {'symbol': 'GOOGL', 'price': 142.75, 'change_percent': 0.8, 'is_up': True},
+                    {'symbol': 'MSFT', 'price': 378.90, 'change_percent': 1.5, 'is_up': True},
                 ]
             else:  # weather
                 sample_data = {
@@ -549,6 +555,22 @@ class EmulatorAdapter(DisplayAdapter):
                     }
                 })
             
+            # Detect orientation from template canvas dimensions
+            orientation = 'horizontal'  # Default
+            if layout_templates:
+                first_mode = next((m for m in ['sports', 'stocks', 'weather'] if m in layout_templates), None)
+                if first_mode and layout_templates[first_mode]:
+                    canvas_width = layout_templates[first_mode].get('canvas_width')
+                    canvas_height = layout_templates[first_mode].get('canvas_height')
+                    
+                    if canvas_width and canvas_height:
+                        # If width = panel_width * num_panels, it's horizontal
+                        if canvas_width == panel_width * num_panels and canvas_height == panel_height:
+                            orientation = 'horizontal'
+                        # If height = panel_height * num_panels, it's vertical
+                        elif canvas_height == panel_height * num_panels and canvas_width == panel_width:
+                            orientation = 'vertical'
+            
             return web.json_response({
                 'has_templates': True,
                 'templates': layout_templates,
@@ -556,6 +578,7 @@ class EmulatorAdapter(DisplayAdapter):
                     'panel_width': panel_width,
                     'panel_height': panel_height,
                     'num_panels': num_panels,
+                    'orientation': orientation,
                     'adapter': display_config.get('adapter', 'ipixel')
                 }
             })

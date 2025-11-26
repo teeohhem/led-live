@@ -1,0 +1,130 @@
+.canvas-container {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 40px;
+  overflow: auto;
+  background: #1a1a1a;
+}
+
+.canvas-preview {
+  position: relative;
+  background: #000;
+  border: 2px solid #667eea;
+  box-shadow: 0 0 30px rgba(102, 126, 234, 0.3);
+  background-image: 
+    linear-gradient(rgba(102, 126, 234, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(102, 126, 234, 0.05) 1px, transparent 1px);
+  background-size: 20px 20px;
+  flex-shrink: 0;
+  flex-grow: 0;
+}
+
+.panel-divider {
+  position: absolute;
+  background: rgba(255, 165, 0, 0.5);
+  box-shadow: 0 0 10px rgba(255, 165, 0, 0.8);
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.panel-divider.horizontal {
+  width: 3px;
+  height: 100%;
+  top: 0;
+}
+
+.panel-divider.vertical {
+  width: 100%;
+  height: 3px;
+  left: 0;
+}
+
+.divider-label {
+  position: absolute;
+  padding: 3px 8px;
+  background: rgba(255, 165, 0, 0.9);
+  color: #000;
+  font-size: 10px;
+  font-weight: bold;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.panel-divider.horizontal .divider-label {
+  left: -35px;
+  top: 5px;
+}
+
+.panel-divider.vertical .divider-label {
+  left: 5px;
+  top: -12px;
+}
+
+.element {
+  position: absolute;
+  border: 2px dashed rgba(102, 126, 234, 0.8);
+  cursor: move;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  color: rgba(102, 126, 234, 0.8);
+  background: rgba(102, 126, 234, 0.08);
+  touch-action: none;
+  user-select: none;
+  z-index: 10;
+  pointer-events: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 2px;
+}
+
+.element:hover {
+  border-width: 3px;
+  background: rgba(102, 126, 234, 0.2);
+  z-index: 10;
+}
+
+.element.selected {
+  border-color: #ffd700;
+  background: rgba(255, 215, 0, 0.15);
+  z-index: 20;
+}
+
+.element.dragging {
+  opacity: 0.7;
+  z-index: 100;
+  cursor: grabbing !important;
+}
+
+.element.out-of-bounds {
+  border-color: #ff4444;
+  background: rgba(255, 68, 68, 0.15);
+  border-style: solid;
+}
+
+.element.out-of-bounds:hover {
+  border-color: #ff0000;
+  background: rgba(255, 0, 0, 0.25);
+}
+
+.warning-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #ff4444;
+  color: white;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  box-shadow: 0 0 8px rgba(255, 68, 68, 0.8);
+}
+

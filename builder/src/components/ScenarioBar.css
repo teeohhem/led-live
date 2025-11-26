@@ -1,0 +1,70 @@
+.scenario-bar {
+  background: #2a2a2a;
+  padding: 10px 20px;
+  border-bottom: 2px solid #3a3a3a;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.scenario-label {
+  color: #aaa;
+  font-size: 0.9rem;
+}
+
+.scenario-buttons {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.scenario-btn {
+  padding: 6px 14px;
+  background: #1a1a1a;
+  border: 2px solid transparent;
+  color: #666;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  position: relative;
+  transition: all 0.2s;
+}
+
+.scenario-btn.active {
+  background: #667eea;
+  border-color: #667eea;
+  color: white;
+  font-weight: 700;
+  box-shadow: 0 0 12px rgba(102, 126, 234, 0.5);
+}
+
+.scenario-btn.has-elements {
+  background: #2a2a2a;
+  border-color: #4ade80;
+  color: #4ade80;
+}
+
+.scenario-btn.has-elements.active {
+  background: #667eea;
+  border-color: #667eea;
+  color: white;
+}
+
+.scenario-btn:hover:not(.active) {
+  background: #333;
+  transform: translateY(-1px);
+}
+
+.scenario-btn .count-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #4ade80;
+  color: #000;
+  border-radius: 8px;
+  padding: 2px 5px;
+  font-size: 9px;
+  font-weight: bold;
+}
+
