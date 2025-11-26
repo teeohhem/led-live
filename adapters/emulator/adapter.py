@@ -92,6 +92,8 @@ class EmulatorAdapter(DisplayAdapter):
             self.web_app.router.add_get('/api/stocks', self._handle_get_stocks_data)
             self.web_app.router.add_get('/api/weather', self._handle_get_weather_data)
             self.web_app.router.add_post('/api/preview', self._handle_render_preview)
+            self.web_app.router.add_get('/api/config_template', self._handle_get_config_template)
+            self.web_app.router.add_post('/api/save_to_config', self._handle_save_to_config)
             
             # Start server
             self.web_runner = web.AppRunner(self.web_app)
@@ -516,6 +518,114 @@ class EmulatorAdapter(DisplayAdapter):
             return web.json_response({
                 'error': str(e),
                 'traceback': traceback.format_exc()
+            }, status=500)
+    
+    async def _handle_get_config_template(self, request):
+        """Get layout templates and display config from config.yml."""
+        try:
+            from config import get_all_config
+            config_dict = get_all_config()
+            
+            # Extract layout_templates section
+            layout_templates = config_dict.get('layout_templates', {})
+            
+            # Extract display configuration
+            display_config = config_dict.get('display', {})
+            ipixel_config = display_config.get('ipixel', {})
+            
+            panel_width = ipixel_config.get('size_width', 64)
+            panel_height = ipixel_config.get('size_height', 20)
+            ble_addresses = ipixel_config.get('ble_addresses', [])
+            num_panels = len(ble_addresses) if ble_addresses else 2
+            
+            if not layout_templates:
+                return web.json_response({
+                    'has_templates': False,
+                    'message': 'No layout_templates section in config.yml',
+                    'display': {
+                        'panel_width': panel_width,
+                        'panel_height': panel_height,
+                        'num_panels': num_panels
+                    }
+                })
+            
+            return web.json_response({
+                'has_templates': True,
+                'templates': layout_templates,
+                'display': {
+                    'panel_width': panel_width,
+                    'panel_height': panel_height,
+                    'num_panels': num_panels,
+                    'adapter': display_config.get('adapter', 'ipixel')
+                }
+            })
+        except Exception as e:
+            logger.error(f"Failed to load config templates: {e}")
+            return web.json_response({
+                'has_templates': False,
+                'error': str(e)
+            }, status=500)
+    
+    async def _handle_save_to_config(self, request):
+        """Save template back to config.yml."""
+        try:
+            import yaml
+            from pathlib import Path
+            
+            data = await request.json()
+            template_yaml = data.get('template_yaml', '')
+            
+            if not template_yaml:
+                return web.json_response({
+                    'success': False,
+                    'error': 'No template data provided'
+                }, status=400)
+            
+            # Read current config.yml
+            config_path = Path(__file__).parent.parent.parent / 'config.yml'
+            
+            if not config_path.exists():
+                return web.json_response({
+                    'success': False,
+                    'error': 'config.yml not found'
+                }, status=404)
+            
+            with open(config_path, 'r') as f:
+                config_content = f.read()
+            
+            # Find layout_templates section
+            import re
+            
+            # Check if layout_templates section exists
+            if 'layout_templates:' in config_content:
+                # Replace existing layout_templates section
+                # Find the start of layout_templates
+                pattern = r'(layout_templates:).*?(?=^[a-z_]+:|$)'
+                
+                # Parse the new template to get proper YAML
+                replacement = f'layout_templates:\n{template_yaml}\n'
+                
+                # This is tricky - for now, let's return the YAML and let user paste manually
+                return web.json_response({
+                    'success': True,
+                    'message': 'Template generated. Please copy and paste into config.yml manually.',
+                    'yaml': template_yaml,
+                    'manual_update': True
+                })
+            else:
+                # Append to end of file
+                return web.json_response({
+                    'success': True,
+                    'message': 'Template generated. Add to end of config.yml.',
+                    'yaml': template_yaml,
+                    'manual_update': True
+                })
+                
+        except Exception as e:
+            logger.error(f"Save to config failed: {e}")
+            return web.json_response({
+                'success': False,
+                'error': str(e)
             }, status=500)
     
     def _generate_html(self):

@@ -116,10 +116,11 @@
             border: 2px solid #667eea;
             box-shadow: 0 0 30px rgba(102, 126, 234, 0.3);
             background-image: 
-                linear-gradient(rgba(102, 126, 234, 0.1) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(102, 126, 234, 0.1) 1px, transparent 1px);
+                linear-gradient(rgba(102, 126, 234, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(102, 126, 234, 0.05) 1px, transparent 1px);
             background-size: 20px 20px;
             min-height: 160px;
+            overflow: visible;
         }
         
         .display-preview.drag-over {
@@ -319,6 +320,42 @@
             background: #667eea;
             color: white;
         }
+        
+        /* Context Menu */
+        .context-menu {
+            position: fixed;
+            background: #2a2a2a;
+            border: 2px solid #667eea;
+            border-radius: 6px;
+            padding: 4px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            display: none;
+        }
+        
+        .context-menu-item {
+            padding: 8px 16px;
+            color: #fff;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            transition: all 0.15s;
+        }
+        
+        .context-menu-item:hover {
+            background: #667eea;
+        }
+        
+        .context-menu-item.danger:hover {
+            background: #ef4444;
+        }
+        
+        .context-menu-divider {
+            height: 1px;
+            background: #3a3a3a;
+            margin: 4px 0;
+        }
     </style>
 </head>
 <body>
@@ -369,12 +406,22 @@
         </div>
         
         <div class="control-group">
-            <label>📂 Browse Templates</label>
+            <label>📄 From config.yml</label>
+            <button onclick="loadConfigTemplate()" style="width: 100%; padding: 10px; background: #667eea; border: none; color: white; border-radius: 4px; cursor: pointer; font-weight: 600;">
+                📥 Load My Config Template
+            </button>
+            <p style="color: #666; font-size: 0.75rem; margin-top: 4px;">
+                Load inline template from your config.yml
+            </p>
+        </div>
+        
+        <div class="control-group">
+            <label>📂 Browse Template Files</label>
             <select id="templateBrowser" size="5" 
                     style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #3a3a3a; color: #fff; border-radius: 4px; margin-bottom: 5px;">
                 <option>Loading templates...</option>
             </select>
-            <button onclick="loadSelectedTemplate()">Load Template</button>
+            <button onclick="loadSelectedTemplate()">Load File Template</button>
         </div>
         
         <div class="control-group">
@@ -389,62 +436,6 @@
             <input type="file" id="templateFile" accept=".json,.yml,.yaml" 
                    style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #3a3a3a; color: #fff; border-radius: 4px;">
             <button onclick="importFromFile()">Import</button>
-        </div>
-        
-        <hr style="border-color: #3a3a3a; margin: 20px 0;">
-        
-        <div class="control-group">
-            <label>📊 Item Scenario</label>
-            <select id="scenarioSelect" onchange="switchScenario(this.value)"
-                    style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #3a3a3a; color: #fff; border-radius: 4px;">
-                <option value="one_item">One Item (Full Screen)</option>
-                <option value="two_items">Two Items (Split)</option>
-                <option value="three_items">Three Items (Compact)</option>
-                <option value="four_items">Four Items (Mini)</option>
-            </select>
-            <p style="color: #666; font-size: 0.75rem; margin-top: 4px;">
-                Design layouts for different item counts
-            </p>
-        </div>
-        
-        <div class="control-group" id="itemHeightControl" style="display: none;">
-            <label>Item Height (px)</label>
-            <input type="number" id="itemHeight" value="10" min="8" max="40"
-                   onchange="updateItemHeight()"
-                   style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #3a3a3a; color: #fff; border-radius: 4px;">
-            <p style="color: #666; font-size: 0.75rem; margin-top: 4px;">
-                Height per item in multi-item layouts
-            </p>
-        </div>
-        
-        <div class="control-group">
-            <label>
-                <input type="checkbox" id="snapGrid" onchange="toggleSnap()" checked readonly" 
-                       style="margin-right: 8px;">
-                📐 Snap to Grid (2px)
-            </label>
-            <p style="color: #666; font-size: 0.75rem; margin-top: 4px;">
-                Tip: Disable snap for precise pixel placement
-            </p>
-        </div>
-        
-        <div class="control-group">
-            <label>Zoom Level</label>
-            <select id="zoomLevel" onchange="changeZoom()" 
-                    style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #3a3a3a; color: #fff; border-radius: 4px;">
-                <option value="6">6× (Small)</option>
-                <option value="8">8× (Medium)</option>
-                <option value="10" selected>10× (Large)</option>
-                <option value="12">12× (XL)</option>
-                <option value="15">15× (XXL)</option>
-            </select>
-        </div>
-        
-        <hr style="border-color: #3a3a3a; margin: 20px 0;">
-        
-        <div class="properties" id="properties">
-            <h3>Properties</h3>
-            <p style="color: #666; font-size: 0.85rem;">Select an element to edit properties</p>
         </div>
     </div>
     
@@ -467,22 +458,51 @@
                     <span id="badgeWeather" style="position: absolute; top: -6px; right: -6px; background: #4ade80; color: white; border-radius: 10px; padding: 2px 6px; font-size: 10px; font-weight: bold;">0</span>
                 </button>
             </div>
-            <button onclick="clearCanvas()">🗑️ Clear Mode</button>
+            <button onclick="clearCanvas()">🗑️ Clear Scenario</button>
             <button onclick="generateTemplate()">🔄 Refresh Output</button>
             <button onclick="copyYAML()">📋 Copy YAML</button>
+            <button onclick="saveToConfig()" style="background: #4ade80; font-weight: 600;">💾 Save to Config</button>
             <button onclick="downloadTemplate('yaml')">⬇️ Download</button>
             <div style="margin-left: auto; display: flex; gap: 10px; align-items: center;">
-                <span style="color: #667eea; font-weight: 600;" id="currentModeLabel">Sports Mode</span>
-                <span style="color: #f59e0b; font-weight: 600;" id="currentScenarioLabel">One Item</span>
                 <span style="color: #aaa;" id="dimensions">64×20</span>
                 <span style="color: #4ade80; font-weight: 600;" id="elementCount">0 elements</span>
             </div>
         </div>
         
+        <!-- Scenario Sub-Bar -->
+        <div id="scenarioBar" style="background: #2a2a2a; padding: 10px 20px; border-bottom: 2px solid #3a3a3a; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <span style="color: #aaa; font-size: 0.9rem; margin-right: 8px;">Scenario:</span>
+            <div id="scenarioButtons" style="display: flex; gap: 6px; flex-wrap: wrap;">
+                <!-- Scenario buttons will be populated here -->
+            </div>
+            <div id="itemHeightControl" style="margin-left: auto; display: none; align-items: center; gap: 8px;">
+                <span style="color: #aaa; font-size: 0.85rem;">Item Height:</span>
+                <input type="number" id="itemHeightInline" value="10" min="8" max="40"
+                       onchange="updateItemHeight()"
+                       style="width: 60px; padding: 4px 8px; background: #1a1a1a; border: 1px solid #3a3a3a; color: #fff; border-radius: 4px;">
+            </div>
+        </div>
+        <div>
+            <label>Zoom Level</label>
+            <select id="zoomLevel" onchange="changeZoom()" 
+                    style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #3a3a3a; color: #fff; border-radius: 4px;">
+                <option value="6">6× (Small)</option>
+                <option value="8">8× (Medium)</option>
+                <option value="10" selected>10× (Large)</option>
+                <option value="12">12× (XL)</option>
+                <option value="15">15× (XXL)</option>
+            </select>
+        </div>
         <div class="canvas" id="canvas">
+            
             <div class="display-preview" id="displayPreview">
                 <!-- Elements will be placed here -->
             </div>
+            <div class="properties" id="properties">
+                <h3>Properties</h3>
+                <p style="color: #666; font-size: 0.85rem;">Select an element to edit properties</p>
+            </div>
+           
         </div>
         
         <div class="element-palette" id="elementPalette">
@@ -533,6 +553,20 @@ sports:
         </div>
     </div>
     
+    <!-- Context Menu -->
+    <div id="contextMenu" class="context-menu">
+        <div class="context-menu-item" onclick="duplicateElement()">
+            📋 Duplicate
+        </div>
+        <div class="context-menu-item" onclick="optimizeSpace()">
+            ✨ Optimize Space
+        </div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item danger" onclick="deleteElement()">
+            🗑️ Delete
+        </div>
+    </div>
+    
     <script>
         let templates = {
             sports: {
@@ -559,7 +593,7 @@ sports:
         let elements = [];
         let selectedElement = null;
         let scale = 10; // Display scale for visibility (increased from 4)
-        let snapToGrid = false; // Disabled by default for precise placement
+        let snapToGrid = true; // Disabled by default for precise placement
         let gridSize = 2; // Snap to 2-pixel grid when enabled
         
         // Element definitions by mode (MUST be defined before initialization)
@@ -598,6 +632,15 @@ sports:
         updatePalette();
         updateScenarioOptions();
         updateModeBadges();
+        
+        // Auto-load config template on startup
+        setTimeout(() => {
+            console.log('Auto-loading config template...');
+            window.autoLoadInProgress = true;
+            loadConfigTemplate().finally(() => {
+                window.autoLoadInProgress = false;
+            });
+        }, 500); // Small delay to ensure DOM is ready
         
         function updatePalette() {
             const paletteContainer = document.getElementById('paletteItems');
@@ -674,13 +717,11 @@ sports:
                         end(event) {
                             event.target.classList.remove('dragging');
                             
-                            // Snap to grid after drag if enabled
-                            if (snapToGrid) {
-                                elementData.x = Math.round(elementData.x / gridSize) * gridSize;
-                                elementData.y = Math.round(elementData.y / gridSize) * gridSize;
-                                event.target.style.left = (elementData.x * scale) + 'px';
-                                event.target.style.top = (elementData.y * scale) + 'px';
-                            }
+                            // snap to grid
+                            elementData.x = Math.round(elementData.x / gridSize) * gridSize;
+                            elementData.y = Math.round(elementData.y / gridSize) * gridSize;
+                            event.target.style.left = (elementData.x * scale) + 'px';
+                            event.target.style.top = (elementData.y * scale) + 'px';
                             
                             // Ensure within bounds
                             elementData.x = Math.max(0, elementData.x);
@@ -780,13 +821,7 @@ sports:
                 }
             });
             
-            // Update mode label
-            const modeNames = {
-                sports: '🏀 Sports Mode',
-                stocks: '📈 Stocks Mode',
-                weather: '🌤️ Weather Mode'
-            };
-            document.getElementById('currentModeLabel').textContent = modeNames[mode];
+            // Mode label removed from toolbar - now using mode tabs only
             
             // Update palette for this mode
             updatePalette();
@@ -807,30 +842,39 @@ sports:
         }
         
         function switchScenario(scenario) {
+            console.log('Switching to scenario:', scenario, 'from:', currentScenario);
+            
             // Save current scenario's elements
-            templates[currentMode][currentScenario].elements = [...elements];
+            if (currentScenario && templates[currentMode][currentScenario]) {
+                templates[currentMode][currentScenario].elements = [...elements];
+            }
             
             // Load new scenario's elements
             currentScenario = scenario;
             elements = [...(templates[currentMode][scenario]?.elements || [])];
             
-            // Update labels
-            const scenarioLabels = {
-                one_item: 'One Item',
-                two_items: 'Two Items',
-                three_items: 'Three Items',
-                four_items: 'Four Items'
-            };
-            document.getElementById('currentScenarioLabel').textContent = scenarioLabels[scenario];
+            console.log(`Loaded ${elements.length} elements for ${scenario}`);
             
-            // Show/hide item height control
+            // CRITICAL: Update scenario buttons to show new active state
+            updateScenarioOptions();
+            
+            // Show/hide item height control in sub-bar
             const itemHeightControl = document.getElementById('itemHeightControl');
-            if (scenario === 'one_item') {
-                itemHeightControl.style.display = 'none';
-            } else {
-                itemHeightControl.style.display = 'block';
-                const itemHeight = templates[currentMode][scenario]?.item_height || 10;
-                document.getElementById('itemHeight').value = itemHeight;
+            if (itemHeightControl) {
+                if (scenario === 'one_item') {
+                    itemHeightControl.style.display = 'none';
+                } else {
+                    itemHeightControl.style.display = 'flex';
+                    const itemHeight = templates[currentMode][scenario]?.item_height || 10;
+                    const input = document.getElementById('itemHeightInline');
+                    if (input) input.value = itemHeight;
+                }
+            }
+            
+            // Update element count display
+            const countElem = document.getElementById('elementCount');
+            if (countElem) {
+                countElem.textContent = `${elements.length} element${elements.length !== 1 ? 's' : ''}`;
             }
             
             // Refresh preview if visible
@@ -840,44 +884,122 @@ sports:
             
             renderElements();
             generateTemplate();
+            
+            console.log('Scenario switched successfully');
         }
         
         function updateScenarioOptions() {
-            const scenarioSelect = document.getElementById('scenarioSelect');
-            scenarioSelect.innerHTML = '';
+            const scenarioButtonsContainer = document.getElementById('scenarioButtons');
+            scenarioButtonsContainer.innerHTML = '';
             
-            // Add available scenarios for current mode
+            // Define available scenarios for current mode
             const scenarios = {
                 sports: [
-                    { value: 'one_item', label: 'One Game (Full Screen)' },
-                    { value: 'two_items', label: 'Two Games (Split)' },
-                    { value: 'three_items', label: 'Three Games (Compact)' },
-                    { value: 'four_items', label: 'Four Games (Mini)' }
+                    { value: 'one_item', label: '1 Game', icon: '📺' },
+                    { value: 'two_items', label: '2 Games', icon: '⚡' },
+                    { value: 'three_items', label: '3 Games', icon: '📊' },
+                    { value: 'four_items', label: '4 Games', icon: '📋' }
                 ],
                 stocks: [
-                    { value: 'one_item', label: 'One Stock (Full)' },
-                    { value: 'two_items', label: 'Two Stocks (Split)' },
-                    { value: 'four_items', label: 'Four Stocks (Compact)' }
+                    { value: 'one_item', label: '1 Stock', icon: '💎' },
+                    { value: 'two_items', label: '2 Stocks', icon: '📊' },
+                    { value: 'four_items', label: '4 Stocks', icon: '📋' }
                 ],
                 weather: [
-                    { value: 'one_item', label: 'Current Weather' },
-                    { value: 'two_items', label: 'Current + Forecast' }
+                    { value: 'one_item', label: 'Current', icon: '🌤️' },
+                    { value: 'two_items', label: 'With Forecast', icon: '🔮' }
                 ]
             };
             
             scenarios[currentMode].forEach(s => {
-                const option = document.createElement('option');
-                option.value = s.value;
-                option.textContent = s.label;
-                if (s.value === currentScenario) {
-                    option.selected = true;
+                const hasElements = templates[currentMode][s.value]?.elements?.length > 0;
+                const isActive = s.value === currentScenario;
+                
+                const button = document.createElement('button');
+                button.className = 'scenario-btn';
+                button.dataset.scenario = s.value;
+                button.onclick = () => switchScenario(s.value);
+                
+                // Enhanced visual states
+                let bgColor, borderColor, textColor, borderWidth;
+                
+                if (isActive) {
+                    bgColor = '#667eea';
+                    borderColor = '#667eea';
+                    textColor = 'white';
+                    borderWidth = '3px';
+                } else if (hasElements) {
+                    bgColor = '#2a2a2a';
+                    borderColor = '#4ade80';
+                    textColor = '#4ade80';
+                    borderWidth = '2px';
+                } else {
+                    bgColor = '#1a1a1a';
+                    borderColor = '#3a3a3a';
+                    textColor = '#666';
+                    borderWidth = '2px';
                 }
-                scenarioSelect.appendChild(option);
+                
+                button.style.cssText = `
+                    padding: 6px 14px;
+                    background: ${bgColor};
+                    border: ${borderWidth} solid ${borderColor};
+                    color: ${textColor};
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 0.85rem;
+                    font-weight: ${isActive ? '700' : '500'};
+                    position: relative;
+                    transition: all 0.2s;
+                    ${isActive ? 'box-shadow: 0 0 12px rgba(102, 126, 234, 0.5);' : ''}
+                `;
+                
+                button.innerHTML = `${s.icon} ${s.label}`;
+                
+                // Add element count badge if has elements
+                if (hasElements) {
+                    const count = templates[currentMode][s.value].elements.length;
+                    const badge = document.createElement('span');
+                    badge.style.cssText = `
+                        position: absolute;
+                        top: -6px;
+                        right: -6px;
+                        background: #4ade80;
+                        color: #000;
+                        border-radius: 8px;
+                        padding: 2px 5px;
+                        font-size: 9px;
+                        font-weight: bold;
+                    `;
+                    badge.textContent = count;
+                    button.appendChild(badge);
+                }
+                
+                button.onmouseover = function() {
+                    if (!isActive) {
+                        this.style.background = hasElements ? '#333' : '#252525';
+                        this.style.transform = 'translateY(-1px)';
+                    }
+                };
+                
+                button.onmouseout = function() {
+                    if (!isActive) {
+                        this.style.background = hasElements ? '#2a2a2a' : '#1a1a1a';
+                        this.style.transform = 'translateY(0)';
+                    }
+                };
+                
+                scenarioButtonsContainer.appendChild(button);
             });
         }
         
         function updateItemHeight() {
-            const height = parseInt(document.getElementById('itemHeight').value);
+            const input = document.getElementById('itemHeightInline');
+            if (!input) {
+                console.error('itemHeightInline input not found');
+                return;
+            }
+            const height = parseInt(input.value);
             if (templates[currentMode][currentScenario]) {
                 templates[currentMode][currentScenario].item_height = height;
                 generateTemplate();
@@ -897,14 +1019,6 @@ sports:
                 badge.textContent = totalCount;
                 badge.style.display = totalCount > 0 ? 'block' : 'none';
             });
-        }
-        
-        function updateItemHeight() {
-            const height = parseInt(document.getElementById('itemHeight').value);
-            if (templates[currentMode][currentScenario]) {
-                templates[currentMode][currentScenario].item_height = height;
-                generateTemplate();
-            }
         }
         
         function addElement(type, x, y, defaultWidth, defaultHeight) {
@@ -967,6 +1081,128 @@ sports:
             const preview = document.getElementById('displayPreview');
             preview.innerHTML = '';
             
+            // Add PANEL dividers to show physical panel boundaries
+            const panelWidth = parseInt(document.getElementById('panelWidth').value);
+            const panelHeight = parseInt(document.getElementById('panelHeight').value);
+            const numPanels = parseInt(document.getElementById('numPanels').value);
+            const orientation = document.getElementById('orientation').value;
+            
+            if (numPanels > 1) {
+                for (let i = 1; i < numPanels; i++) {
+                    const divider = document.createElement('div');
+                    const label = document.createElement('div');
+                    
+                    if (orientation === 'horizontal') {
+                        // Vertical divider for side-by-side panels
+                        const xPos = i * panelWidth * scale;
+                        divider.style.cssText = `
+                            position: absolute;
+                            left: ${xPos}px;
+                            top: 0;
+                            width: 3px;
+                            height: 100%;
+                            background: rgba(255, 165, 0, 0.5);
+                            box-shadow: 0 0 10px rgba(255, 165, 0, 0.8);
+                            pointer-events: none;
+                            z-index: 1000;
+                        `;
+                        
+                        label.style.cssText = `
+                            position: absolute;
+                            left: ${xPos - 35}px;
+                            top: 5px;
+                            padding: 3px 8px;
+                            background: rgba(255, 165, 0, 0.9);
+                            color: #000;
+                            font-size: 10px;
+                            font-weight: bold;
+                            border-radius: 4px;
+                            pointer-events: none;
+                            z-index: 1001;
+                        `;
+                        label.textContent = `Panel ${i-1} | Panel ${i}`;
+                    } else {
+                        // Horizontal divider for stacked panels
+                        const yPos = i * panelHeight * scale;
+                        divider.style.cssText = `
+                            position: absolute;
+                            left: 0;
+                            top: ${yPos}px;
+                            width: 100%;
+                            height: 3px;
+                            background: rgba(255, 165, 0, 0.5);
+                            box-shadow: 0 0 10px rgba(255, 165, 0, 0.8);
+                            pointer-events: none;
+                            z-index: 1000;
+                        `;
+                        
+                        label.style.cssText = `
+                            position: absolute;
+                            left: 5px;
+                            top: ${yPos - 12}px;
+                            padding: 3px 8px;
+                            background: rgba(255, 165, 0, 0.9);
+                            color: #000;
+                            font-size: 10px;
+                            font-weight: bold;
+                            border-radius: 4px;
+                            pointer-events: none;
+                            z-index: 1001;
+                        `;
+                        label.textContent = `Panel ${i-1} | Panel ${i}`;
+                    }
+                    
+                    preview.appendChild(divider);
+                    preview.appendChild(label);
+                }
+            }
+            
+            // Add item dividers for multi-item scenarios
+            if (currentScenario !== 'one_item') {
+                const itemHeight = templates[currentMode][currentScenario]?.item_height || 10;
+                const numItems = {
+                    'two_items': 2,
+                    'three_items': 3,
+                    'four_items': 4
+                }[currentScenario] || 2;
+                
+                // Draw horizontal dividers
+                for (let i = 1; i < numItems; i++) {
+                    const divider = document.createElement('div');
+                    divider.style.cssText = `
+                        position: absolute;
+                        left: 0;
+                        top: ${i * itemHeight * scale}px;
+                        width: 100%;
+                        height: 2px;
+                        background: rgba(255, 215, 0, 0.4);
+                        box-shadow: 0 0 8px rgba(255, 215, 0, 0.6);
+                        pointer-events: none;
+                        z-index: 5;
+                    `;
+                    
+                    // Add label
+                    const label = document.createElement('div');
+                    label.style.cssText = `
+                        position: absolute;
+                        left: 0;
+                        top: ${i * itemHeight * scale - 10}px;
+                        padding: 2px 6px;
+                        background: rgba(255, 215, 0, 0.9);
+                        color: #000;
+                        font-size: 9px;
+                        font-weight: bold;
+                        border-radius: 3px;
+                        pointer-events: none;
+                        z-index: 6;
+                    `;
+                    label.textContent = `Item ${i} / Item ${i + 1}`;
+                    
+                    preview.appendChild(divider);
+                    preview.appendChild(label);
+                }
+            }
+            
             elements.forEach(element => {
                 const div = document.createElement('div');
                 div.className = `element ${element.type}`;
@@ -984,6 +1220,14 @@ sports:
                 div.onclick = (e) => {
                     e.stopPropagation();
                     selectElement(element);
+                };
+                
+                // Right-click context menu
+                div.oncontextmenu = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    selectElement(element);
+                    showContextMenu(e.clientX, e.clientY);
                 };
                 
                 if (selectedElement && selectedElement.id === element.id) {
@@ -1256,6 +1500,55 @@ sports:
             }).catch(err => {
                 alert('❌ Could not copy: ' + err);
             });
+        }
+        
+        async function saveToConfig() {
+            // Save current scenario
+            templates[currentMode][currentScenario].elements = [...elements];
+            
+            // Generate template YAML
+            generateTemplate();
+            
+            const yamlContent = document.getElementById('yamlOutput').textContent;
+            
+            // Extract just the template part (remove header comment)
+            const lines = yamlContent.split('\n');
+            const templateLines = lines.filter(line => 
+                !line.startsWith('# Add this') && 
+                !line.startsWith('# ') ||
+                line.startsWith('# ===')
+            );
+            const templateYaml = templateLines.join('\n');
+            
+            // Show confirmation dialog
+            const confirmed = confirm(
+                '💾 Save Template to config.yml?\n\n' +
+                'This will copy the YAML to your clipboard.\n' +
+                'You can then paste it into your config.yml file.\n\n' +
+                'Hot reload will apply changes automatically!\n\n' +
+                'Click OK to copy to clipboard.'
+            );
+            
+            if (!confirmed) return;
+            
+            try {
+                // Copy to clipboard
+                await navigator.clipboard.writeText(templateYaml);
+                
+                alert(
+                    '✅ Template copied to clipboard!\n\n' +
+                    'Next steps:\n' +
+                    '1. Open config.yml\n' +
+                    '2. Find the layout_templates: section\n' +
+                    '3. Replace it with clipboard content\n' +
+                    '4. Save config.yml\n' +
+                    '5. Hot reload applies automatically!\n\n' +
+                    'Or add to end of config.yml if no layout_templates section exists.'
+                );
+                
+            } catch (err) {
+                alert('❌ Could not copy to clipboard: ' + err.message);
+            }
         }
         
         function applyToEmulator() {
@@ -1562,11 +1855,175 @@ sports:
                 });
         }
         
+        async function loadConfigTemplate() {
+            console.log('=== loadConfigTemplate started ===');
+            try {
+                console.log('Fetching /api/config_template...');
+                const response = await fetch('/api/config_template');
+                console.log('Response received:', response.status);
+                
+                // Check if endpoint exists (404 = needs restart)
+                if (response.status === 404) {
+                    alert('⚠️ Restart Required\n\n' +
+                          'The config template feature requires a new API endpoint.\n\n' +
+                          'Please restart the emulator:\n' +
+                          '1. Stop emulator (Ctrl+C)\n' +
+                          '2. Run: python3 emulator.py\n' +
+                          '3. Refresh this page\n' +
+                          '4. Try again');
+                    return;
+                }
+                
+                // Check content type
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    console.error('Non-JSON response:', text);
+                    throw new Error('Server returned non-JSON response. Restart emulator.');
+                }
+                
+                const data = await response.json();
+                console.log('Config template response:', data);
+                
+                // Apply display configuration from config
+                if (data.display) {
+                    console.log('Applying display config:', data.display);
+                    const panelWidth = data.display.panel_width || 64;
+                    const panelHeight = data.display.panel_height || 20;
+                    const numPanels = data.display.num_panels || 2;
+                    
+                    console.log('Looking for input elements...');
+                    const widthInput = document.getElementById('panelWidth');
+                    const heightInput = document.getElementById('panelHeight');
+                    const panelsInput = document.getElementById('numPanels');
+                    const orientationInput = document.getElementById('orientation');
+                    
+                    console.log('Found inputs:', {
+                        width: widthInput !== null,
+                        height: heightInput !== null,
+                        panels: panelsInput !== null,
+                        orientation: orientationInput !== null
+                    });
+                    
+                    if (widthInput) {
+                        widthInput.value = panelWidth;
+                    } else {
+                        console.error('panelWidth input not found!');
+                    }
+                    
+                    if (heightInput) {
+                        heightInput.value = panelHeight;
+                    } else {
+                        console.error('panelHeight input not found!');
+                    }
+                    
+                    if (panelsInput) {
+                        panelsInput.value = numPanels;
+                    } else {
+                        console.error('numPanels input not found!');
+                    }
+                    
+                    // Detect orientation from template canvas dimensions
+                    let orientation = 'horizontal';
+                    if (data.templates) {
+                        // Check first available mode template for canvas dimensions
+                        const firstMode = ['sports', 'stocks', 'weather'].find(m => data.templates[m]);
+                        if (firstMode && data.templates[firstMode]) {
+                            const canvasWidth = data.templates[firstMode].canvas_width;
+                            const canvasHeight = data.templates[firstMode].canvas_height;
+                            
+                            if (canvasWidth && canvasHeight) {
+                                // If width > height and width is a multiple of panel_width, likely horizontal
+                                // If height > width and height is a multiple of panel_height, likely vertical
+                                if (canvasWidth === panelWidth * numPanels && canvasHeight === panelHeight) {
+                                    orientation = 'horizontal';
+                                    console.log('Detected horizontal orientation (panels side-by-side)');
+                                } else if (canvasHeight === panelHeight * numPanels && canvasWidth === panelWidth) {
+                                    orientation = 'vertical';
+                                    console.log('Detected vertical orientation (panels stacked)');
+                                } else {
+                                    console.log('Could not auto-detect orientation, using horizontal');
+                                }
+                            }
+                        }
+                    }
+                    
+                    if (orientationInput) {
+                        orientationInput.value = orientation;
+                    } else {
+                        console.error('orientation input not found!');
+                    }
+                    
+                    console.log('Calling updateDisplay()...');
+                    updateDisplay();
+                    console.log('updateDisplay() complete');
+                } else {
+                    console.log('No display config in response');
+                }
+                
+                if (!data.has_templates) {
+                    const displayInfo = data.display ? 
+                        `Display detected: ${data.display.panel_width}×${data.display.panel_height} (${data.display.num_panels} panels)\n\n` : 
+                        '';
+                    alert('⚠️ No layout_templates section found in config.yml\n\n' +
+                          displayInfo +
+                          'Add a layout_templates section to load your templates.');
+                    return;
+                }
+                
+                console.log('Loading templates from config:', data.templates);
+                
+                // The templates from config are already in the right format
+                // (sports: {...}, weather: {...}, etc.)
+                try {
+                    console.log('Calling loadTemplateData...');
+                    loadTemplateData(data.templates);
+                    console.log('loadTemplateData complete');
+                } catch (loadErr) {
+                    console.error('Error in loadTemplateData:', loadErr);
+                    console.error('Stack:', loadErr.stack);
+                    throw loadErr;
+                }
+                
+                const displayInfo = data.display ? 
+                    `Display: ${data.display.panel_width}×${data.display.panel_height} (${data.display.num_panels} panels)\n` +
+                    `Adapter: ${data.display.adapter}\n\n` : '';
+                
+                // Only show alert if manually triggered (not auto-load)
+                if (!window.autoLoadInProgress) {
+                    alert('✅ Loaded from config.yml!\n\n' +
+                          displayInfo +
+                          'Your template is now loaded and ready to edit.');
+                }
+                
+                console.log('✅ Config template loaded:', displayInfo);
+                      
+            } catch (err) {
+                console.error('=== Config template load error ===');
+                console.error('Error:', err);
+                console.error('Message:', err.message);
+                console.error('Stack:', err.stack);
+                
+                if (err.message.includes('JSON')) {
+                    alert('⚠️ Emulator Restart Required\n\n' +
+                          'This feature requires the latest emulator code.\n\n' +
+                          'Please:\n' +
+                          '1. Stop the emulator (Ctrl+C)\n' +
+                          '2. Run: python3 emulator.py\n' +
+                          '3. Refresh this page\n' +
+                          '4. Click "Load My Config Template" again');
+                } else {
+                    alert('❌ Error: ' + err.message + '\n\nCheck browser console (F12) for details');
+                }
+            }
+            console.log('=== loadConfigTemplate ended ===');
+        }
+        
         function loadSelectedTemplate() {
             const browser = document.getElementById('templateBrowser');
             const filename = browser.value;
             
-            if (!filename || filename === 'No templates found') {
+            if (!filename || filename === 'No templates found' || filename === 'Loading templates...') {
                 alert('Please select a template first');
                 return;
             }
@@ -1733,8 +2190,12 @@ sports:
         }
         
         function loadTemplateData(template) {
+            console.log('loadTemplateData called with:', template);
+            
             // Check if this is a unified template (has sports/stocks/weather keys)
             const isUnified = template.sports || template.stocks || template.weather;
+            
+            console.log('Is unified template:', isUnified);
             
             if (isUnified) {
                 // Load unified template with all modes
@@ -1746,25 +2207,36 @@ sports:
         }
         
         function loadUnifiedTemplate(template) {
+            console.log('Loading unified template...');
+            
             // Load all three modes from unified template
             ['sports', 'stocks', 'weather'].forEach(mode => {
                 if (template[mode]) {
+                    console.log(`Loading ${mode} template...`);
                     const modeTemplate = template[mode];
                     
                     // Set dimensions from first mode
-                    if (mode === Object.keys(template)[0]) {
-                        inferPanelDimensions(modeTemplate.canvas_width, modeTemplate.canvas_height);
+                    if (mode === Object.keys(template).filter(k => ['sports', 'stocks', 'weather'].includes(k))[0]) {
+                        if (modeTemplate.canvas_width && modeTemplate.canvas_height) {
+                            inferPanelDimensions(modeTemplate.canvas_width, modeTemplate.canvas_height);
+                        }
                     }
                     
                     // Parse all scenarios for this mode
-                    templates[mode].logo_enabled = modeTemplate.logo_enabled || false;
+                    templates[mode].logo_enabled = modeTemplate.logo_enabled !== undefined ? modeTemplate.logo_enabled : false;
                     
                     ['one_item', 'two_items', 'three_items', 'four_items'].forEach(scenario => {
                         if (modeTemplate[scenario]) {
-                            templates[mode][scenario] = {
-                                elements: parseScenarioElements(modeTemplate[scenario], scenario),
-                                item_height: modeTemplate[scenario].item_height || 10
-                            };
+                            console.log(`  Loading ${mode}.${scenario}...`);
+                            try {
+                                templates[mode][scenario] = {
+                                    elements: parseScenarioElements(modeTemplate[scenario], scenario),
+                                    item_height: modeTemplate[scenario].item_height || 10
+                                };
+                                console.log(`    Loaded ${templates[mode][scenario].elements.length} elements`);
+                            } catch (e) {
+                                console.error(`    Error loading ${mode}.${scenario}:`, e);
+                            }
                         }
                     });
                 }
@@ -1781,12 +2253,13 @@ sports:
                 if (firstScenario) {
                     currentScenario = firstScenario;
                     elements = [...templates[firstMode][firstScenario].elements];
-                    document.getElementById('scenarioSelect').value = firstScenario;
+                    // Update scenario sub-bar instead of select dropdown
                     switchScenario(firstScenario);
                 }
             }
             
             updateModeBadges();
+            console.log('Template loading complete!');
         }
         
         function loadSingleModeTemplate(template) {
@@ -1839,14 +2312,16 @@ sports:
             const elements = [];
             let idCounter = Date.now();
             
+            console.log(`    parseScenarioElements for ${scenarioName}:`, scenarioData);
+            
             // For one_item, parse directly
             // For multi-item, parse from item_template
-            const dataSource = scenarioName === 'one_item' ? scenarioData : scenarioData.item_template;
+            const dataSource = scenarioName === 'one_item' ? scenarioData : (scenarioData.item_template || scenarioData);
             
-            if (dataSource) {
+            if (dataSource && typeof dataSource === 'object') {
                 Object.entries(dataSource).forEach(([key, spec]) => {
                     // Skip non-element properties
-                    if (key === 'item_height') return;
+                    if (key === 'item_height' || key === 'item_template') return;
                     
                     // Use the key as the type (it's already the element type)
                     const type = key;
@@ -1869,12 +2344,6 @@ sports:
             }
             
             return elements;
-        }
-        
-        // Utility functions
-        function toggleSnap() {
-            snapToGrid = document.getElementById('snapGrid').checked;
-            console.log('Snap to grid:', snapToGrid);
         }
         
         function changeZoom() {
@@ -1923,8 +2392,105 @@ sports:
             } else if (e.key === 'Delete' || e.key === 'Backspace') {
                 e.preventDefault();
                 deleteElement();
+            } else if (e.key === 'd' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                duplicateElement();
             }
         });
+        
+        // Hide context menu when clicking elsewhere
+        document.addEventListener('click', () => {
+            hideContextMenu();
+        });
+        
+        // Context menu functions
+        function showContextMenu(x, y) {
+            const menu = document.getElementById('contextMenu');
+            menu.style.display = 'block';
+            menu.style.left = x + 'px';
+            menu.style.top = y + 'px';
+        }
+        
+        function hideContextMenu() {
+            const menu = document.getElementById('contextMenu');
+            menu.style.display = 'none';
+        }
+        
+        function duplicateElement() {
+            hideContextMenu();
+            
+            if (!selectedElement) {
+                alert('Please select an element first');
+                return;
+            }
+            
+            // Create duplicate with offset position
+            const newElement = {
+                ...selectedElement,
+                id: Date.now(),
+                x: selectedElement.x + 5,
+                y: selectedElement.y + 5
+            };
+            
+            elements.push(newElement);
+            templates[currentMode][currentScenario].elements = [...elements];
+            
+            // Select the new element
+            selectElement(newElement);
+            
+            updateModeBadges();
+            renderElements();
+            generateTemplate();
+            
+            console.log('Duplicated element:', selectedElement.type);
+        }
+        
+        function optimizeSpace() {
+            hideContextMenu();
+            
+            if (elements.length === 0) {
+                alert('No elements to optimize');
+                return;
+            }
+            
+            // Auto-arrange elements to avoid overlaps
+            // Sort by y position, then x position
+            const sorted = [...elements].sort((a, b) => {
+                if (a.y !== b.y) return a.y - b.y;
+                return a.x - b.x;
+            });
+            
+            let currentY = 2;
+            let currentX = 2;
+            const spacing = 2;
+            
+            sorted.forEach(elem => {
+                // Check if current position would overlap with element size
+                const canvasWidth = parseInt(document.getElementById('panelWidth').value);
+                const panels = parseInt(document.getElementById('numPanels').value);
+                const orientation = document.getElementById('orientation').value;
+                const totalWidth = orientation === 'horizontal' ? canvasWidth * panels : canvasWidth;
+                
+                // If element would go off edge, wrap to next row
+                if (currentX + elem.width > totalWidth) {
+                    currentX = 2;
+                    currentY += 12; // Approximate row height
+                }
+                
+                elem.x = currentX;
+                elem.y = currentY;
+                
+                currentX += elem.width + spacing;
+            });
+            
+            templates[currentMode][currentScenario].elements = [...elements];
+            
+            updateModeBadges();
+            renderElements();
+            generateTemplate();
+            
+            alert('✅ Elements optimized!\n\nElements have been arranged to avoid overlaps.');
+        }
     </script>
 </body>
 </html>
