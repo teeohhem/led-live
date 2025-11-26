@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
 import './Toolbar.css';
+import { generateYAML } from '../utils/template';
 
-export default function Toolbar({ currentMode, setCurrentMode, templates, generateYAML, displayConfig, elements }) {
+export default function Toolbar({ currentMode, setCurrentMode, templates, displayConfig, elements }) {
   // Update dimension display when config or elements change
   useEffect(() => {
     const dimLabel = document.getElementById('dimensionLabel');
@@ -42,6 +43,35 @@ export default function Toolbar({ currentMode, setCurrentMode, templates, genera
     weather: 'Weather'
   };
 
+  const handleSaveToConfig = async () => {
+    const yaml = generateYAML(templates, displayConfig);
+    
+    const confirmed = window.confirm(
+      '💾 Save Template to config.yml?\n\n' +
+      'This will copy the YAML to your clipboard.\n' +
+      'You can then paste it into your config.yml file.\n\n' +
+      'Hot reload will apply changes automatically!\n\n' +
+      'Click OK to copy to clipboard.'
+    );
+    
+    if (!confirmed) return;
+    
+    try {
+      await navigator.clipboard.writeText(yaml);
+      alert(
+        '✅ Template copied to clipboard!\n\n' +
+        'Next steps:\n' +
+        '1. Open config.yml\n' +
+        '2. Find the layout_templates: section\n' +
+        '3. Replace it with clipboard content (Cmd/Ctrl+V)\n' +
+        '4. Save config.yml\n' +
+        '5. Hot reload applies automatically!'
+      );
+    } catch (err) {
+      alert('❌ Could not copy to clipboard: ' + err.message);
+    }
+  };
+
   return (
     <div className="toolbar">
       <div className="mode-tabs">
@@ -63,11 +93,7 @@ export default function Toolbar({ currentMode, setCurrentMode, templates, genera
       </div>
 
       <div className="toolbar-actions">
-        <button onClick={() => window.location.reload()}>🗑️ Clear</button>
-        <button onClick={generateYAML}>🔄 Refresh</button>
-        <button onClick={() => {/* Copy YAML */}}>📋 Copy</button>
-        <button className="save-btn">💾 Save to Config</button>
-        <button>⬇️ Download</button>
+        <button className="save-btn" onClick={handleSaveToConfig}>💾 Save to Config</button>
       </div>
 
       <div className="toolbar-info">

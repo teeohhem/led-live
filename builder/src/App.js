@@ -80,7 +80,6 @@ function App() {
         currentMode={currentMode}
         setCurrentMode={setCurrentMode}
         templates={templates}
-        generateYAML={generateYAML}
         displayConfig={displayConfig}
         elements={elements}
       />
@@ -97,35 +96,131 @@ function App() {
         <Sidebar
           displayConfig={displayConfig}
           setDisplayConfig={setDisplayConfig}
-          selectedElement={selectedElement}
-          updateElement={updateElement}
           loadTemplates={loadTemplates}
           scale={scale}
           setScale={setScale}
         />
 
         <div className="canvas-area">
-          <Canvas
-            elements={elements}
-            displayConfig={displayConfig}
-            selectedElement={selectedElement}
-            setSelectedElement={setSelectedElement}
-            updateElement={updateElement}
-            onContextMenu={handleContextMenu}
-            currentScenario={currentScenario}
-            currentMode={currentMode}
-            templates={templates}
-            scale={scale}
-          />
+          <div className="canvas-and-properties">
+            <Canvas
+              elements={elements}
+              displayConfig={displayConfig}
+              selectedElement={selectedElement}
+              setSelectedElement={setSelectedElement}
+              updateElement={updateElement}
+              onContextMenu={handleContextMenu}
+              currentScenario={currentScenario}
+              currentMode={currentMode}
+              templates={templates}
+              scale={scale}
+            />
+
+            <div className="properties-panel">
+              <h3>Properties</h3>
+              {selectedElement ? (
+                <>
+                  <p className="element-label">
+                    {selectedElement.type.replace(/_/g, " ")}
+                  </p>
+
+                  <div className="nudge-controls">
+                    <button
+                      onClick={() =>
+                        updateElement(selectedElement.id, {
+                          y: selectedElement.y - 1,
+                        })
+                      }
+                    >
+                      ↑
+                    </button>
+                    <div className="nudge-row">
+                      <button
+                        onClick={() =>
+                          updateElement(selectedElement.id, {
+                            x: selectedElement.x - 1,
+                          })
+                        }
+                      >
+                        ←
+                      </button>
+                      <button
+                        onClick={() =>
+                          updateElement(selectedElement.id, {
+                            x: selectedElement.x + 1,
+                          })
+                        }
+                      >
+                        →
+                      </button>
+                    </div>
+                    <button
+                      onClick={() =>
+                        updateElement(selectedElement.id, {
+                          y: selectedElement.y + 1,
+                        })
+                      }
+                    >
+                      ↓
+                    </button>
+                  </div>
+
+                  <div className="prop-row">
+                    <label>X</label>
+                    <input
+                      type="number"
+                      value={selectedElement.x}
+                      onChange={(e) =>
+                        updateElement(selectedElement.id, {
+                          x: parseInt(e.target.value),
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="prop-row">
+                    <label>Y</label>
+                    <input
+                      type="number"
+                      value={selectedElement.y}
+                      onChange={(e) =>
+                        updateElement(selectedElement.id, {
+                          y: parseInt(e.target.value),
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="prop-row">
+                    <label>Font Size</label>
+                    <input
+                      type="number"
+                      value={selectedElement.fontSize}
+                      onChange={(e) =>
+                        updateElement(selectedElement.id, {
+                          fontSize: parseInt(e.target.value),
+                        })
+                      }
+                    />
+                  </div>
+
+                  <button
+                    className="delete-btn"
+                    onClick={() => {
+                      deleteElement(selectedElement);
+                      setSelectedElement(null);
+                    }}
+                  >
+                    🗑️ Delete
+                  </button>
+                </>
+              ) : (
+                <p className="no-selection">Click an element to edit</p>
+              )}
+            </div>
+          </div>
 
           <ElementPalette currentMode={currentMode} addElement={addElement} />
-
-          {/* <OutputPanel
-            templates={templates}
-            displayConfig={displayConfig}
-            currentMode={currentMode}
-            currentScenario={currentScenario}
-          /> */}
         </div>
       </div>
 

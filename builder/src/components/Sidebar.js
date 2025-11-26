@@ -5,8 +5,6 @@ import { loadConfigTemplate, listTemplates, loadTemplate } from '../utils/api';
 export default function Sidebar({ 
   displayConfig, 
   setDisplayConfig, 
-  selectedElement, 
-  updateElement,
   loadTemplates,
   scale,
   setScale 
@@ -56,6 +54,47 @@ export default function Sidebar({
     
     try {
       const template = await loadTemplate(filename);
+      
+      // Auto-detect display config from template
+      const firstMode = ['sports', 'stocks', 'weather'].find(m => template[m]);
+      if (firstMode && template[firstMode]) {
+        const canvasWidth = template[firstMode].canvas_width;
+        const canvasHeight = template[firstMode].canvas_height;
+        
+        if (canvasWidth && canvasHeight) {
+          // Infer panel configuration from canvas dimensions
+          let panelWidth, panelHeight, numPanels, orientation;
+          
+          // Try common patterns
+          if (canvasWidth === 128 && canvasHeight === 20) {
+            // Dual 64×20 horizontal
+            panelWidth = 64; panelHeight = 20; numPanels = 2; orientation = 'horizontal';
+          } else if (canvasWidth === 64 && canvasHeight === 40) {
+            // Dual 64×20 vertical
+            panelWidth = 64; panelHeight = 20; numPanels = 2; orientation = 'vertical';
+          } else if (canvasWidth === 64 && canvasHeight === 20) {
+            // Single 64×20
+            panelWidth = 64; panelHeight = 20; numPanels = 1; orientation = 'horizontal';
+          } else if (canvasWidth === 64 && canvasHeight === 32) {
+            // Single 64×32
+            panelWidth = 64; panelHeight = 32; numPanels = 1; orientation = 'horizontal';
+          } else if (canvasWidth === 32 && canvasHeight === 32) {
+            // Single 32×32
+            panelWidth = 32; panelHeight = 32; numPanels = 1; orientation = 'horizontal';
+          } else {
+            // Fallback: assume single panel
+            panelWidth = canvasWidth; panelHeight = canvasHeight; numPanels = 1; orientation = 'horizontal';
+          }
+          
+          setDisplayConfig({
+            panel_width: panelWidth,
+            panel_height: panelHeight,
+            num_panels: numPanels,
+            orientation: orientation
+          });
+        }
+      }
+      
       loadTemplates(template);
       alert(`✅ Loaded ${filename}`);
     } catch (err) {
@@ -141,96 +180,6 @@ export default function Sidebar({
         </select>
       </div>
 
-      <hr style={{ borderColor: '#3a3a3a', margin: '20px 0' }} />
-
-      {selectedElement && (
-        <div className="properties">
-          <h3>Properties: {selectedElement.type}</h3>
-          
-          {/* Bounds warning */}
-          {(() => {
-            const totalWidth = displayConfig.orientation === 'horizontal' 
-              ? displayConfig.panel_width * displayConfig.num_panels 
-              : displayConfig.panel_width;
-            const totalHeight = displayConfig.orientation === 'vertical' 
-              ? displayConfig.panel_height * displayConfig.num_panels 
-              : displayConfig.panel_height;
-            
-            const exceedsRight = selectedElement.x + selectedElement.width > totalWidth;
-            const exceedsBottom = selectedElement.y + selectedElement.height > totalHeight;
-            
-            if (exceedsRight || exceedsBottom) {
-              return (
-                <div style={{
-                  padding: '10px',
-                  background: '#ff4444',
-                  color: 'white',
-                  borderRadius: '4px',
-                  marginBottom: '10px',
-                  fontSize: '0.85rem'
-                }}>
-                  ⚠️ Element exceeds canvas!<br/>
-                  {exceedsRight && `Width: ${selectedElement.x + selectedElement.width} > ${totalWidth}`}<br/>
-                  {exceedsBottom && `Height: ${selectedElement.y + selectedElement.height} > ${totalHeight}`}
-                </div>
-              );
-            }
-            return null;
-          })()}
-          
-          <div className="nudge-controls">
-            <div className="nudge-row">
-              <button onClick={() => updateElement(selectedElement.id, { y: selectedElement.y - 1 })}>↑</button>
-            </div>
-            <div className="nudge-row">
-              <button onClick={() => updateElement(selectedElement.id, { x: selectedElement.x - 1 })}>←</button>
-              <button onClick={() => updateElement(selectedElement.id, { x: selectedElement.x + 1 })}>→</button>
-            </div>
-            <div className="nudge-row">
-              <button onClick={() => updateElement(selectedElement.id, { y: selectedElement.y + 1 })}>↓</button>
-            </div>
-          </div>
-          
-          <div className="prop-row">
-            <label>X Position (px)</label>
-            <input
-              type="number"
-              value={selectedElement.x}
-              onChange={(e) => updateElement(selectedElement.id, { x: parseInt(e.target.value) })}
-            />
-          </div>
-
-          <div className="prop-row">
-            <label>Y Position (px)</label>
-            <input
-              type="number"
-              value={selectedElement.y}
-              onChange={(e) => updateElement(selectedElement.id, { y: parseInt(e.target.value) })}
-            />
-          </div>
-
-          <div className="prop-row">
-            <label>Width (px) - Storage only, box auto-fits content</label>
-            <input
-              type="number"
-              value={selectedElement.width}
-              onChange={(e) => updateElement(selectedElement.id, { width: parseInt(e.target.value) })}
-            />
-            <p style={{ fontSize: '0.75rem', color: '#888', marginTop: '4px' }}>
-              Note: Bounding box auto-resizes to fit rendered content
-            </p>
-          </div>
-
-          <div className="prop-row">
-            <label>Height (px) - Storage only, box auto-fits content</label>
-            <input
-              type="number"
-              value={selectedElement.height}
-              onChange={(e) => updateElement(selectedElement.id, { height: parseInt(e.target.value) })}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
