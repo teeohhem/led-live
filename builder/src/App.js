@@ -204,6 +204,51 @@ function App() {
                     />
                   </div>
 
+                  <div className="prop-row">
+                    <label>Color</label>
+                    <select
+                      value={selectedElement.color}
+                      onChange={(e) =>
+                        updateElement(selectedElement.id, {
+                          color: e.target.value,
+                        })
+                      }
+                    >
+                      {/* Dynamic colors for current mode */}
+                      {currentMode === "sports" && (
+                        <>
+                          <option value="away_team">
+                            🏀 Away Team (dynamic)
+                          </option>
+                          <option value="home_team">
+                            🏡 Home Team (dynamic)
+                          </option>
+                          <option value="time">⏱️ Time/Clock (yellow)</option>
+                        </>
+                      )}
+                      {currentMode === "stocks" && (
+                        <option value="change_color">
+                          📈 Up/Down (green/red)
+                        </option>
+                      )}
+                      {currentMode === "weather" && (
+                        <option value="temp_color">
+                          🌡️ Temperature (auto)
+                        </option>
+                      )}
+
+                      {/* Static colors */}
+                      <option value="white">White</option>
+                      <option value="gray">Gray</option>
+                      <option value="red">Red</option>
+                      <option value="green">Green</option>
+                      <option value="blue">Blue</option>
+                      <option value="yellow">Yellow</option>
+                      <option value="cyan">Cyan</option>
+                      <option value="#ffffff">Custom Hex...</option>
+                    </select>
+                  </div>
+
                   <button
                     className="delete-btn"
                     onClick={() => {

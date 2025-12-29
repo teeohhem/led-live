@@ -38,7 +38,7 @@ IPIXEL_PANEL_HEIGHT: int = _cfg.get_int("display.ipixel.size_height", 20)
 # WEATHER SETTINGS
 # ============================================================================
 WEATHER_API_KEY: str = _cfg.get_string("weather.api_key", "your-api-key-here")
-WEATHER_CITY: str = _cfg.get_string("weather.city", "Detroit,US")
+WEATHER_ZIPCODE: str = _cfg.get_string("weather.zipcode", "48116")
 WEATHER_UNITS: str = _cfg.get_string("weather.units", "imperial")
 WEATHER_FORECAST_MODE: str = _cfg.get_string("weather.forecast_mode", "daily")
 WEATHER_SHOW_ICONS: bool = _cfg.get_bool("weather.show_icons", True)
@@ -137,7 +137,7 @@ if not IPIXEL_BLE_ADDRESSES:
 
 logger.info("Configuration loaded successfully")
 logger.debug(f"Adapter: {ADAPTER_TYPE}")
-logger.debug(f"Weather city: {WEATHER_CITY}")
+logger.debug(f"Weather zipcode: {WEATHER_ZIPCODE}")
 logger.debug(f"Display modes: {', '.join(DISPLAY_CYCLE_MODES)}")
 logger.debug(f"Clock theme: {CLOCK_THEME}")
 if IPIXEL_BLE_ADDRESSES:

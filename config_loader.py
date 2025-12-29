@@ -227,6 +227,6 @@ if __name__ == "__main__":
     
     print(f"Adapter: {config.get('display.adapter')}")
     print(f"BLE Addresses: {config.get_list('display.ipixel.ble_addresses')}")
-    print(f"Weather City: {config.get_string('weather.city')}")
+    print(f"Weather Zipcode: {config.get_string('weather.zipcode')}")
     print(f"Sports Priority: {config.get_bool('display_modes.sports_priority')}")
 

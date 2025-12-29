@@ -68,7 +68,7 @@ display:
 ```yaml
 weather:
   api_key: "your-openweathermap-api-key"
-  city: "Detroit,US"              # Format: City,CountryCode
+  zipcode: "44444"                # Format: 44444
   units: "imperial"               # imperial or metric
   forecast_mode: "daily"          # daily or hourly
   show_icons: true                # Display weather icons
@@ -154,33 +154,6 @@ Use a Bluetooth Low Energy scanner app to find your panels' MAC addresses:
 - **macOS:** Use "BLE Explorer" or Terminal with `bleak-scanner`
 
 The addresses will look like: `85736B96-4E4E-4EEF-B470-A351D43587BE`
-
-## Migration from .env Files
-
-If you were using `config.env`:
-
-1. Create new `config.yml` from `config.yml.example`
-2. Copy values from `config.env` to `config.yml` using the YAML structure
-3. Delete or rename `config.env` (the system now uses `config.yml`)
-
-**Before (.env):**
-```
-DISPLAY_ADAPTER=ipixel
-BLE_ADDRESSES=ADDR1,ADDR2
-WEATHER_CITY=Detroit,US
-```
-
-**After (config.yml):**
-```yaml
-display:
-  adapter: ipixel
-  ipixel:
-    ble_addresses:
-      - ADDR1
-      - ADDR2
-
-weather:
-  city: "Detroit,US"
 ```
 
 ## Using Configuration in Code

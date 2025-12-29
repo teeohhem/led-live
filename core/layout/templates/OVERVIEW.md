@@ -103,7 +103,7 @@ display:
 - **Temperature** - Current temp
 - **Feels Like** - Apparent temperature
 - **Condition** - Description (sunny, cloudy, etc.)
-- **Location** - City name
+- **Location** - Zip code
 - **Humidity** - Relative humidity (large displays)
 - **Wind** - Wind speed (large displays)
 

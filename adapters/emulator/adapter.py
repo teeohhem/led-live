@@ -434,7 +434,7 @@ class EmulatorAdapter(DisplayAdapter):
         # Sample data first
         sample_weather = {
             'temp': 45, 'feels_like': 42, 'temp_max': 50, 'temp_min': 38,
-            'condition': 'clouds', 'description': 'Cloudy', 'city': 'Brighton',
+            'condition': 'clouds', 'description': 'Cloudy', 'zipcode': '44444',
             'humidity': 65, 'wind_speed': 10
         }
         
@@ -487,7 +487,7 @@ class EmulatorAdapter(DisplayAdapter):
             else:  # weather
                 sample_data = {
                     'temp': 45, 'feels_like': 42, 'temp_max': 50, 'temp_min': 38,
-                    'condition': 'clouds', 'description': 'Cloudy', 'city': 'Brighton',
+                    'condition': 'clouds', 'description': 'Cloudy', 'zipcode': '44444',
                     'humidity': 65, 'wind_speed': 10
                 }
             

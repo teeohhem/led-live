@@ -10,10 +10,17 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Import configuration (loaded at startup via config.py)
-from config import WEATHER_API_KEY, WEATHER_CITY as CITY, WEATHER_UNITS as UNITS
+from config import WEATHER_API_KEY, WEATHER_ZIPCODE as ZIPCODE, WEATHER_UNITS as UNITS
 
 # Alias for backward compatibility
 OPENWEATHER_API_KEY = WEATHER_API_KEY
+
+# Cache the lat and lon
+LAT = None
+LON = None
+
+BASE_URL = "https://api.openweathermap.org/data/2.5"
+GEO_URL = "http://api.openweathermap.org/geo/1.0"
 
 # --- Weather condition colors ---
 WEATHER_COLORS = {
@@ -65,10 +72,25 @@ def get_icon_pixels(icon, offset=(0, 0)):
                 pixels.append((offset[0] + x, offset[1] + y, r, g, b))
     return pixels
 
+async def getAndStoreLatLong():
+    """Get and store the latitude and longitude from the zipcode"""
+    global LAT, LON
+    if LAT is not None and LON is not None:
+        logger.info(f"Using cached latitude and longitude for zipcode:{ZIPCODE}")
+        return LAT, LON
+    zip_url = f"{GEO_URL}/zip?zip={ZIPCODE}&appid={OPENWEATHER_API_KEY}"
+    async with httpx.AsyncClient() as client:
+        logger.info(f"Getting latitude and longitude for zipcode:{ZIPCODE}")
+        resp = await client.get(zip_url)
+        data = resp.json()
+        LAT = data["lat"]
+        LON = data["lon"]
+        return LAT, LON
 
 async def fetch_current_weather():
     """Fetch current weather from OpenWeatherMap"""
-    url = f"https://api.openweathermap.org/data/2.5/weather?q={CITY}&appid={OPENWEATHER_API_KEY}&units={UNITS}"
+    lat, lon = await getAndStoreLatLong()
+    url = f"{BASE_URL}/weather?lat={lat}&lon={lon}&appid={OPENWEATHER_API_KEY}&units={UNITS}"
     
     async with httpx.AsyncClient() as client:
         try:
@@ -95,13 +117,14 @@ async def fetch_current_weather():
             return weather
             
         except Exception as e:
-            logger.error(f"Errorfetchingweather:{e}")
+            logger.error(f"Error fetching current weather:{e}")
             return None
 
 
 async def fetch_hourly_forecast():
     """Fetch hourly forecast (next 4 hours)"""
-    url = f"https://api.openweathermap.org/data/2.5/forecast?q={CITY}&appid={OPENWEATHER_API_KEY}&units={UNITS}&cnt=4"
+    lat, lon = await getAndStoreLatLong()
+    url = f"{BASE_URL}/forecast?lat={lat}&lon={lon}&appid={OPENWEATHER_API_KEY}&units={UNITS}&cnt=4"
     
     async with httpx.AsyncClient() as client:
         try:
@@ -109,7 +132,7 @@ async def fetch_hourly_forecast():
             data = resp.json()
             
             if resp.status_code != 200:
-                logger.error(f"ForecastAPIerror:{data.get('message','Unknownerror')}")
+                logger.error(f"Hourly Forecast API error:{data.get('message','Unknownerror')}")
                 return []
             
             forecasts = []
@@ -122,11 +145,11 @@ async def fetch_hourly_forecast():
                     "description": item["weather"][0]["description"]
                 })
             
-            logger.info(f"📅Fetched{len(forecasts)}hourforecast")
+            logger.info(f"📅 Fetched {len(forecasts)} hourly forecasts")
             return forecasts
             
         except Exception as e:
-            logger.error(f"Errorfetchingforecast:{e}")
+            logger.error(f"Error fetching hourly forecast:{e}")
             return []
 
 
@@ -135,8 +158,9 @@ async def fetch_daily_forecast():
     Fetch daily forecast (next 2 days).
     Returns high temp for each day with most common condition.
     """
+    lat, lon = await getAndStoreLatLong()
     # Get extended forecast (40 items = ~5 days of 3-hour intervals)
-    url = f"https://api.openweathermap.org/data/2.5/forecast?q={CITY}&appid={OPENWEATHER_API_KEY}&units={UNITS}"
+    url = f"{BASE_URL}/forecast?lat={lat}&lon={lon}&appid={OPENWEATHER_API_KEY}&units={UNITS}"
     
     async with httpx.AsyncClient() as client:
         try:
@@ -144,7 +168,7 @@ async def fetch_daily_forecast():
             data = resp.json()
             
             if resp.status_code != 200:
-                logger.error(f"ForecastAPIerror:{data.get('message','Unknownerror')}")
+                logger.error(f"Daily Forecast API error:{data.get('message','Unknownerror')}")
                 return []
             
             # Group forecasts by day
@@ -179,10 +203,10 @@ async def fetch_daily_forecast():
                     "description": condition.title()
                 })
             
-            logger.info(f"📅Fetched{len(forecasts)}dayforecast")
+            logger.info(f"📅 Fetched {len(forecasts)} daily forecasts")
             return forecasts[:2]  # Return only 2 days
             
         except Exception as e:
-            logger.error(f"Errorfetchingdailyforecast:{e}")
+            logger.error(f"Error fetching daily forecast: {e}")
             return []
 

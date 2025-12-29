@@ -27,7 +27,7 @@ Current conditions and forecasts:
 - Temperature color coding (blue=cold, red=hot)
 - Weather icons (sun, clouds, rain, snow, etc.)
 - Hourly or daily forecast modes
-- Configurable city and units (imperial/metric)
+- Configurable zipcode and units (imperial/metric)
 
 ### 📈 Stocks Mode
 Real-time stock market data:

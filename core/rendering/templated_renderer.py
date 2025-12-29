@@ -548,8 +548,8 @@ class TemplatedWeatherRenderer:
             render_element_text(draw, template.condition_short, short_text, context, self.width)
         
         # Render location
-        if template.location and 'city' in weather:
-            render_element_text(draw, template.location, weather['city'], context, self.width)
+        if template.location and 'zipcode' in weather:
+            render_element_text(draw, template.location, weather['zipcode'], context, self.width)
         
         # Render humidity
         if template.humidity and 'humidity' in weather:

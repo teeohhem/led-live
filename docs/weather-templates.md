@@ -16,7 +16,7 @@ Weather templates support the following elements:
 - `condition_short` - Abbreviated (e.g., "CLOU")
 
 ### Location & Details
-- `location` - City name
+- `location` - zipcode
 - `humidity` - Relative humidity percentage
 - `wind` - Wind speed
 

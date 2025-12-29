@@ -38,8 +38,8 @@ weather:
   # Get free API key from: https://openweathermap.org/api
   api_key: "your-api-key-here"
   
-  # City for weather display (format: "City,CountryCode")
-  city: "Detroit,US"
+  # zipcode for weather display (format: "12345)
+  zipcode: "44444"
   
   # Temperature units (imperial or metric)
   units: "imperial"

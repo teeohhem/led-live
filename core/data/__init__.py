@@ -9,7 +9,7 @@ This package contains modules for fetching data from various sources:
 import os
 
 # Define constants that can be imported without triggering module dependencies
-CITY = os.getenv("WEATHER_CITY", "Detroit,US")  # Format: "City,CountryCode"
+ZIPCODE = os.getenv("WEATHER_ZIPCODE", "44444")  # Format: "12345"
 STOCKS_SYMBOLS = [s.strip() for s in os.getenv("STOCKS_SYMBOLS", "AAPL,GOOGL,MSFT,TSLA").split(",") if s.strip()]
 STOCKS_CHECK_INTERVAL = int(os.getenv("STOCKS_CHECK_INTERVAL", "300"))
 
@@ -34,7 +34,7 @@ __all__ = [
     'fetch_all_games', 'fetch_upcoming_games', 'get_league_letter', 'fetch_live_games_by_leagues',
     # Weather data
     'fetch_current_weather', 'fetch_hourly_forecast', 'fetch_daily_forecast',
-    'CITY', 'WEATHER_API_KEY',
+    'ZIPCODE', 'WEATHER_API_KEY',
     # Stocks data
     'fetch_stock_quotes', 'STOCKS_SYMBOLS', 'STOCKS_CHECK_INTERVAL'
 ]

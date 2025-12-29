@@ -70,7 +70,7 @@ display:
 ```yaml
 weather:
   api_key: "YOUR-API-KEY"           # Get free key from openweathermap.org
-  city: "Detroit,US"                # Your city
+  zipcode: "44444"                  # Your zipcode
   units: "imperial"                 # or "metric"
 ```
 
@@ -145,7 +145,7 @@ You should see the LED panels displaying content and cycling through modes!
 ### "No weather data"
 - Verify OpenWeatherMap API key is valid
 - Check internet connection
-- Confirm city format: "City,CountryCode" (e.g., "Detroit,US")
+- Confirm zipcode format
 
 ### "Config.yml not found"
 - Run `cp config.yml.example config.yml`
