@@ -291,11 +291,32 @@ class DisplayManager:
         
         logger.info("All ticker GIFs uploaded - panels are now looping in sync!")
     
+    async def _ensure_connection(self) -> bool:
+        """
+        Ensure display connection is healthy, reconnecting if needed.
+        Returns True if connected, False if all reconnection attempts failed.
+        """
+        try:
+            if await self.adapter.ensure_connected():
+                return True
+            else:
+                logger.error("Failed to establish connection to display")
+                return False
+        except Exception as e:
+            logger.error(f"Connection check failed: {e}")
+            return False
+
     async def run(self):
         """Main display loop"""
         try:
             while True:
                 now = datetime.now()
+                
+                # Ensure we're connected before doing anything
+                if not await self._ensure_connection():
+                    logger.warning("Display not connected - waiting 10 seconds before retry...")
+                    await asyncio.sleep(10)
+                    continue
                 
                 # Determine target mode
                 target_mode_name = self._get_next_mode(now)
@@ -304,7 +325,12 @@ class DisplayManager:
                 # Mode switch?
                 if target_mode_name != self.current_mode:
                     logger.info(f"Switching mode: {self.current_mode} → {target_mode_name}")
-                    await self.adapter.clear_screen()
+                    try:
+                        await self.adapter.clear_screen()
+                    except Exception as e:
+                        logger.error(f"Failed to clear screen: {e}")
+                        # Connection might be lost - next iteration will check
+                        continue
                     target_mode.reset_state()
                     self.current_mode = target_mode_name
                 
@@ -373,17 +399,16 @@ class DisplayManager:
                                 logger.info("Ticker GIF uploaded (looping on display)")
                     except Exception as e:
                         logger.error(f"Failed to upload ticker: {e}")
-                        # Continue running - don't crash the app
-                        await asyncio.sleep(5)  # Wait a bit before continuing
+                        # Connection likely lost - next iteration will reconnect
+                        continue
                 elif result.image:
                     try:
                         await self.adapter.upload_image(result.image, clear_first=False)
                         logger.info(f"{target_mode_name} displayed")
                     except Exception as e:
                         logger.error(f"Failed to upload {target_mode_name} image: {e}")
-                        # Continue running - don't crash the app
-                        # The adapter will attempt reconnection on next upload
-                        await asyncio.sleep(5)  # Wait a bit before continuing
+                        # Connection likely lost - next iteration will reconnect
+                        continue
                 
                 # Handle static page cycling for ticker mode
                 if (target_mode_name == 'ticker' and 
@@ -410,7 +435,8 @@ class DisplayManager:
                                     self.last_static_page_update = now
                                 except Exception as e:
                                     logger.error(f"Failed to cycle static page: {e}")
-                                    # Continue - reconnection will be attempted on next upload
+                                    # Connection likely lost - next iteration will reconnect
+                                    continue
                             else:
                                 logger.warning("No static data available for page cycling")
                     else:

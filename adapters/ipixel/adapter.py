@@ -159,6 +159,25 @@ class BLEDisplayAdapter(DisplayAdapter):
             logger.error(f"Reconnection failed: {e}")
             return False
 
+    async def ensure_connected(self) -> bool:
+        """
+        Ensure we have a valid connection, reconnecting if necessary.
+        Returns True if connected (or reconnected), False if connection failed.
+        
+        Call this before any operation to ensure connection is healthy.
+        """
+        # Quick check - are we nominally connected?
+        if not self._connected or not self.client:
+            logger.info("Not connected - initiating connection...")
+            return await self._auto_reconnect()
+        
+        # Deeper check - is the connection actually healthy?
+        if not await self._check_connection_health():
+            logger.warning("Connection unhealthy - reconnecting...")
+            return await self._auto_reconnect()
+        
+        return True
+
     async def upload_image(self, image, clear_first: bool = False, panels: list = None) -> None:
         """
         Upload PIL Image to panels using PNG upload.
