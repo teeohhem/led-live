@@ -49,7 +49,8 @@ async def fetch_stock_quotes():
                 # Get current price and change
                 current_price = info.get('regularMarketPrice') or info.get('currentPrice', 0)
                 change = info.get('regularMarketChange', 0)
-                change_percent = float(info.get('regularMarketChangePercent', 0).lstrip('0'))
+                #this should be a float value representing a whole percentage value 0.00% or 1.0% not 01.00%
+                change_percent = float(info.get('regularMarketChangePercent', 0))
                 
                 quote = {
                     'symbol': symbol,

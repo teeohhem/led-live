@@ -288,7 +288,6 @@ class TickerMode(BaseMode):
     def _render_stocks_page(self, stocks, width, height):
         """Render a page showing 2 stocks with large, readable text (symbol + % only)."""
         from PIL import Image, ImageDraw, ImageFont
-        from core.rendering.stocks_display_png import format_percentage_change
         
         img = Image.new('RGB', (width, height), color=(0, 0, 0))
         draw = ImageDraw.Draw(img)
@@ -311,8 +310,8 @@ class TickerMode(BaseMode):
             # Symbol on left (white)
             draw.text((2, y_offset - 1), symbol, fill=(255, 255, 255), font=font)
             
-            # Change percentage on right (colored)
-            change_text = format_percentage_change(arrow, change_pct)
+            # Change percentage on right (colored) - format as "▲3.5%" not "▲03.5%"
+            change_text = f"{arrow}{abs(change_pct):.1f}%"
             text_bbox = draw.textbbox((0, 0), change_text, font=font)
             text_width = text_bbox[2] - text_bbox[0]
             change_x = width - text_width - 2
@@ -788,7 +787,6 @@ class TickerMode(BaseMode):
     
     def _render_stocks_segment(self, draw, x_offset, height, quotes):
         """Render stocks segment with prices and changes."""
-        from core.rendering.stocks_display_png import format_percentage_change
         from PIL import ImageFont
         
         try:
@@ -816,8 +814,8 @@ class TickerMode(BaseMode):
             text_bbox = draw.textbbox((current_x, 0), text, font=font)
             current_x = text_bbox[2]
             
-            # Add change percentage in color
-            change_text = format_percentage_change(arrow, change_pct)
+            # Add change percentage in color - format as "▲3.5%" not "▲03.5%"
+            change_text = f"{arrow}{abs(change_pct):.1f}%"
             draw.text((current_x, y_center), change_text, fill=color, font=font)
             
             text_bbox = draw.textbbox((current_x, 0), change_text, font=font)
