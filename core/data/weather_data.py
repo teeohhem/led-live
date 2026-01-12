@@ -343,67 +343,13 @@ class WeatherFetcher(DataFetcher[Dict[str, Any]]):
 
 
 # ============================================================================
-# Backward Compatible Public API
+# Module-level API - use WeatherFetcher class directly
 # ============================================================================
 
-# Global fetcher instance for backward compatibility
-_global_fetcher: Optional[WeatherFetcher] = None
-
-
-def _get_global_fetcher() -> WeatherFetcher:
-    """Get or create global weather fetcher instance."""
-    global _global_fetcher
-    if _global_fetcher is None:
-        _global_fetcher = WeatherFetcher(
-            api_key=WEATHER_API_KEY,
-            zipcode=ZIPCODE,
-            units=UNITS,
-            cache_ttl=300
-        )
-    return _global_fetcher
-
-
-async def getAndStoreLatLong() -> Tuple[float, float]:
-    """
-    Get and store latitude/longitude from zipcode (backward compatible).
-    
-    DEPRECATED: Use WeatherFetcher class directly for new code.
-    
-    Returns:
-        Tuple of (latitude, longitude)
-    """
-    fetcher = _get_global_fetcher()
-    return await fetcher._get_coordinates()
-
-
-async def fetch_current_weather() -> Optional[Dict[str, Any]]:
-    """
-    Fetch current weather from OpenWeatherMap (backward compatible).
-    
-    Returns:
-        Weather data dict or None on error
-    """
-    fetcher = _get_global_fetcher()
-    return await fetcher.get_cached_or_fetch()
-
-
-async def fetch_hourly_forecast() -> List[Dict[str, Any]]:
-    """
-    Fetch hourly forecast (next 4 hours) (backward compatible).
-    
-    Returns:
-        List of hourly forecast dicts
-    """
-    fetcher = _get_global_fetcher()
-    return await fetcher.fetch_hourly(hours=4)
-
-
-async def fetch_daily_forecast() -> List[Dict[str, Any]]:
-    """
-    Fetch daily forecast (next 2 days) (backward compatible).
-    
-    Returns:
-        List of daily forecast dicts
-    """
-    fetcher = _get_global_fetcher()
-    return await fetcher.fetch_daily(days=2)
+# For convenience, create module-level fetcher instance
+weather_fetcher = WeatherFetcher(
+    api_key=WEATHER_API_KEY,
+    zipcode=ZIPCODE,
+    units=UNITS,
+    cache_ttl=300
+)

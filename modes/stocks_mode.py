@@ -7,7 +7,7 @@ from PIL import Image
 import logging
 
 from .base_mode import BaseMode
-from core.data import fetch_stock_quotes
+from core.data import stocks_fetcher
 from core.layout import LayoutLoader
 from core.rendering.templated_renderer import TemplatedStocksRenderer
 
@@ -41,7 +41,8 @@ class StocksMode(BaseMode):
     async def fetch_data(self) -> bool:
         """Fetch stock quotes."""
         try:
-            self.quotes = await fetch_stock_quotes()
+            # Use module-level fetcher with automatic caching
+            self.quotes = await stocks_fetcher.get_cached_or_fetch()
             self.last_fetch = datetime.now()
             logger.info(f"Fetched {len(self.quotes)} stock quotes")
             return True

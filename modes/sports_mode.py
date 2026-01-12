@@ -7,7 +7,7 @@ from PIL import Image
 import logging
 
 from .base_mode import BaseMode
-from core.data import fetch_all_games, fetch_upcoming_games, fetch_live_games_by_leagues
+from core.data import sports_fetcher, GameState
 from core.layout import LayoutLoader
 from core.rendering.templated_renderer import TemplatedSportsRenderer
 
@@ -71,20 +71,27 @@ class SportsMode(BaseMode):
                     logger.warning("Example: live_games_leagues: ['NHL', 'NBA', 'NFL', 'MLB']")
                     self.games = []
                 else:
-                    # Fetch live games from specified leagues
-                    live_games = await fetch_live_games_by_leagues(self.live_games_leagues)
+                    # Fetch live games from specified leagues (unfiltered)
+                    live_games = await sports_fetcher.fetch_games(
+                        leagues=self.live_games_leagues,
+                        states=[GameState.LIVE],
+                        filter_teams=False
+                    )
                     
                     # If upcoming is also enabled, fetch those too (filtered by teams)
                     if 'upcoming' in self.sports_modes:
-                        upcoming_games = await fetch_upcoming_games()
+                        upcoming_games = await sports_fetcher.fetch_games(
+                            states=[GameState.UPCOMING],
+                            filter_teams=True
+                        )
                         self.games = live_games + upcoming_games
                     else:
                         self.games = live_games
                     
                     logger.info(f"Fetched {len(self.games)} games (all_leagues mode)")
             elif 'live' in self.sports_modes or 'upcoming' in self.sports_modes:
-                # Original behavior: fetch games filtered by teams
-                self.games = await fetch_all_games()
+                # Original behavior: fetch all games filtered by teams
+                self.games = await sports_fetcher.fetch_games(filter_teams=True)
                 logger.info(f"Fetched {len(self.games)} games")
             else:
                 self.games = []

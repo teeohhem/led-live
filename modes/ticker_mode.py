@@ -16,6 +16,7 @@ import asyncio
 import logging
 
 from .base_mode import BaseMode
+from core.data import weather_fetcher, sports_fetcher, stocks_fetcher, GameState, ScreenerType
 
 logger = logging.getLogger(__name__)
 
@@ -266,7 +267,7 @@ class TickerMode(BaseMode):
         
         elif self.static_mode == 'clock':
             from core.rendering import render_clock_with_weather_split
-            from core.data import fetch_current_weather, fetch_daily_forecast
+            # Using weather_fetcher from module import
             from config import CLOCK_THEME, CLOCK_24H
             
             # Fetch weather for clock
@@ -416,18 +417,18 @@ class TickerMode(BaseMode):
             games = []
             
             if source == 'my_teams':
-                from core.data import fetch_upcoming_games
-                games = await fetch_upcoming_games(today_only=False)
+                # Using sports_fetcher from module import
+                games = await sports_fetcher.fetch_games(states=[GameState.UPCOMING], filter_teams=True)
             elif source == 'all_live':
-                from core.data.sports_data import fetch_all_live_games
-                games = await fetch_all_live_games()
+                # Using sports_fetcher from module import
+                games = await sports_fetcher.fetch_games(states=[GameState.LIVE], filter_teams=False)
             elif source == 'all_upcoming':
-                from core.data.sports_data import fetch_all_upcoming_games
-                games = await fetch_all_upcoming_games()
+                # Using sports_fetcher from module import
+                games = await sports_fetcher.fetch_games(states=[GameState.UPCOMING], filter_teams=False)
             elif source == 'all':
-                from core.data.sports_data import fetch_all_live_games, fetch_all_upcoming_games
-                live = await fetch_all_live_games()
-                upcoming = await fetch_all_upcoming_games()
+                # Using sports_fetcher from module import, fetch_all_upcoming_games
+                live = await sports_fetcher.fetch_games(states=[GameState.LIVE], filter_teams=False)
+                upcoming = await sports_fetcher.fetch_games(states=[GameState.UPCOMING], filter_teams=False)
                 games = live + upcoming
             
             if not games:
@@ -465,20 +466,20 @@ class TickerMode(BaseMode):
             quotes = []
             
             if source == 'my_symbols':
-                from core.data import fetch_stock_quotes
-                quotes = await fetch_stock_quotes()
+                # Using stocks_fetcher from module import
+                quotes = await stocks_fetcher.get_cached_or_fetch()
             elif source == 'gainers':
-                from core.data.stocks_data import fetch_market_gainers
-                quotes = await fetch_market_gainers(limit=max_symbols)
+                # Using stocks_fetcher from module import
+                quotes = await stocks_fetcher.fetch_screener(ScreenerType.GAINERS, limit=max_symbols)
             elif source == 'losers':
-                from core.data.stocks_data import fetch_market_losers
-                quotes = await fetch_market_losers(limit=max_symbols)
+                # Using stocks_fetcher from module import
+                quotes = await stocks_fetcher.fetch_screener(ScreenerType.LOSERS, limit=max_symbols)
             elif source == 'mixed':
-                from core.data.stocks_data import fetch_market_mixed
-                quotes = await fetch_market_mixed(limit=max_symbols)
+                # Using stocks_fetcher from module import
+                quotes = await stocks_fetcher.fetch_mixed_screener(limit=max_symbols)
             elif source == 'active':
-                from core.data.stocks_data import fetch_market_active
-                quotes = await fetch_market_active(limit=max_symbols)
+                # Using stocks_fetcher from module import
+                quotes = await stocks_fetcher.fetch_screener(ScreenerType.MOST_ACTIVE, limit=max_symbols)
             
             if not quotes:
                 return None
@@ -514,9 +515,8 @@ class TickerMode(BaseMode):
                 return result['data'] if result else None
             
             elif self.static_mode == 'weather':
-                from core.data import fetch_current_weather, fetch_daily_forecast
-                weather = await fetch_current_weather()
-                forecast = await fetch_daily_forecast()
+                weather = await weather_fetcher.get_cached_or_fetch()
+                forecast = await weather_fetcher.fetch_daily(days=2)
                 return {'current': weather, 'forecast': forecast}
             
             elif self.static_mode == 'clock':
@@ -535,18 +535,29 @@ class TickerMode(BaseMode):
             
             # Fetch based on configured source
             if self.sports_source == 'my_teams':
-                from core.data import fetch_upcoming_games
-                games = await fetch_upcoming_games(today_only=False)
+                games = await sports_fetcher.fetch_games(
+                    states=[GameState.UPCOMING],
+                    filter_teams=True
+                )
             elif self.sports_source == 'all_live':
-                from core.data.sports_data import fetch_all_live_games
-                games = await fetch_all_live_games()
+                games = await sports_fetcher.fetch_games(
+                    states=[GameState.LIVE],
+                    filter_teams=False
+                )
             elif self.sports_source == 'all_upcoming':
-                from core.data.sports_data import fetch_all_upcoming_games
-                games = await fetch_all_upcoming_games()
+                games = await sports_fetcher.fetch_games(
+                    states=[GameState.UPCOMING],
+                    filter_teams=False
+                )
             elif self.sports_source == 'all':
-                from core.data.sports_data import fetch_all_live_games, fetch_all_upcoming_games
-                live = await fetch_all_live_games()
-                upcoming = await fetch_all_upcoming_games()
+                live = await sports_fetcher.fetch_games(
+                    states=[GameState.LIVE],
+                    filter_teams=False
+                )
+                upcoming = await sports_fetcher.fetch_games(
+                    states=[GameState.UPCOMING],
+                    filter_teams=False
+                )
                 games = live + upcoming
             
             if not games:
@@ -578,18 +589,18 @@ class TickerMode(BaseMode):
             
             # Fetch based on source
             if source == 'my_teams':
-                from core.data import fetch_upcoming_games
-                games = await fetch_upcoming_games(today_only=False)
+                # Using sports_fetcher from module import
+                games = await sports_fetcher.fetch_games(states=[GameState.UPCOMING], filter_teams=True)
             elif source == 'all_live':
-                from core.data.sports_data import fetch_all_live_games
-                games = await fetch_all_live_games()
+                # Using sports_fetcher from module import
+                games = await sports_fetcher.fetch_games(states=[GameState.LIVE], filter_teams=False)
             elif source == 'all_upcoming':
-                from core.data.sports_data import fetch_all_upcoming_games
-                games = await fetch_all_upcoming_games()
+                # Using sports_fetcher from module import
+                games = await sports_fetcher.fetch_games(states=[GameState.UPCOMING], filter_teams=False)
             elif source == 'all':
-                from core.data.sports_data import fetch_all_live_games, fetch_all_upcoming_games
-                live = await fetch_all_live_games()
-                upcoming = await fetch_all_upcoming_games()
+                # Using sports_fetcher from module import, fetch_all_upcoming_games
+                live = await sports_fetcher.fetch_games(states=[GameState.LIVE], filter_teams=False)
+                upcoming = await sports_fetcher.fetch_games(states=[GameState.UPCOMING], filter_teams=False)
                 games = live + upcoming
             
             if not games:
@@ -614,24 +625,24 @@ class TickerMode(BaseMode):
             
             # Fetch based on configured source
             if self.stocks_source == 'my_symbols':
-                from core.data import fetch_stock_quotes
-                quotes = await fetch_stock_quotes()
+                # Using stocks_fetcher from module import
+                quotes = await stocks_fetcher.get_cached_or_fetch()
             elif self.stocks_source == 'gainers':
-                from core.data.stocks_data import fetch_market_gainers
-                quotes = await fetch_market_gainers(limit=self.stocks_max)
+                # Using stocks_fetcher from module import
+                quotes = await stocks_fetcher.fetch_screener(ScreenerType.GAINERS, limit=self.stocks_max)
             elif self.stocks_source == 'losers':
-                from core.data.stocks_data import fetch_market_losers
-                quotes = await fetch_market_losers(limit=self.stocks_max)
+                # Using stocks_fetcher from module import
+                quotes = await stocks_fetcher.fetch_screener(ScreenerType.LOSERS, limit=self.stocks_max)
             elif self.stocks_source == 'mixed':
-                from core.data.stocks_data import fetch_market_mixed
-                quotes = await fetch_market_mixed(limit=self.stocks_max)
+                # Using stocks_fetcher from module import
+                quotes = await stocks_fetcher.fetch_mixed_screener(limit=self.stocks_max)
             elif self.stocks_source == 'active':
-                from core.data.stocks_data import fetch_market_active
-                quotes = await fetch_market_active(limit=self.stocks_max)
+                # Using stocks_fetcher from module import
+                quotes = await stocks_fetcher.fetch_screener(ScreenerType.MOST_ACTIVE, limit=self.stocks_max)
             elif self.stocks_source == 'trending':
                 # Placeholder - would need real API for trending
-                from core.data import fetch_stock_quotes
-                quotes = await fetch_stock_quotes()
+                # Using stocks_fetcher from module import
+                quotes = await stocks_fetcher.get_cached_or_fetch()
                 logger.info("'trending' source not yet implemented, using my_symbols")
             
             if not quotes:
@@ -662,20 +673,20 @@ class TickerMode(BaseMode):
             
             # Fetch based on source
             if source == 'my_symbols':
-                from core.data import fetch_stock_quotes
-                quotes = await fetch_stock_quotes()
+                # Using stocks_fetcher from module import
+                quotes = await stocks_fetcher.get_cached_or_fetch()
             elif source == 'gainers':
-                from core.data.stocks_data import fetch_market_gainers
-                quotes = await fetch_market_gainers(limit=max_symbols)
+                # Using stocks_fetcher from module import
+                quotes = await stocks_fetcher.fetch_screener(ScreenerType.GAINERS, limit=max_symbols)
             elif source == 'losers':
-                from core.data.stocks_data import fetch_market_losers
-                quotes = await fetch_market_losers(limit=max_symbols)
+                # Using stocks_fetcher from module import
+                quotes = await stocks_fetcher.fetch_screener(ScreenerType.LOSERS, limit=max_symbols)
             elif source == 'mixed':
-                from core.data.stocks_data import fetch_market_mixed
-                quotes = await fetch_market_mixed(limit=max_symbols)
+                # Using stocks_fetcher from module import
+                quotes = await stocks_fetcher.fetch_mixed_screener(limit=max_symbols)
             elif source == 'active':
-                from core.data.stocks_data import fetch_market_active
-                quotes = await fetch_market_active(limit=max_symbols)
+                # Using stocks_fetcher from module import
+                quotes = await stocks_fetcher.fetch_screener(ScreenerType.MOST_ACTIVE, limit=max_symbols)
             
             if not quotes:
                 return None
@@ -694,10 +705,8 @@ class TickerMode(BaseMode):
     
     async def _fetch_weather_segment(self):
         """Fetch weather ticker segment."""
-        from core.data import fetch_daily_forecast
-        
         try:
-            forecast = await fetch_daily_forecast()
+            forecast = await weather_fetcher.fetch_daily(days=2)
             if not forecast:
                 return None
             

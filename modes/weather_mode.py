@@ -7,7 +7,7 @@ from PIL import Image
 import logging
 
 from .base_mode import BaseMode
-from core.data import fetch_current_weather, fetch_hourly_forecast, fetch_daily_forecast
+from core.data import weather_fetcher
 from core.layout import LayoutLoader
 from core.rendering.templated_renderer import TemplatedWeatherRenderer
 
@@ -44,11 +44,13 @@ class WeatherMode(BaseMode):
     async def fetch_data(self) -> bool:
         """Fetch weather data."""
         try:
-            self.current_weather = await fetch_current_weather()
+            # Use module-level fetcher with automatic caching
+            self.current_weather = await weather_fetcher.get_cached_or_fetch()
+            
             if self.forecast_mode == 'daily':
-                self.forecasts = await fetch_daily_forecast()
+                self.forecasts = await weather_fetcher.fetch_daily(days=2)
             else:
-                self.forecasts = await fetch_hourly_forecast()
+                self.forecasts = await weather_fetcher.fetch_hourly(hours=4)
             
             self.last_fetch = datetime.now()
             return True

@@ -399,8 +399,8 @@ class EmulatorAdapter(DisplayAdapter):
         
         try:
             # Try to fetch real data
-            from core.data import fetch_all_games
-            games = await fetch_all_games()
+            from core.data import sports_fetcher
+            games = await sports_fetcher.fetch_games(filter_teams=True)
             if games:
                 return web.json_response({'games': games[:4]})
         except Exception as e:
@@ -420,8 +420,8 @@ class EmulatorAdapter(DisplayAdapter):
         
         try:
             # Try to fetch real data (will fail on Python 3.14)
-            from core.data import fetch_stock_quotes
-            quotes = await fetch_stock_quotes()
+            from core.data import stocks_fetcher
+            quotes = await stocks_fetcher.get_cached_or_fetch()
             if quotes:
                 return web.json_response({'quotes': quotes[:4]})
         except Exception as e:
@@ -440,8 +440,8 @@ class EmulatorAdapter(DisplayAdapter):
         
         try:
             # Try to fetch real data
-            from core.data import fetch_current_weather
-            weather = await fetch_current_weather()
+            from core.data import weather_fetcher
+            weather = await weather_fetcher.get_cached_or_fetch()
             if weather:
                 return web.json_response({'weather': weather})
         except Exception as e:

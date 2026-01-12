@@ -1,40 +1,33 @@
 """
-Data fetching modules for LED panel display system.
+Data fetching modules for sports, stocks, and weather.
 
-This package contains modules for fetching data from various sources:
-- Sports scores and game information
-- Weather data and forecasts
-- Stock market data and quotes
+All fetchers use a common base class with automatic retry logic,
+caching, and consistent error handling.
 """
-import os
 
-# Define constants that can be imported without triggering module dependencies
-ZIPCODE = os.getenv("WEATHER_ZIPCODE", "44444")  # Format: "12345"
-STOCKS_SYMBOLS = [s.strip() for s in os.getenv("STOCKS_SYMBOLS", "AAPL,GOOGL,MSFT,TSLA").split(",") if s.strip()]
-STOCKS_CHECK_INTERVAL = int(os.getenv("STOCKS_CHECK_INTERVAL", "300"))
+# Export fetcher classes for direct use
+from .base_fetcher import DataFetcher
+from .weather_data import WeatherFetcher, weather_fetcher
+from .sports_data import SportsFetcher, sports_fetcher, GameState, League
+from .stocks_data import StocksFetcher, stocks_fetcher, ScreenerType
 
-# Lazy imports to avoid dependency issues during import
-def __getattr__(name):
-    if name in ('fetch_all_games', 'fetch_upcoming_games', 'get_league_letter', 'fetch_live_games_by_leagues'):
-        from .sports_data import fetch_all_games, fetch_upcoming_games, get_league_letter, fetch_live_games_by_leagues
-        return locals()[name]
-    elif name in ('fetch_current_weather', 'fetch_hourly_forecast', 'fetch_daily_forecast', 'WEATHER_API_KEY'):
-        from .weather_data import (
-            fetch_current_weather, fetch_hourly_forecast, fetch_daily_forecast,
-            WEATHER_API_KEY
-        )
-        return locals()[name]
-    elif name == 'fetch_stock_quotes':
-        from .stocks_data import fetch_stock_quotes
-        return fetch_stock_quotes
-    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
-
+# Export module-level fetcher instances (convenient singletons)
 __all__ = [
-    # Sports data
-    'fetch_all_games', 'fetch_upcoming_games', 'get_league_letter', 'fetch_live_games_by_leagues',
-    # Weather data
-    'fetch_current_weather', 'fetch_hourly_forecast', 'fetch_daily_forecast',
-    'ZIPCODE', 'WEATHER_API_KEY',
-    # Stocks data
-    'fetch_stock_quotes', 'STOCKS_SYMBOLS', 'STOCKS_CHECK_INTERVAL'
+    # Base class
+    'DataFetcher',
+    
+    # Fetcher classes
+    'WeatherFetcher',
+    'SportsFetcher', 
+    'StocksFetcher',
+    
+    # Module-level instances (singletons)
+    'weather_fetcher',
+    'sports_fetcher',
+    'stocks_fetcher',
+    
+    # Enums
+    'GameState',
+    'League',
+    'ScreenerType',
 ]
