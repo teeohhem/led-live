@@ -6,19 +6,18 @@ It handles multi-panel configurations (1, 2, 3+ panels) and uses PNG upload for 
 """
 import asyncio
 import logging
-from typing import Optional, List
+from typing import Optional, List, Tuple
 
 from bleak import BleakClient
 from bleak.exc import BleakError
-from PIL import Image
 
 from ..base import DisplayAdapter, ConnectionError, UploadError
-
-logger = logging.getLogger('led_panel.adapter.ipixel')
 from .protocol import (
     MultiPanelClient, _get_panel_addresses, set_panel_dimensions,
     clear_screen_completely, init_panels, upload_png, upload_gif, led_on, led_off
 )
+
+logger = logging.getLogger('led_panel.adapter.ipixel')
 
 
 class BLEDisplayAdapter(DisplayAdapter):
@@ -29,26 +28,25 @@ class BLEDisplayAdapter(DisplayAdapter):
     Panel dimensions, count, and addresses are configured via config.yml.
     """
 
+    # Connection configuration
+    MAX_RETRIES = 5
+    MAX_BACKOFF_SECONDS = 32
+    
     def __init__(self):
         self.panel_clients: List[Optional[BleakClient]] = []
         self.client: Optional[MultiPanelClient] = None
         self._connected = False
-        self._connection_attempts = 0
-        self._max_retries = 5
         
         # Load panel dimensions from config
         self._load_panel_dimensions()
     
-    def _load_panel_dimensions(self):
-        """Load panel width and height from centralized config and configure protocol"""
+    def _load_panel_dimensions(self) -> None:
+        """Load panel width and height from centralized config and configure protocol."""
         try:
-            # Import from centralized config module
             from config import IPIXEL_PANEL_WIDTH, IPIXEL_PANEL_HEIGHT
             
             self.panel_width = IPIXEL_PANEL_WIDTH
             self.panel_height = IPIXEL_PANEL_HEIGHT
-            
-            # Configure protocol layer with these dimensions
             set_panel_dimensions(self.panel_width, self.panel_height)
             
         except Exception as e:
@@ -58,127 +56,177 @@ class BLEDisplayAdapter(DisplayAdapter):
             logger.warning(f"Failed to load panel dimensions, using defaults (64x20): {e}")
             set_panel_dimensions(64, 20)
 
-    async def connect(self) -> None:
-        """Establish BLE connections to all configured LED panels with exponential backoff retry."""
-        retry_count = 0
-        last_error = None
+    async def _connect_single_panel(self, address: str, panel_idx: int, panel_count: int) -> Optional[BleakClient]:
+        """
+        Connect to a single panel.
         
-        while retry_count <= self._max_retries:
-            try:
-                # Get configured panel addresses
-                addresses = _get_panel_addresses()
-                panel_count = len(addresses)
-                
-                if retry_count > 0:
-                    logger.info(f"Retry {retry_count}/{self._max_retries} - Connecting to {panel_count} LED panel(s)...")
-                else:
-                    logger.info(f"Connecting to {panel_count} LED panel(s)...")
-
-                # Clear any existing clients
-                self.panel_clients = []
-
-                # Create and connect BLE clients for each panel
-                for i, address in enumerate(addresses):
-                    client = BleakClient(address)
-                    await client.connect()
-                    self.panel_clients.append(client)
-                    logger.info(f"Connected to panel {i+1}/{panel_count}")
-
-                logger.info(f"Connected to all {panel_count} panel(s)!")
-
-                # Create multi-panel wrapper
-                self.client = MultiPanelClient(self.panel_clients)
-
-                # Initialize panels
+        Args:
+            address: BLE address of the panel
+            panel_idx: Zero-based index of the panel
+            panel_count: Total number of panels
+            
+        Returns:
+            BleakClient if successful, None if failed
+        """
+        try:
+            client = BleakClient(address)
+            await client.connect()
+            logger.info(f"Connected to panel {panel_idx+1}/{panel_count}")
+            return client
+        except Exception as e:
+            logger.warning(f"Panel {panel_idx+1}/{panel_count} connection failed: {e}")
+            return None
+    
+    async def _attempt_panel_connections(
+        self, 
+        addresses: List[str], 
+        panel_indices: List[int],
+        connected_clients: List[Optional[BleakClient]]
+    ) -> List[int]:
+        """
+        Attempt to connect to specified panels.
+        
+        Args:
+            addresses: List of all panel addresses
+            panel_indices: Indices of panels to connect to
+            connected_clients: List to update with connected clients
+            
+        Returns:
+            List of panel indices that failed to connect
+        """
+        failed_indices = []
+        panel_count = len(addresses)
+        
+        for panel_idx in panel_indices:
+            client = await self._connect_single_panel(addresses[panel_idx], panel_idx, panel_count)
+            if client:
+                connected_clients[panel_idx] = client
+            else:
+                failed_indices.append(panel_idx)
+        
+        return failed_indices
+    
+    def _finalize_connection(self, connected_clients: List[Optional[BleakClient]], panel_count: int) -> None:
+        """
+        Finalize connection setup after panels are connected.
+        
+        Args:
+            connected_clients: List of connected clients (may contain None)
+            panel_count: Total number of panels
+        """
+        self.panel_clients = connected_clients
+        self.client = MultiPanelClient(self.panel_clients)
+        self._connected = True
+        
+        connected_count = sum(1 for c in connected_clients if c is not None)
+        if connected_count == panel_count:
+            logger.info(f"Connected to all {panel_count} panel(s)!")
+        else:
+            logger.warning(f"Connected to {connected_count}/{panel_count} panel(s)")
+    
+    async def connect(self) -> None:
+        """
+        Establish BLE connections to all configured LED panels with exponential backoff retry.
+        
+        Supports partial connections - will continue with available panels if some fail.
+        
+        Raises:
+            ConnectionError: If no panels could be connected after all retries
+        """
+        addresses = _get_panel_addresses()
+        panel_count = len(addresses)
+        
+        logger.info(f"Connecting to {panel_count} LED panel(s)...")
+        
+        # Track connection state for each panel
+        connected_clients: List[Optional[BleakClient]] = [None] * panel_count
+        failed_panels: List[int] = list(range(panel_count))  # All panels need connecting initially
+        
+        # Retry loop with exponential backoff
+        for retry_count in range(self.MAX_RETRIES + 1):
+            if retry_count > 0 and failed_panels:
+                logger.info(f"Retry {retry_count}/{self.MAX_RETRIES} - Attempting to connect {len(failed_panels)} remaining panel(s)...")
+            
+            # Attempt connections
+            failed_panels = await self._attempt_panel_connections(addresses, failed_panels, connected_clients)
+            
+            # Check if all panels are connected
+            if not failed_panels:
+                self._finalize_connection(connected_clients, panel_count)
                 await init_panels(self.client)
-
-                self._connected = True
-                self._connection_attempts = 0  # Reset on successful connection
                 return  # Success!
-
-            except Exception as e:
-                last_error = e
-                retry_count += 1
-                self._connected = False
-                
-                # Cleanup any partial connections
-                for client in self.panel_clients:
-                    try:
-                        if client.is_connected:
-                            await client.disconnect()
-                    except:
-                        pass
-                self.panel_clients = []
-                
-                if retry_count <= self._max_retries:
-                    # Exponential backoff: 2^retry seconds (2, 4, 8, 16, 32 seconds)
-                    wait_time = min(2 ** retry_count, 32)
-                    logger.warning(f"Connection failed: {e}")
-                    logger.info(f"Waiting {wait_time} seconds before retry...")
-                    await asyncio.sleep(wait_time)
-                else:
-                    logger.error(f"Failed to connect after {self._max_retries} retries")
-                    raise ConnectionError(f"Failed to connect to BLE panels after {self._max_retries} retries: {last_error}") from last_error
+            
+            # Still have failures - wait before retry (unless last attempt)
+            if retry_count < self.MAX_RETRIES:
+                wait_time = min(2 ** (retry_count + 1), self.MAX_BACKOFF_SECONDS)
+                logger.info(f"Waiting {wait_time} seconds before retry...")
+                await asyncio.sleep(wait_time)
+        
+        # Max retries exceeded - check if we have any panels connected
+        connected_count = sum(1 for c in connected_clients if c is not None)
+        
+        if connected_count > 0:
+            # Partial success - continue with available panels
+            logger.warning(f"Failed to connect to {len(failed_panels)} panel(s) after {self.MAX_RETRIES} retries")
+            self._finalize_connection(connected_clients, panel_count)
+            await init_panels(self.client)
+            return
+        
+        # Complete failure - no panels connected
+        logger.error(f"Failed to connect to all {panel_count} panel(s) after {self.MAX_RETRIES} retries")
+        self.panel_clients = []
+        self._connected = False
+        raise ConnectionError(f"Failed to connect to BLE panels after {self.MAX_RETRIES} retries")
 
     async def disconnect(self) -> None:
-        """Close BLE connections."""
+        """Close BLE connections to all panels."""
         if self.client:
             await self.client.disconnect()
         self._connected = False
         logger.info("Disconnected from panels")
     
-    async def _check_connection_health(self) -> bool:
-        """Check if BLE connection is still alive."""
-        if not self._connected or not self.client:
-            return False
+    def _count_healthy_panels(self) -> int:
+        """
+        Count the number of panels that are still connected.
         
-        try:
-            # Check if all panel clients are still connected
-            for client in self.panel_clients:
-                if not client.is_connected:
-                    logger.warning("Panel client disconnected")
-                    return False
-            return True
-        except Exception as e:
-            logger.warning(f"Connection health check failed: {e}")
-            return False
+        Returns:
+            Number of healthy panels
+        """
+        healthy_count = 0
+        for i, client in enumerate(self.panel_clients):
+            try:
+                if client and client.is_connected:
+                    healthy_count += 1
+            except Exception as e:
+                logger.debug(f"Panel {i+1} health check failed: {e}")
+        return healthy_count
     
-    async def _auto_reconnect(self) -> bool:
-        """
-        Attempt to reconnect with exponential backoff.
-        Returns True if reconnection successful, False otherwise.
-        """
-        logger.warning("Connection lost - attempting to reconnect...")
-        self._connected = False
-        
-        try:
-            await self.connect()
-            logger.info("Reconnection successful!")
-            return True
-        except Exception as e:
-            logger.error(f"Reconnection failed: {e}")
-            return False
-
     async def ensure_connected(self) -> bool:
         """
-        Ensure we have a valid connection, reconnecting if necessary.
-        Returns True if connected (or reconnected), False if connection failed.
+        Check if we have at least one panel connected.
         
-        Call this before any operation to ensure connection is healthy.
+        Returns:
+            True if we have at least one panel connected, False if none.
+        
+        Note:
+            Does NOT attempt aggressive reconnection - that never works and keeps
+            BLE resources in a bad state. A fresh restart fixes it.
         """
-        # Quick check - are we nominally connected?
         if not self._connected or not self.client:
-            logger.info("Not connected - initiating connection...")
-            return await self._auto_reconnect()
+            logger.warning("Not connected - restart required to reconnect")
+            return False
         
-        # Deeper check - is the connection actually healthy?
-        if not await self._check_connection_health():
-            logger.warning("Connection unhealthy - reconnecting...")
-            return await self._auto_reconnect()
+        healthy_count = self._count_healthy_panels()
         
-        return True
+        if healthy_count > 0:
+            logger.debug(f"{healthy_count}/{len(self.panel_clients)} panel(s) healthy")
+            return True
+        else:
+            logger.warning("No panels connected - restart required")
+            self._connected = False
+            return False
 
-    async def upload_image(self, image, clear_first: bool = False, panels: list = None) -> None:
+    async def upload_image(self, image, clear_first: bool = False, panels: Optional[List[int]] = None) -> None:
         """
         Upload PIL Image to panels using PNG upload.
         
@@ -187,6 +235,12 @@ class BLEDisplayAdapter(DisplayAdapter):
             clear_first: Clear screen before uploading
             panels: List of panel indices (0-based). None or [] = all panels.
                     Example: [0] = panel 0, [0, 1] = panels 0 and 1
+        
+        Raises:
+            ConnectionError: If not connected to display
+        
+        Note:
+            Logs errors but doesn't raise on upload failures to keep system running.
         """
         if not self._connected or not self.client:
             raise ConnectionError("Not connected to display")
@@ -194,30 +248,17 @@ class BLEDisplayAdapter(DisplayAdapter):
         try:
             await upload_png(self.client, image, clear_first, panels)
         except BleakError as e:
-            # BLE-specific errors might indicate connection loss
             logger.error(f"BLE error during upload: {e}")
-            
-            # Check if it's a connection-related error
-            error_msg = str(e).lower()
-            if any(keyword in error_msg for keyword in ['service discovery', 'not connected', 'disconnected', 'connection']):
-                logger.warning("Detected connection issue - attempting reconnection...")
-                if await self._auto_reconnect():
-                    # Retry upload after successful reconnection
-                    logger.info("Retrying upload after reconnection...")
-                    try:
-                        await upload_png(self.client, image, clear_first, panels)
-                        logger.info("Upload successful after reconnection")
-                        return
-                    except Exception as retry_error:
-                        raise UploadError(f"Failed to upload image after reconnection: {retry_error}") from retry_error
-                else:
-                    raise ConnectionError(f"Connection lost and reconnection failed: {e}") from e
-            else:
-                raise UploadError(f"Failed to upload image: {e}") from e
         except Exception as e:
-            raise UploadError(f"Failed to upload image: {e}") from e
+            logger.error(f"Upload error: {e}")
 
-    async def upload_gif(self, gif_path_or_data, clear_first: bool = False, max_frames: Optional[int] = None, panels: list = None) -> None:
+    async def upload_gif(
+        self, 
+        gif_path_or_data, 
+        clear_first: bool = False, 
+        max_frames: Optional[int] = None, 
+        panels: Optional[List[int]] = None
+    ) -> None:
         """
         Upload GIF animation to panels.
         
@@ -227,6 +268,12 @@ class BLEDisplayAdapter(DisplayAdapter):
             max_frames: Maximum number of frames (None = all)
             panels: List of panel indices (0-based). None or [] = all panels.
                     Example: [0] = panel 0, [0, 1] = panels 0 and 1
+        
+        Raises:
+            ConnectionError: If not connected to display
+        
+        Note:
+            Logs errors but doesn't raise on upload failures to keep system running.
         """
         if not self._connected or not self.client:
             raise ConnectionError("Not connected to display")
@@ -234,31 +281,18 @@ class BLEDisplayAdapter(DisplayAdapter):
         try:
             await upload_gif(self.client, gif_path_or_data, clear_first, max_frames, panels)
         except BleakError as e:
-            # BLE-specific errors might indicate connection loss
             logger.error(f"BLE error during GIF upload: {e}")
-            
-            # Check if it's a connection-related error
-            error_msg = str(e).lower()
-            if any(keyword in error_msg for keyword in ['service discovery', 'not connected', 'disconnected', 'connection']):
-                logger.warning("Detected connection issue - attempting reconnection...")
-                if await self._auto_reconnect():
-                    # Retry upload after successful reconnection
-                    logger.info("Retrying GIF upload after reconnection...")
-                    try:
-                        await upload_gif(self.client, gif_path_or_data, clear_first, max_frames, panels)
-                        logger.info("GIF upload successful after reconnection")
-                        return
-                    except Exception as retry_error:
-                        raise UploadError(f"Failed to upload GIF after reconnection: {retry_error}") from retry_error
-                else:
-                    raise ConnectionError(f"Connection lost and reconnection failed: {e}") from e
-            else:
-                raise UploadError(f"Failed to upload GIF: {e}") from e
         except Exception as e:
-            raise UploadError(f"Failed to upload GIF: {e}") from e
+            logger.error(f"GIF upload error: {e}")
 
     async def clear_screen(self) -> None:
-        """Clear the display screens."""
+        """
+        Clear all display screens.
+        
+        Raises:
+            ConnectionError: If not connected to display
+            UploadError: If clear operation fails
+        """
         if not self._connected or not self.client:
             raise ConnectionError("Not connected to display")
 
@@ -268,7 +302,13 @@ class BLEDisplayAdapter(DisplayAdapter):
             raise UploadError(f"Failed to clear screen: {e}") from e
 
     async def power_on(self) -> None:
-        """Turn the displays on."""
+        """
+        Turn all displays on.
+        
+        Raises:
+            ConnectionError: If not connected to display
+            UploadError: If power on operation fails
+        """
         if not self._connected or not self.client:
             raise ConnectionError("Not connected to display")
 
@@ -278,7 +318,13 @@ class BLEDisplayAdapter(DisplayAdapter):
             raise UploadError(f"Failed to turn on display: {e}") from e
 
     async def power_off(self) -> None:
-        """Turn the displays off."""
+        """
+        Turn all displays off.
+        
+        Raises:
+            ConnectionError: If not connected to display
+            UploadError: If power off operation fails
+        """
         if not self._connected or not self.client:
             raise ConnectionError("Not connected to display")
 
@@ -305,14 +351,20 @@ class BLEDisplayAdapter(DisplayAdapter):
         return self._connected
 
     async def get_info(self) -> dict:
-        """Get adapter information."""
+        """
+        Get adapter information.
+        
+        Returns:
+            Dictionary with adapter configuration and capabilities
+        """
+        panel_count = len(self.panel_clients) if self.panel_clients else 0
         return {
             "adapter_type": "ipixel",
-            "device_count": 2,
-            "panel_width": DISPLAY_WIDTH,
-            "panel_height": DISPLAY_HEIGHT,
+            "device_count": panel_count,
+            "panel_width": self.panel_width,
+            "panel_height": self.panel_height,
             "total_width": self.display_width,
             "total_height": self.display_height,
             "protocol": "iPixel BLE",
-            "features": ["png_upload", "dual_panel", "fast_refresh"]
+            "features": ["png_upload", "multi_panel", "fast_refresh"]
         }

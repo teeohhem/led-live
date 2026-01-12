@@ -1,14 +1,19 @@
 """
 Display Manager using Mode pattern.
+
+This module manages the display lifecycle, including mode cycling, priority handling,
+and coordinating content updates across LED panels.
 """
 import asyncio
 from datetime import datetime
 import logging
-import logging_config
 from pathlib import Path
+from typing import Optional, Dict, List
 
+import logging_config
 from modes import SportsMode, ClockMode, WeatherMode, StocksMode, TickerMode
 from adapters import get_adapter
+from adapters.base import DisplayAdapter
 from config import (
     DISPLAY_CYCLE_MODES,
     DISPLAY_CYCLE_SECONDS,
@@ -50,16 +55,29 @@ except ImportError:
 class DisplayManager:
     """
     Manages display modes and cycling logic.
+    
+    Handles:
+    - Mode initialization and configuration
+    - Mode cycling with priority override
+    - Content updates and uploads to display
+    - Hot reload of configuration and templates
     """
     
-    def __init__(self, adapter, enable_hot_reload=True):
-        self.adapter = adapter
-        self.modes = {}
-        self.cycle_order = []
-        self.current_index = 0
-        self.current_mode = None
-        self.last_mode_switch = datetime.now()
-        self.hot_reloader = None
+    def __init__(self, adapter: DisplayAdapter, enable_hot_reload: bool = True):
+        """
+        Initialize the display manager.
+        
+        Args:
+            adapter: Display adapter to use for communication
+            enable_hot_reload: Enable hot reload of config/templates (default: True)
+        """
+        self.adapter: DisplayAdapter = adapter
+        self.modes: Dict[str, object] = {}
+        self.cycle_order: List[str] = []
+        self.current_index: int = 0
+        self.current_mode: Optional[str] = None
+        self.last_mode_switch: datetime = datetime.now()
+        self.hot_reloader: Optional[object] = None
         
         # Build config dict for modes
         self._load_config()
@@ -71,8 +89,8 @@ class DisplayManager:
         if enable_hot_reload and HOT_RELOAD_AVAILABLE:
             self._setup_hot_reload()
     
-    def _load_config(self):
-        """Load configuration from config module."""
+    def _load_config(self) -> None:
+        """Load configuration from config module into internal config dict."""
         self.config = {
             'SPORTS_CHECK_INTERVAL': SPORTS_CHECK_INTERVAL,
             'SPORTS_MODES': SPORTS_MODES,
@@ -97,8 +115,8 @@ class DisplayManager:
             'TICKER_HEIGHT': TICKER_HEIGHT,
         }
     
-    def _setup_hot_reload(self):
-        """Setup hot reload watcher."""
+    def _setup_hot_reload(self) -> None:
+        """Setup hot reload watcher for config and template files."""
         try:
             self.hot_reloader = HotReloader(self._handle_file_change)
             # Watch current directory and core/layout for changes
@@ -108,8 +126,8 @@ class DisplayManager:
         except Exception as e:
             logger.warning(f"Could not enable hot reload: {e}")
     
-    def _init_modes(self):
-        """Initialize all configured modes."""
+    def _init_modes(self) -> None:
+        """Initialize all configured modes based on DISPLAY_CYCLE_MODES setting."""
         mode_classes = {
             'sports': SportsMode,
             'clock': ClockMode,
@@ -124,7 +142,7 @@ class DisplayManager:
                 self.cycle_order.append(mode_name)
                 logger.info(f"Initialized {mode_name} mode")
     
-    async def _handle_file_change(self, file_path: Path):
+    async def _handle_file_change(self, file_path: Path) -> None:
         """
         Handle file change events (config or template changes).
         
@@ -140,7 +158,7 @@ class DisplayManager:
             # Template or other config file changed
             await reload_with_retry(self._reload_templates)
     
-    async def _reload_config(self):
+    async def _reload_config(self) -> None:
         """Reload configuration and reinitialize modes."""
         logger.info("Reloading configuration...")
         
@@ -217,7 +235,7 @@ class DisplayManager:
         
         logger.info(f"Configuration reloaded (modes: {', '.join(self.cycle_order)})")
     
-    async def _reload_templates(self):
+    async def _reload_templates(self) -> None:
         """Reload layout templates without restarting."""
         logger.info("Reloading templates...")
         
@@ -241,15 +259,28 @@ class DisplayManager:
         
         logger.info("Templates reloaded")
     
-    def _get_priority_mode(self):
-        """Check if any mode has priority (e.g., live sports)."""
+    def _get_priority_mode(self) -> Optional[str]:
+        """
+        Check if any mode has priority (e.g., live sports).
+        
+        Returns:
+            Name of priority mode if one exists, None otherwise
+        """
         for mode_name, mode in self.modes.items():
             if mode.has_priority():
                 return mode_name
         return None
     
-    def _get_next_mode(self, now: datetime):
-        """Determine next mode based on priority or cycling."""
+    def _get_next_mode(self, now: datetime) -> str:
+        """
+        Determine next mode based on priority or cycling.
+        
+        Args:
+            now: Current datetime
+            
+        Returns:
+            Name of the next mode to display
+        """
         # Check for priority mode first
         priority_mode = self._get_priority_mode()
         if priority_mode:
@@ -266,73 +297,173 @@ class DisplayManager:
         
         return self.cycle_order[self.current_index]
     
-    async def _upload_multi_panel_ticker_gifs(self, panel_gifs):
+    async def _switch_mode(self, target_mode_name: str) -> None:
         """
-        Upload GIFs to multiple panels in parallel for synchronized start.
+        Switch to a new display mode.
         
         Args:
-            panel_gifs: List of GIF bytes, one per panel
+            target_mode_name: Name of the mode to switch to
         """
-        logger.info(f"Uploading {len(panel_gifs)} ticker GIFs to panels (parallel)...")
+        logger.info(f"Switching mode: {self.current_mode} → {target_mode_name}")
+        try:
+            await self.adapter.clear_screen()
+        except Exception as e:
+            logger.error(f"Failed to clear screen: {e}")
         
-        # Upload all GIFs in parallel so they start together
-        upload_tasks = []
-        for panel_idx, gif_bytes in enumerate(panel_gifs):
-            if gif_bytes:
-                size_kb = len(gif_bytes) / 1024
-                logger.info(f"Preparing panel {panel_idx} ticker ({size_kb:.1f} KB)")
-                # Create upload task
-                task = self.adapter.upload_gif(gif_bytes, panels=[panel_idx])
-                upload_tasks.append(task)
+        target_mode = self.modes[target_mode_name]
+        target_mode.reset_state()
+        self.current_mode = target_mode_name
+    
+    async def _handle_ticker_mode(self, target_mode, now: datetime) -> None:
+        """
+        Handle ticker mode display with multi-panel or single panel layout.
         
-        # Upload all panels simultaneously
-        if upload_tasks:
-            await asyncio.gather(*upload_tasks)
+        Args:
+            target_mode: The ticker mode instance
+            now: Current datetime
+        """
+        try:
+            layout = target_mode.layout
+            
+            if layout == 'multi':
+                await self._handle_ticker_multi_panel(target_mode, now)
+            else:
+                await self._handle_ticker_single_panel(target_mode)
+                
+        except Exception as e:
+            logger.error(f"Failed to upload ticker: {e}")
+    
+    async def _handle_ticker_single_panel(self, target_mode) -> None:
+        """
+        Handle single panel ticker mode.
         
-        logger.info("All ticker GIFs uploaded - panels are now looping in sync!")
+        Args:
+            target_mode: The ticker mode instance
+        """
+        gif_bytes = target_mode.get_gif_bytes()
+        if gif_bytes:
+            logger.info(f"Uploading ticker GIF ({len(gif_bytes)/1024:.1f} KB)")
+            await self.adapter.upload_gif(gif_bytes)
+            logger.info("Ticker GIF uploaded (looping on display)")
+    
+    async def _handle_ticker_multi_panel(self, target_mode, now: datetime) -> None:
+        """
+        Handle multi-panel ticker mode with static panel.
+        
+        Args:
+            target_mode: The ticker mode instance
+            now: Current datetime
+        """
+        ticker_data = target_mode.get_ticker_gif_with_panel()
+        static_data = target_mode.get_static_image_with_panel()
+        page_count = target_mode.get_static_page_count()
+        
+        logger.info(f"Uploading ticker + static panel ({page_count} pages)...")
+        
+        # Upload ticker GIF and static image in parallel
+        tasks = []
+        
+        if ticker_data:
+            gif_bytes, panel_idx = ticker_data
+            logger.info(f"Ticker GIF: {len(gif_bytes)/1024:.1f} KB → panel {panel_idx} (looping)")
+            tasks.append(self.adapter.upload_gif(gif_bytes, panels=[panel_idx]))
+        
+        if static_data:
+            image, panel_idx = static_data
+            logger.info(f"Static page {target_mode.static_page_index + 1}/{page_count} → panel {panel_idx}")
+            tasks.append(self.adapter.upload_image(image, clear_first=False, panels=[panel_idx]))
+        
+        # Upload both in parallel with timeout
+        if tasks:
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*tasks),
+                    timeout=30.0
+                )
+                logger.info("Ticker + static uploaded!")
+            except asyncio.TimeoutError:
+                logger.error("Upload timed out after 30 seconds - GIF might be too large!")
+                return
+        
+        # Track when we last updated the static page
+        if not hasattr(self, 'last_static_page_update'):
+            self.last_static_page_update = now
+    
+    async def _cycle_static_page_if_needed(self, target_mode, now: datetime) -> None:
+        """
+        Cycle static page for ticker mode if enough time has passed.
+        
+        Args:
+            target_mode: The ticker mode instance
+            now: Current datetime
+        """
+        if not hasattr(self, 'last_static_page_update'):
+            return
+        
+        page_count = target_mode.get_static_page_count()
+        logger.debug(f"Ticker page cycling check: {page_count} pages")
+        
+        if page_count <= 1:
+            logger.debug("Only 1 page, no cycling needed")
+            return
+        
+        # Check if it's time to cycle to next page
+        time_since_page_update = (now - self.last_static_page_update).total_seconds()
+        logger.debug(f"Time since page update: {time_since_page_update:.1f}s / {target_mode.static_page_duration}s")
+        
+        if time_since_page_update >= target_mode.static_page_duration:
+            # Advance to next page
+            target_mode.advance_static_page()
+            static_data = target_mode.get_static_image_with_panel()
+            if static_data:
+                try:
+                    image, panel_idx = static_data
+                    logger.info(f"Cycling static to page {target_mode.static_page_index + 1}/{page_count}")
+                    await self.adapter.upload_image(image, clear_first=False, panels=[panel_idx])
+                    self.last_static_page_update = now
+                except Exception as e:
+                    logger.error(f"Failed to cycle static page: {e}")
+            else:
+                logger.warning("No static data available for page cycling")
     
     async def _ensure_connection(self) -> bool:
         """
-        Ensure display connection is healthy, reconnecting if needed.
-        Returns True if connected, False if all reconnection attempts failed.
+        Check if display connection is healthy.
+        
+        Returns:
+            True if connected, False if not connected
         """
         try:
-            if await self.adapter.ensure_connected():
-                return True
-            else:
-                logger.error("Failed to establish connection to display")
-                return False
+            return await self.adapter.ensure_connected()
         except Exception as e:
             logger.error(f"Connection check failed: {e}")
             return False
 
-    async def run(self):
-        """Main display loop"""
+    async def run(self) -> None:
+        """
+        Main display loop.
+        
+        Continuously cycles through display modes, updating content and handling
+        mode transitions, priority modes, and special ticker handling.
+        """
         try:
             while True:
                 now = datetime.now()
                 
-                # Ensure we're connected before doing anything
+                # Check connection health
                 if not await self._ensure_connection():
-                    logger.warning("Display not connected - waiting 10 seconds before retry...")
-                    await asyncio.sleep(10)
+                    logger.warning("Display not connected - please restart to reconnect")
+                    logger.warning("Waiting 60 seconds before checking again...")
+                    await asyncio.sleep(60)
                     continue
                 
                 # Determine target mode
                 target_mode_name = self._get_next_mode(now)
                 target_mode = self.modes[target_mode_name]
                 
-                # Mode switch?
+                # Switch modes if needed
                 if target_mode_name != self.current_mode:
-                    logger.info(f"Switching mode: {self.current_mode} → {target_mode_name}")
-                    try:
-                        await self.adapter.clear_screen()
-                    except Exception as e:
-                        logger.error(f"Failed to clear screen: {e}")
-                        # Connection might be lost - next iteration will check
-                        continue
-                    target_mode.reset_state()
-                    self.current_mode = target_mode_name
+                    await self._switch_mode(target_mode_name)
                 
                 # Update the mode (fetch data, render if needed)
                 result = await target_mode.update(
@@ -349,98 +480,21 @@ class DisplayManager:
                     self.current_mode = None
                     continue
                 
-                # Special handling for ticker mode (uses GIF for smooth playback)
+                # Display content based on mode type
                 if target_mode_name == 'ticker':
-                    try:
-                        # Check layout type
-                        if target_mode.layout == 'multi':
-                            # Ticker + static panel mode with page cycling
-                            ticker_data = target_mode.get_ticker_gif_with_panel()
-                            static_data = target_mode.get_static_image_with_panel()
-                            page_count = target_mode.get_static_page_count()
-                            
-                            logger.info(f"Uploading ticker + static panel ({page_count} pages)...")
-                            
-                            # Upload ticker GIF and static image in parallel
-                            tasks = []
-                            
-                            if ticker_data:
-                                gif_bytes, panel_idx = ticker_data
-                                logger.info(f"Ticker GIF: {len(gif_bytes)/1024:.1f} KB → panel {panel_idx} (looping)")
-                                tasks.append(self.adapter.upload_gif(gif_bytes, panels=[panel_idx]))
-                            
-                            if static_data:
-                                image, panel_idx = static_data
-                                logger.info(f"Static page {target_mode.static_page_index + 1}/{page_count} → panel {panel_idx}")
-                                tasks.append(self.adapter.upload_image(image, clear_first=False, panels=[panel_idx]))
-                            
-                            # Upload both in parallel with timeout
-                            if tasks:
-                                try:
-                                    await asyncio.wait_for(
-                                        asyncio.gather(*tasks),
-                                        timeout=30.0  # 30 second timeout
-                                    )
-                                    logger.info("Ticker + static uploaded!")
-                                except asyncio.TimeoutError:
-                                    logger.error("Upload timed out after 30 seconds - GIF might be too large!")
-                                    logger.info("Skipping to next mode...")
-                                    continue
-                            
-                            # Track when we last updated the static page
-                            if not hasattr(self, 'last_static_page_update'):
-                                self.last_static_page_update = now
-                        else:
-                            # Single panel mode
-                            gif_bytes = target_mode.get_gif_bytes()
-                            if gif_bytes:
-                                logger.info(f"Uploading ticker GIF ({len(gif_bytes)/1024:.1f} KB)")
-                                await self.adapter.upload_gif(gif_bytes)
-                                logger.info("Ticker GIF uploaded (looping on display)")
-                    except Exception as e:
-                        logger.error(f"Failed to upload ticker: {e}")
-                        # Connection likely lost - next iteration will reconnect
-                        continue
+                    await self._handle_ticker_mode(target_mode, now)
                 elif result.image:
                     try:
                         await self.adapter.upload_image(result.image, clear_first=False)
                         logger.info(f"{target_mode_name} displayed")
                     except Exception as e:
                         logger.error(f"Failed to upload {target_mode_name} image: {e}")
-                        # Connection likely lost - next iteration will reconnect
-                        continue
                 
-                # Handle static page cycling for ticker mode
+                # Handle static page cycling for multi-panel ticker mode
                 if (target_mode_name == 'ticker' and 
                     target_mode.layout == 'multi' and 
                     hasattr(self, 'last_static_page_update')):
-                    
-                    page_count = target_mode.get_static_page_count()
-                    logger.debug(f"Ticker page cycling check: {page_count} pages")
-                    
-                    if page_count > 1:
-                        # Check if it's time to cycle to next page
-                        time_since_page_update = (now - self.last_static_page_update).total_seconds()
-                        logger.debug(f"Time since page update: {time_since_page_update:.1f}s / {target_mode.static_page_duration}s")
-                        
-                        if time_since_page_update >= target_mode.static_page_duration:
-                            # Advance to next page
-                            target_mode.advance_static_page()
-                            static_data = target_mode.get_static_image_with_panel()
-                            if static_data:
-                                try:
-                                    image, panel_idx = static_data
-                                    logger.info(f"Cycling static to page {target_mode.static_page_index + 1}/{page_count}")
-                                    await self.adapter.upload_image(image, clear_first=False, panels=[panel_idx])
-                                    self.last_static_page_update = now
-                                except Exception as e:
-                                    logger.error(f"Failed to cycle static page: {e}")
-                                    # Connection likely lost - next iteration will reconnect
-                                    continue
-                            else:
-                                logger.warning("No static data available for page cycling")
-                    else:
-                        logger.debug(f"Only 1 page, no cycling needed")
+                    await self._cycle_static_page_if_needed(target_mode, now)
                 
                 # Wait before next check
                 await asyncio.sleep(DISPLAY_MODE_CHECK_INTERVAL)
@@ -460,8 +514,12 @@ class DisplayManager:
             logger.info("Disconnected from display")
 
 
-async def main():
-    """Entry point."""
+async def main() -> None:
+    """
+    Entry point for the display manager application.
+    
+    Initializes the adapter, connects to panels, and starts the display loop.
+    """
     logger.info("Starting LED Panel Display Manager")
     logger.info(f"Modes: {' → '.join(DISPLAY_CYCLE_MODES)}")
     

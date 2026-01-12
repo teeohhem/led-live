@@ -4,8 +4,22 @@ BLE protocol implementation for iPixel LED panels.
 This module contains the low-level BLE communication protocol for iPixel LED panels,
 including PNG packet creation, command formatting, and BLE-specific constants.
 
+Key Features:
+- Fast PNG upload for instant display updates
+- GIF animation support with frame-by-frame playback
+- Multi-panel coordination (1, 2, or more panels)
+- Automatic panel detection and configuration
+- Graceful handling of disconnected panels
+
 Panel dimensions are set by the adapter via set_panel_dimensions() at initialization.
 Panel count is determined by the number of BLE addresses in config.yml.
+
+Module Organization:
+- Utility functions: Endian conversion, CRC checksums
+- Configuration: Panel dimensions, BLE UUIDs
+- BLE commands: Write helpers, chunking
+- Image upload: PNG and GIF packet creation
+- Multi-panel client: Wrapper for coordinating multiple panels
 """
 import asyncio
 import binascii
@@ -14,8 +28,9 @@ import os
 import time
 import zlib
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 import logging
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -24,35 +39,72 @@ try:
 except ImportError:
     PIL_AVAILABLE = False
 
-# --- Utility functions for packet creation ---
+# ============================================================================
+# Utility Functions
+# ============================================================================
 
-def switch_endian(hex_string):
-    """Switch endianness of hex string (pairs of characters)."""
+def switch_endian(hex_string: str) -> str:
+    """
+    Switch endianness of hex string (pairs of characters).
+    
+    Args:
+        hex_string: Hex string with even length
+        
+    Returns:
+        Endian-swapped hex string
+        
+    Raises:
+        ValueError: If hex string has odd length
+    """
     if len(hex_string) % 2 != 0:
         raise ValueError("The length of the hexadecimal string must be even.")
-    # Split into pairs, reverse, and join
     pairs = [hex_string[i:i+2] for i in range(0, len(hex_string), 2)]
     return ''.join(reversed(pairs))
 
-def CRC32_checksum(data):
-    """Calculate CRC32 checksum of hex data (with endian switch)."""
+
+def CRC32_checksum(data: str) -> str:
+    """
+    Calculate CRC32 checksum of hex data (with endian switch).
+    
+    Args:
+        data: Hex string of data to checksum
+        
+    Returns:
+        Endian-swapped CRC32 hex string
+        
+    Raises:
+        ValueError: If data is not valid hex
+    """
     try:
         calculated_crc = binascii.crc32(bytes.fromhex(data)) & 0xFFFFFFFF
         calculated_crc_hex = f"{calculated_crc:08x}"
-        # Send the checksum by switching endian (like )
         return switch_endian(calculated_crc_hex)
     except ValueError as e:
         logger.error(f"CRC32 error: Invalid hex data'{data[:50]}...'-{e}")
         raise
 
-def get_frame_size(data, size):
-    """Get frame size in hex format."""
+
+def get_frame_size(data: str, size: int) -> str:
+    """
+    Get frame size in hex format with endian swap.
+    
+    Args:
+        data: Hex string of frame data
+        size: Number of digits for size field
+        
+    Returns:
+        Endian-swapped hex size string
+    """
     return switch_endian(hex(len(data) // 2)[2:].zfill(size))
+
+# ============================================================================
+# Configuration
+# ============================================================================
 
 # Display dimensions - MUST be set by adapter via set_panel_dimensions()
 # Initialized to None to force explicit configuration
-PANEL_WIDTH = None
-PANEL_HEIGHT = None
+PANEL_WIDTH: Optional[int] = None
+PANEL_HEIGHT: Optional[int] = None
 
 def set_panel_dimensions(width: int, height: int):
     """
@@ -77,16 +129,21 @@ def set_panel_dimensions(width: int, height: int):
     PANEL_HEIGHT = height
     logger.info(f"📐Protocoldimensionssetto{PANEL_WIDTH}x{PANEL_HEIGHT}")
 
-def _check_dimensions():
-    """Check that dimensions have been set. Call this before using PANEL_WIDTH/HEIGHT."""
+def _check_dimensions() -> None:
+    """
+    Check that dimensions have been set.
+    
+    Raises:
+        RuntimeError: If dimensions not configured
+    """
     if PANEL_WIDTH is None or PANEL_HEIGHT is None:
         raise RuntimeError(
             "Panel dimensions not set! Adapter must call set_panel_dimensions() at initialization. "
             "This is typically done in BLEDisplayAdapter._load_panel_dimensions()"
         )
 
-# --- BLE / Panel settings ---
-def _get_uuid_write():
+
+def _get_uuid_write() -> str:
     """Get BLE write characteristic UUID from config or use default."""
     try:
         from config_loader import get_config, load_config
@@ -102,12 +159,8 @@ def _get_uuid_write():
 
 UUID_WRITE_DATA = _get_uuid_write()
 
-# Panel count is derived from number of BLE addresses (see _get_panel_addresses())
-# PANEL_COUNT will be calculated dynamically based on BLE_ADDRESSES
-# DISPLAY_HEIGHT will be PANEL_HEIGHT * panel_count
 
-# Panel BLE addresses (from centralized config module)
-def _get_panel_addresses():
+def _get_panel_addresses() -> List[str]:
     """
     Get list of BLE addresses for configured panels.
     
@@ -136,14 +189,17 @@ def _get_panel_addresses():
     
     return ble_addresses
 
-# --- BLE Commands ---
+
+# ============================================================================
+# BLE Commands
+# ============================================================================
+
 SCREEN_ON = bytearray([5, 0, 7, 1, 1])
 SCREEN_OFF = bytearray([5, 0, 7, 1, 0])
 CLEAR_SCREEN = bytearray([5, 0, 8, 1, 1])
 
 
-# --- BLE write helper ---
-async def write_cmd(client, data: bytes):
+async def write_cmd(client, data: bytes) -> None:
     """
     Write command to client with proper chunking (like idotmatrix library does).
     Chunks data based on MTU size for reliable transmission.
@@ -258,18 +314,17 @@ def _gif_bytes(data: bytes, target_size: Optional[Tuple[int, int]], max_frames: 
 
 
 # --- Panel targeting helper ---
-def _normalize_panel_indices(panels, total_panels):
+def _normalize_panel_indices(panels: Optional[List[int]], total_panels: int) -> List[int]:
     """
     Convert panel specification to list of panel indices (0-based).
     
     Args:
         panels: List of panel indices (0-based). Empty list means all panels.
                 Example: [] or None = all panels, [0] = panel 0, [0, 2] = panels 0 and 2
-            
         total_panels: Total number of panels available
         
     Returns:
-        list: List of panel indices to target
+        List of panel indices to target
         
     Raises:
         ValueError: If panels argument is invalid
@@ -590,28 +645,48 @@ async def upload_png(client, image, clear_first=False, panels=None):
             
             # Send to this panel
             panel_client = client.get_panel_client(panel_idx)
-            logger.info(f"Sendingtopanel{panel_idx}...")
-            await panel_client.write_gatt_char(UUID_WRITE_DATA, stop_draw, response=False)
-            await asyncio.sleep(0.05)
-            packet = create_png_packet(panel_img)
-            logger.info(f"PNGpacketcreated:{len(packet)}bytes")
-            await write_cmd_single(panel_client, packet)
-            logger.info(f"Senttopanel{panel_idx}")
-            await asyncio.sleep(0.2)
+            if panel_client is None:
+                logger.warning(f"Panel {panel_idx+1} not connected, skipping upload")
+                continue
+            if not panel_client.is_connected:
+                logger.warning(f"Panel {panel_idx+1} disconnected, skipping upload")
+                continue
+            
+            try:
+                logger.info(f"Sendingtopanel{panel_idx}...")
+                await panel_client.write_gatt_char(UUID_WRITE_DATA, stop_draw, response=False)
+                await asyncio.sleep(0.05)
+                packet = create_png_packet(panel_img)
+                logger.info(f"PNGpacketcreated:{len(packet)}bytes")
+                await write_cmd_single(panel_client, packet)
+                logger.info(f"Senttopanel{panel_idx}")
+                await asyncio.sleep(0.2)
+            except Exception as e:
+                logger.warning(f"Failed to upload to panel {panel_idx+1}: {e}")
     else:
         # Single panel image or single target panel
         # Send same image to all target panels
         logger.info(f"Singleimagemode-sendingto{len(target_panels)}panel(s)")
         for panel_idx in target_panels:
             panel_client = client.get_panel_client(panel_idx)
-            logger.info(f"Sendingtopanel{panel_idx}...")
-            await panel_client.write_gatt_char(UUID_WRITE_DATA, stop_draw, response=False)
-            await asyncio.sleep(0.05)
-            packet = create_png_packet(image)
-            logger.info(f"PNGpacketcreated:{len(packet)}bytes")
-            await write_cmd_single(panel_client, packet)
-            logger.info(f"Senttopanel{panel_idx}")
-            await asyncio.sleep(0.2)
+            if panel_client is None:
+                logger.warning(f"Panel {panel_idx+1} not connected, skipping upload")
+                continue
+            if not panel_client.is_connected:
+                logger.warning(f"Panel {panel_idx+1} disconnected, skipping upload")
+                continue
+            
+            try:
+                logger.info(f"Sendingtopanel{panel_idx}...")
+                await panel_client.write_gatt_char(UUID_WRITE_DATA, stop_draw, response=False)
+                await asyncio.sleep(0.05)
+                packet = create_png_packet(image)
+                logger.info(f"PNGpacketcreated:{len(packet)}bytes")
+                await write_cmd_single(panel_client, packet)
+                logger.info(f"Senttopanel{panel_idx}")
+                await asyncio.sleep(0.2)
+            except Exception as e:
+                logger.warning(f"Failed to upload to panel {panel_idx+1}: {e}")
 
 
 async def write_cmd_single(client, data: bytes):
@@ -711,21 +786,39 @@ class MultiPanelClient:
             self.bottom_client = panel_clients[1]
 
     async def write_gatt_char(self, uuid, data, response=False):
-        """Write to all panels"""
-        for client in self.panel_clients:
-            await client.write_gatt_char(uuid, data, response=response)
+        """Write to all connected panels (skip disconnected/None panels)"""
+        for i, client in enumerate(self.panel_clients):
+            if client is None:
+                logger.debug(f"Panel {i+1} is None, skipping write")
+                continue
+            try:
+                if not client.is_connected:
+                    logger.debug(f"Panel {i+1} disconnected, skipping write")
+                    continue
+                await client.write_gatt_char(uuid, data, response=response)
+            except Exception as e:
+                logger.warning(f"Failed to write to panel {i+1}: {e}")
 
     async def connect(self):
         """All panels should already be connected"""
         pass
 
     async def disconnect(self):
-        """Disconnect all panels"""
-        for client in self.panel_clients:
-            await client.disconnect()
+        """Disconnect all connected panels"""
+        for i, client in enumerate(self.panel_clients):
+            if client is None:
+                continue
+            try:
+                if client.is_connected:
+                    await client.disconnect()
+            except Exception as e:
+                logger.warning(f"Error disconnecting panel {i+1}: {e}")
 
     def get_panel_client(self, panel_index: int):
-        """Get a specific panel's client by index."""
+        """Get a specific panel's client by index (may be None if disconnected)."""
         if panel_index < 0 or panel_index >= self.panel_count:
             raise IndexError(f"Panel index {panel_index} out of range (0-{self.panel_count-1})")
-        return self.panel_clients[panel_index]
+        client = self.panel_clients[panel_index]
+        if client is None:
+            logger.debug(f"Panel {panel_index+1} client is None")
+        return client
