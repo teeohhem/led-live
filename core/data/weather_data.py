@@ -1,12 +1,21 @@
 """
-Weather data fetching from OpenWeatherMap API
+Weather data fetching from OpenWeatherMap API.
+
+Refactored to use base fetcher class for:
+- Automatic retry logic
+- Built-in caching
+- Consistent error handling
+- Better testability
 """
-import httpx
-import os
+import logging
 from datetime import datetime
 from pathlib import Path
+from typing import Optional, Dict, Any, List, Tuple
+from collections import defaultdict
 from PIL import Image
-import logging
+
+from .base_fetcher import DataFetcher
+
 logger = logging.getLogger(__name__)
 
 # Import configuration (loaded at startup via config.py)
@@ -15,14 +24,14 @@ from config import WEATHER_API_KEY, WEATHER_ZIPCODE as ZIPCODE, WEATHER_UNITS as
 # Alias for backward compatibility
 OPENWEATHER_API_KEY = WEATHER_API_KEY
 
-# Cache the lat and lon
-LAT = None
-LON = None
-
+# API URLs
 BASE_URL = "https://api.openweathermap.org/data/2.5"
 GEO_URL = "http://api.openweathermap.org/geo/1.0"
 
-# --- Weather condition colors ---
+# ============================================================================
+# Color and Icon Configuration
+# ============================================================================
+
 WEATHER_COLORS = {
     "clear": (255, 255, 0),      # Yellow for sunny
     "clouds": (180, 180, 180),   # Gray for cloudy
@@ -34,7 +43,6 @@ WEATHER_COLORS = {
     "default": (0, 255, 0)       # Green default
 }
 
-# --- Weather condition icons ---
 WEATHER_ICONS = {
     "clear": "./logos/weather/sun.png",
     "clouds": "./logos/weather/clouds.png",
@@ -47,20 +55,41 @@ WEATHER_ICONS = {
 }
 
 
-def load_weather_icon(condition, size=(12, 12)):
-    """Load and resize weather icon for given condition"""
+def load_weather_icon(condition: str, size: Tuple[int, int] = (12, 12)) -> Optional[Image.Image]:
+    """
+    Load and resize weather icon for given condition.
+    
+    Args:
+        condition: Weather condition name
+        size: Desired icon size (width, height)
+        
+    Returns:
+        Resized PIL Image or None if not found
+    """
     icon_path = WEATHER_ICONS.get(condition, WEATHER_ICONS["default"])
     try:
         icon = Image.open(icon_path).convert("RGBA")
         icon = icon.resize(size, Image.Resampling.LANCZOS)
         return icon
     except FileNotFoundError:
-        logger.warning(f"Iconnotfound:{icon_path}")
+        logger.warning(f"Icon not found: {icon_path}")
         return None
 
 
-def get_icon_pixels(icon, offset=(0, 0)):
-    """Convert icon to list of (x, y, r, g, b) tuples for non-transparent pixels"""
+def get_icon_pixels(
+    icon: Optional[Image.Image], 
+    offset: Tuple[int, int] = (0, 0)
+) -> List[Tuple[int, int, int, int, int]]:
+    """
+    Convert icon to list of pixel coordinates with colors.
+    
+    Args:
+        icon: PIL Image (RGBA mode)
+        offset: Offset to apply to coordinates
+        
+    Returns:
+        List of (x, y, r, g, b) tuples for non-transparent pixels
+    """
     if icon is None:
         return []
     
@@ -72,141 +101,309 @@ def get_icon_pixels(icon, offset=(0, 0)):
                 pixels.append((offset[0] + x, offset[1] + y, r, g, b))
     return pixels
 
-async def getAndStoreLatLong():
-    """Get and store the latitude and longitude from the zipcode"""
-    global LAT, LON
-    if LAT is not None and LON is not None:
-        logger.info(f"Using cached latitude and longitude for zipcode:{ZIPCODE}")
-        return LAT, LON
-    zip_url = f"{GEO_URL}/zip?zip={ZIPCODE}&appid={OPENWEATHER_API_KEY}"
-    async with httpx.AsyncClient() as client:
-        logger.info(f"Getting latitude and longitude for zipcode:{ZIPCODE}")
-        resp = await client.get(zip_url)
-        data = resp.json()
-        LAT = data["lat"]
-        LON = data["lon"]
-        return LAT, LON
 
-async def fetch_current_weather():
-    """Fetch current weather from OpenWeatherMap"""
-    lat, lon = await getAndStoreLatLong()
-    url = f"{BASE_URL}/weather?lat={lat}&lon={lon}&appid={OPENWEATHER_API_KEY}&units={UNITS}"
+# ============================================================================
+# Weather Data Fetcher
+# ============================================================================
+
+class WeatherFetcher(DataFetcher[Dict[str, Any]]):
+    """
+    Fetcher for OpenWeatherMap data with caching and retry logic.
     
-    async with httpx.AsyncClient() as client:
+    Handles:
+    - Current weather conditions
+    - Hourly forecast (next 4 hours)
+    - Daily forecast (next 2 days)
+    - Geocoding (zipcode to lat/lon)
+    """
+    
+    def __init__(
+        self, 
+        api_key: str, 
+        zipcode: str, 
+        units: str = "imperial",
+        cache_ttl: int = 300  # 5 minutes default cache
+    ):
+        """
+        Initialize weather fetcher.
+        
+        Args:
+            api_key: OpenWeatherMap API key
+            zipcode: Zipcode for location
+            units: Units system ("imperial" or "metric")
+            cache_ttl: Cache time-to-live in seconds
+        """
+        super().__init__(cache_ttl=cache_ttl, logger_name='weather_fetcher')
+        self.api_key = api_key
+        self.zipcode = zipcode
+        self.units = units
+        
+        # Cache coordinates separately (rarely change)
+        self._lat: Optional[float] = None
+        self._lon: Optional[float] = None
+    
+    async def _get_coordinates(self) -> Tuple[float, float]:
+        """
+        Get latitude/longitude from zipcode (cached).
+        
+        Returns:
+            Tuple of (latitude, longitude)
+            
+        Raises:
+            ValueError: If zipcode cannot be geocoded
+        """
+        if self._lat is not None and self._lon is not None:
+            self.logger.debug(f"Using cached coordinates for zipcode: {self.zipcode}")
+            return self._lat, self._lon
+        
+        url = f"{GEO_URL}/zip"
+        params = {
+            "zip": self.zipcode,
+            "appid": self.api_key
+        }
+        
+        self.logger.info(f"Getting coordinates for zipcode: {self.zipcode}")
+        data = await self.fetch_with_retry(url, params=params)
+        
+        if data:
+            self._lat = data["lat"]
+            self._lon = data["lon"]
+            self.logger.info(f"Coordinates: {self._lat}, {self._lon}")
+            return self._lat, self._lon
+        
+        raise ValueError(f"Could not geocode zipcode: {self.zipcode}")
+    
+    async def fetch(self) -> Optional[Dict[str, Any]]:
+        """
+        Fetch current weather (implements abstract method).
+        
+        Returns:
+            Weather data dict or None on error
+        """
+        return await self.fetch_current()
+    
+    async def fetch_current(self) -> Optional[Dict[str, Any]]:
+        """
+        Fetch current weather conditions.
+        
+        Returns:
+            Dict with current weather data
+        """
         try:
-            resp = await client.get(url)
-            data = resp.json()
-            
-            if resp.status_code != 200:
-                logger.error(f"WeatherAPIerror:{data.get('message','Unknownerror')}")
-                return None
-            
-            weather = {
-                "temp": round(data["main"]["temp"]),
-                "feels_like": round(data["main"]["feels_like"]),
-                "temp_min": round(data["main"]["temp_min"]),
-                "temp_max": round(data["main"]["temp_max"]),
-                "humidity": data["main"]["humidity"],
-                "description": data["weather"][0]["description"].title(),
-                "condition": data["weather"][0]["main"].lower(),
-                "wind_speed": round(data["wind"]["speed"]),
-                "city": data["name"]
-            }
-            
-            logger.info(f"☀Weather:{weather['temp']}°F,{weather['description']}")
-            return weather
-            
-        except Exception as e:
-            logger.error(f"Error fetching current weather:{e}")
+            lat, lon = await self._get_coordinates()
+        except ValueError as e:
+            self.logger.error(str(e))
             return None
-
-
-async def fetch_hourly_forecast():
-    """Fetch hourly forecast (next 4 hours)"""
-    lat, lon = await getAndStoreLatLong()
-    url = f"{BASE_URL}/forecast?lat={lat}&lon={lon}&appid={OPENWEATHER_API_KEY}&units={UNITS}&cnt=4"
+        
+        url = f"{BASE_URL}/weather"
+        params = {
+            "lat": lat,
+            "lon": lon,
+            "appid": self.api_key,
+            "units": self.units
+        }
+        
+        data = await self.fetch_with_retry(url, params=params)
+        
+        if data:
+            weather = self._parse_current_weather(data)
+            self.logger.info(f"☀️ Weather: {weather['temp']}°F, {weather['description']}")
+            return weather
+        
+        return None
     
-    async with httpx.AsyncClient() as client:
-        try:
-            resp = await client.get(url)
-            data = resp.json()
+    @staticmethod
+    def _parse_current_weather(data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Parse OpenWeatherMap current weather response.
+        
+        Args:
+            data: Raw API response
             
-            if resp.status_code != 200:
-                logger.error(f"Hourly Forecast API error:{data.get('message','Unknownerror')}")
-                return []
-            
-            forecasts = []
-            for item in data["list"]:
-                time = datetime.fromtimestamp(item["dt"]).strftime("%I%p").lstrip("0")
-                forecasts.append({
-                    "time": time,
-                    "temp": round(item["main"]["temp"]),
-                    "condition": item["weather"][0]["main"].lower(),
-                    "description": item["weather"][0]["description"]
-                })
-            
-            logger.info(f"📅 Fetched {len(forecasts)} hourly forecasts")
-            return forecasts
-            
-        except Exception as e:
-            logger.error(f"Error fetching hourly forecast:{e}")
-            return []
-
-
-async def fetch_daily_forecast():
-    """
-    Fetch daily forecast (next 2 days).
-    Returns high temp for each day with most common condition.
-    """
-    lat, lon = await getAndStoreLatLong()
-    # Get extended forecast (40 items = ~5 days of 3-hour intervals)
-    url = f"{BASE_URL}/forecast?lat={lat}&lon={lon}&appid={OPENWEATHER_API_KEY}&units={UNITS}"
+        Returns:
+            Parsed weather dict
+        """
+        return {
+            "temp": round(data["main"]["temp"]),
+            "feels_like": round(data["main"]["feels_like"]),
+            "temp_min": round(data["main"]["temp_min"]),
+            "temp_max": round(data["main"]["temp_max"]),
+            "humidity": data["main"]["humidity"],
+            "description": data["weather"][0]["description"].title(),
+            "condition": data["weather"][0]["main"].lower(),
+            "wind_speed": round(data["wind"]["speed"]),
+            "city": data["name"]
+        }
     
-    async with httpx.AsyncClient() as client:
+    async def fetch_hourly(self, hours: int = 4) -> List[Dict[str, Any]]:
+        """
+        Fetch hourly forecast.
+        
+        Args:
+            hours: Number of hours to fetch (max ~40)
+            
+        Returns:
+            List of hourly forecast dicts
+        """
         try:
-            resp = await client.get(url)
-            data = resp.json()
-            
-            if resp.status_code != 200:
-                logger.error(f"Daily Forecast API error:{data.get('message','Unknownerror')}")
-                return []
-            
-            # Group forecasts by day
-            from collections import defaultdict
-            daily_data = defaultdict(lambda: {"temps": [], "conditions": []})
-            
-            for item in data["list"]:
-                dt = datetime.fromtimestamp(item["dt"])
-                day_key = dt.strftime("%a")  # "Mon", "Tue", etc.
-                
-                daily_data[day_key]["temps"].append(item["main"]["temp"])
-                daily_data[day_key]["conditions"].append(item["weather"][0]["main"].lower())
-            
-            # Create daily forecasts (skip today, get next 2 days)
-            today = datetime.now().strftime("%a")
-            forecasts = []
-            
-            for day_key, day_info in list(daily_data.items())[1:3]:  # Skip first (today), get next 2
-                if day_key == today:
-                    continue
-                
-                # Get high temp for the day
-                high_temp = round(max(day_info["temps"]))
-                
-                # Most common condition
-                condition = max(set(day_info["conditions"]), key=day_info["conditions"].count)
-                
-                forecasts.append({
-                    "time": day_key,  # Day name
-                    "temp": high_temp,
-                    "condition": condition,
-                    "description": condition.title()
-                })
-            
-            logger.info(f"📅 Fetched {len(forecasts)} daily forecasts")
-            return forecasts[:2]  # Return only 2 days
-            
-        except Exception as e:
-            logger.error(f"Error fetching daily forecast: {e}")
+            lat, lon = await self._get_coordinates()
+        except ValueError as e:
+            self.logger.error(str(e))
             return []
+        
+        url = f"{BASE_URL}/forecast"
+        params = {
+            "lat": lat,
+            "lon": lon,
+            "appid": self.api_key,
+            "units": self.units,
+            "cnt": hours
+        }
+        
+        data = await self.fetch_with_retry(url, params=params)
+        
+        if not data:
+            return []
+        
+        forecasts = []
+        for item in data.get("list", []):
+            time = datetime.fromtimestamp(item["dt"]).strftime("%I%p").lstrip("0")
+            forecasts.append({
+                "time": time,
+                "temp": round(item["main"]["temp"]),
+                "condition": item["weather"][0]["main"].lower(),
+                "description": item["weather"][0]["description"]
+            })
+        
+        self.logger.info(f"📅 Fetched {len(forecasts)} hourly forecasts")
+        return forecasts
+    
+    async def fetch_daily(self, days: int = 2) -> List[Dict[str, Any]]:
+        """
+        Fetch daily forecast (next N days).
+        
+        Args:
+            days: Number of days to fetch
+            
+        Returns:
+            List of daily forecast dicts with high temp and most common condition
+        """
+        try:
+            lat, lon = await self._get_coordinates()
+        except ValueError as e:
+            self.logger.error(str(e))
+            return []
+        
+        url = f"{BASE_URL}/forecast"
+        params = {
+            "lat": lat,
+            "lon": lon,
+            "appid": self.api_key,
+            "units": self.units
+        }
+        
+        data = await self.fetch_with_retry(url, params=params)
+        
+        if not data:
+            return []
+        
+        # Group forecasts by day
+        daily_data = defaultdict(lambda: {"temps": [], "conditions": []})
+        
+        for item in data.get("list", []):
+            dt = datetime.fromtimestamp(item["dt"])
+            day_key = dt.strftime("%a")  # "Mon", "Tue", etc.
+            
+            daily_data[day_key]["temps"].append(item["main"]["temp"])
+            daily_data[day_key]["conditions"].append(item["weather"][0]["main"].lower())
+        
+        # Create daily forecasts (skip today, get next N days)
+        today = datetime.now().strftime("%a")
+        forecasts = []
+        
+        for day_key, day_info in list(daily_data.items())[1:days+1]:
+            if day_key == today:
+                continue
+            
+            # Get high temp for the day
+            high_temp = round(max(day_info["temps"]))
+            
+            # Most common condition
+            condition = max(set(day_info["conditions"]), key=day_info["conditions"].count)
+            
+            forecasts.append({
+                "time": day_key,  # Day name
+                "temp": high_temp,
+                "condition": condition,
+                "description": condition.title()
+            })
+        
+        self.logger.info(f"📅 Fetched {len(forecasts)} daily forecasts")
+        return forecasts[:days]
 
+
+# ============================================================================
+# Backward Compatible Public API
+# ============================================================================
+
+# Global fetcher instance for backward compatibility
+_global_fetcher: Optional[WeatherFetcher] = None
+
+
+def _get_global_fetcher() -> WeatherFetcher:
+    """Get or create global weather fetcher instance."""
+    global _global_fetcher
+    if _global_fetcher is None:
+        _global_fetcher = WeatherFetcher(
+            api_key=WEATHER_API_KEY,
+            zipcode=ZIPCODE,
+            units=UNITS,
+            cache_ttl=300
+        )
+    return _global_fetcher
+
+
+async def getAndStoreLatLong() -> Tuple[float, float]:
+    """
+    Get and store latitude/longitude from zipcode (backward compatible).
+    
+    DEPRECATED: Use WeatherFetcher class directly for new code.
+    
+    Returns:
+        Tuple of (latitude, longitude)
+    """
+    fetcher = _get_global_fetcher()
+    return await fetcher._get_coordinates()
+
+
+async def fetch_current_weather() -> Optional[Dict[str, Any]]:
+    """
+    Fetch current weather from OpenWeatherMap (backward compatible).
+    
+    Returns:
+        Weather data dict or None on error
+    """
+    fetcher = _get_global_fetcher()
+    return await fetcher.get_cached_or_fetch()
+
+
+async def fetch_hourly_forecast() -> List[Dict[str, Any]]:
+    """
+    Fetch hourly forecast (next 4 hours) (backward compatible).
+    
+    Returns:
+        List of hourly forecast dicts
+    """
+    fetcher = _get_global_fetcher()
+    return await fetcher.fetch_hourly(hours=4)
+
+
+async def fetch_daily_forecast() -> List[Dict[str, Any]]:
+    """
+    Fetch daily forecast (next 2 days) (backward compatible).
+    
+    Returns:
+        List of daily forecast dicts
+    """
+    fetcher = _get_global_fetcher()
+    return await fetcher.fetch_daily(days=2)
