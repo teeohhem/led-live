@@ -34,16 +34,6 @@ Examples:
 - `64x32.yml` - All modes for 64×32 displays
 - `128x20.yml` - All modes for dual iPixel panels
 
-### Legacy Format (Still Supported)
-
-Mode-specific files: `{width}x{height}_{mode}.yml`
-
-Examples:
-- `32x32_sports.yml` - Only sports
-- `my_custom_sports.yml` - Your custom sports only
-
-**Note:** Unified format is preferred for easier management!
-
 ## Using Templates
 
 ### Automatic (Recommended)

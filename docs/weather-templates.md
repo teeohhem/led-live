@@ -135,32 +135,6 @@ http://localhost:8080/builder
    - 🖼️ Logo (for weather icon)
    - 📝 Text (for temperature, condition, etc.)
 
-# 6. Save unified template
-```
-
-## Migration from Legacy
-
-### Before (Hardcoded)
-```python
-# In legacy/weather_display_png.py (line 42)
-icon_x = 0
-temp_x = 13
-temp_y = 0
-# ... hardcoded coordinates
-```
-
-### After (Template)
-```yaml
-# In 64x20.yml
-weather:
-  one_item:
-    weather_icon:
-      x: 0
-      y: 0
-    temperature:
-      x: 13
-      y: 0
-```
 
 ## Complete System
 

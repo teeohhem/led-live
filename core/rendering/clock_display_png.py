@@ -150,7 +150,7 @@ def render_clock_with_weather_split(current_weather, forecasts, total_width=64, 
     Returns:
         PIL Image (RGB mode)
     """
-    from legacy.weather_display_png import render_weather_bottom_panel
+    from core.rendering.weather_display_png import render_weather_bottom_panel
 
     # Calculate panel dimensions (assume dual panels stacked vertically)
     panel_height = total_height // 2

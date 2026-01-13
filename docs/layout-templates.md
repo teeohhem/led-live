@@ -300,16 +300,6 @@ two_games:
 
 This gives complete flexibility but requires more configuration.
 
-## Migration from Legacy Code
-
-If you're upgrading from the original hardcoded layouts:
-
-1. **No action needed** - Defaults match old behavior
-2. **To customize** - Add `layout_templates` section
-3. **Backward compatible** - Old code still works
-
-Your existing `config.yml` continues working without changes!
-
 ## Summary
 
 Layout templates provide **ultimate flexibility** for any panel configuration:

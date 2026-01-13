@@ -28,7 +28,6 @@ pip-selfcheck.json
 Thumbs.db
 
 # Project Specific
-legacy/
 
 # Configuration (contains sensitive data)
 config.yml

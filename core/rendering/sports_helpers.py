@@ -1,7 +1,6 @@
 """
 Helper functions for sports rendering.
 
-Extracted from legacy rendering for use in template-based rendering.
 """
 import os
 import logging
