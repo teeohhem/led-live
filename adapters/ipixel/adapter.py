@@ -203,27 +203,54 @@ class BLEDisplayAdapter(DisplayAdapter):
     
     async def ensure_connected(self) -> bool:
         """
-        Check if we have at least one panel connected.
+        Check if all panels are connected. If any disconnected, reset and reconnect all.
         
         Returns:
-            True if we have at least one panel connected, False if none.
+            True if all panels connected successfully, False otherwise.
         
         Note:
-            Does NOT attempt aggressive reconnection - that never works and keeps
-            BLE resources in a bad state. A fresh restart fixes it.
+            On any disconnect, this will cleanly disconnect ALL panels and attempt
+            a fresh reconnection to all panels. This ensures a clean state.
         """
         if not self._connected or not self.client:
-            logger.warning("Not connected - restart required to reconnect")
-            return False
+            logger.warning("Not connected - attempting reconnection")
+            try:
+                await self.connect()
+                return True
+            except ConnectionError as e:
+                logger.error(f"Reconnection failed: {e}")
+                return False
         
+        # Check if all panels are healthy
+        total_panels = len(self.panel_clients)
         healthy_count = self._count_healthy_panels()
         
-        if healthy_count > 0:
-            logger.debug(f"{healthy_count}/{len(self.panel_clients)} panel(s) healthy")
+        if healthy_count == total_panels:
+            logger.debug(f"All {total_panels} panel(s) healthy")
             return True
-        else:
-            logger.warning("No panels connected - restart required")
-            self._connected = False
+        
+        # Some panel(s) disconnected - reset everything
+        logger.warning(
+            f"Panel disconnect detected ({healthy_count}/{total_panels} healthy). "
+            f"Resetting and reconnecting all panels..."
+        )
+        
+        # Cleanly disconnect all panels
+        try:
+            await self.disconnect()
+        except Exception as e:
+            logger.warning(f"Error during disconnect: {e}")
+        
+        # Small delay to let BLE resources fully release
+        await asyncio.sleep(1.0)
+        
+        # Attempt fresh reconnection
+        try:
+            await self.connect()
+            logger.info("Successfully reconnected all panels")
+            return True
+        except ConnectionError as e:
+            logger.error(f"Reconnection failed: {e}")
             return False
 
     async def upload_image(self, image, clear_first: bool = False, panels: Optional[List[int]] = None) -> None:
@@ -240,7 +267,7 @@ class BLEDisplayAdapter(DisplayAdapter):
             ConnectionError: If not connected to display
         
         Note:
-            Logs errors but doesn't raise on upload failures to keep system running.
+            On BLE error, marks connection as failed to trigger reconnection on next ensure_connected().
         """
         if not self._connected or not self.client:
             raise ConnectionError("Not connected to display")
@@ -249,8 +276,12 @@ class BLEDisplayAdapter(DisplayAdapter):
             await upload_png(self.client, image, clear_first, panels)
         except BleakError as e:
             logger.error(f"BLE error during upload: {e}")
+            # Mark as disconnected to trigger reconnection
+            self._connected = False
+            raise UploadError(f"Upload failed: {e}")
         except Exception as e:
             logger.error(f"Upload error: {e}")
+            raise UploadError(f"Upload failed: {e}")
 
     async def upload_gif(
         self, 
@@ -273,7 +304,7 @@ class BLEDisplayAdapter(DisplayAdapter):
             ConnectionError: If not connected to display
         
         Note:
-            Logs errors but doesn't raise on upload failures to keep system running.
+            On BLE error, marks connection as failed to trigger reconnection on next ensure_connected().
         """
         if not self._connected or not self.client:
             raise ConnectionError("Not connected to display")
@@ -282,8 +313,12 @@ class BLEDisplayAdapter(DisplayAdapter):
             await upload_gif(self.client, gif_path_or_data, clear_first, max_frames, panels)
         except BleakError as e:
             logger.error(f"BLE error during GIF upload: {e}")
+            # Mark as disconnected to trigger reconnection
+            self._connected = False
+            raise UploadError(f"GIF upload failed: {e}")
         except Exception as e:
             logger.error(f"GIF upload error: {e}")
+            raise UploadError(f"GIF upload failed: {e}")
 
     async def clear_screen(self) -> None:
         """

@@ -308,7 +308,8 @@ class DisplayManager:
         try:
             await self.adapter.clear_screen()
         except Exception as e:
-            logger.error(f"Failed to clear screen: {e}")
+            logger.error(f"Failed to clear screen during mode switch: {e}")
+            # Non-fatal, continue with mode switch
         
         target_mode = self.modes[target_mode_name]
         target_mode.reset_state()
@@ -332,6 +333,8 @@ class DisplayManager:
                 
         except Exception as e:
             logger.error(f"Failed to upload ticker: {e}")
+            # Wait a bit before retrying to allow reconnection
+            await asyncio.sleep(2.0)
     
     async def _handle_ticker_single_panel(self, target_mode) -> None:
         """
@@ -489,6 +492,8 @@ class DisplayManager:
                         logger.info(f"{target_mode_name} displayed")
                     except Exception as e:
                         logger.error(f"Failed to upload {target_mode_name} image: {e}")
+                        # Wait a bit before retrying to allow reconnection
+                        await asyncio.sleep(2.0)
                 
                 # Handle static page cycling for multi-panel ticker mode
                 if (target_mode_name == 'ticker' and 
