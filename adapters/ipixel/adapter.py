@@ -6,9 +6,9 @@ It handles multi-panel configurations (1, 2, 3+ panels) and uses PNG upload for 
 """
 import asyncio
 import logging
-from typing import Optional, List, Tuple
+from typing import Optional, List
 
-from bleak import BleakClient
+from bleak import BleakClient, BleakScanner
 from bleak.exc import BleakError
 
 from ..base import DisplayAdapter, ConnectionError, UploadError
@@ -28,10 +28,6 @@ class BLEDisplayAdapter(DisplayAdapter):
     Panel dimensions, count, and addresses are configured via config.yml.
     """
 
-    # Connection configuration
-    MAX_RETRIES = 5
-    MAX_BACKOFF_SECONDS = 32
-    
     def __init__(self):
         self.panel_clients: List[Optional[BleakClient]] = []
         self.client: Optional[MultiPanelClient] = None
@@ -58,10 +54,10 @@ class BLEDisplayAdapter(DisplayAdapter):
 
     async def _connect_single_panel(self, address: str, panel_idx: int, panel_count: int) -> Optional[BleakClient]:
         """
-        Connect to a single panel.
+        Connect to a single panel using scan-before-connect (recommended for reliable reconnection).
         
         Args:
-            address: BLE address of the panel
+            address: BLE address/UUID of the panel
             panel_idx: Zero-based index of the panel
             panel_count: Total number of panels
             
@@ -69,7 +65,11 @@ class BLEDisplayAdapter(DisplayAdapter):
             BleakClient if successful, None if failed
         """
         try:
-            client = BleakClient(address)
+            device = await BleakScanner.find_device_by_address(address, timeout=10.0)
+            if device is None:
+                logger.warning(f"Panel {panel_idx+1}/{panel_count} not found during scan: {address}")
+                return None
+            client = BleakClient(device)
             await client.connect()
             logger.info(f"Connected to panel {panel_idx+1}/{panel_count}")
             return client
@@ -126,62 +126,49 @@ class BLEDisplayAdapter(DisplayAdapter):
     
     async def connect(self) -> None:
         """
-        Establish BLE connections to all configured LED panels with exponential backoff retry.
+        Establish BLE connections to all configured LED panels (single attempt).
         
         Supports partial connections - will continue with available panels if some fail.
+        Retries are handled by the display loop (ensure_connected every 60s) rather than blocking here.
         
         Raises:
-            ConnectionError: If no panels could be connected after all retries
+            ConnectionError: If no panels could be connected
         """
         addresses = _get_panel_addresses()
         panel_count = len(addresses)
         
         logger.info(f"Connecting to {panel_count} LED panel(s)...")
         
-        # Track connection state for each panel
         connected_clients: List[Optional[BleakClient]] = [None] * panel_count
-        failed_panels: List[int] = list(range(panel_count))  # All panels need connecting initially
+        failed_panels = await self._attempt_panel_connections(
+            addresses, list(range(panel_count)), connected_clients
+        )
         
-        # Retry loop with exponential backoff
-        for retry_count in range(self.MAX_RETRIES + 1):
-            if retry_count > 0 and failed_panels:
-                logger.info(f"Retry {retry_count}/{self.MAX_RETRIES} - Attempting to connect {len(failed_panels)} remaining panel(s)...")
-            
-            # Attempt connections
-            failed_panels = await self._attempt_panel_connections(addresses, failed_panels, connected_clients)
-            
-            # Check if all panels are connected
-            if not failed_panels:
-                self._finalize_connection(connected_clients, panel_count)
-                await init_panels(self.client)
-                return  # Success!
-            
-            # Still have failures - wait before retry (unless last attempt)
-            if retry_count < self.MAX_RETRIES:
-                wait_time = min(2 ** (retry_count + 1), self.MAX_BACKOFF_SECONDS)
-                logger.info(f"Waiting {wait_time} seconds before retry...")
-                await asyncio.sleep(wait_time)
+        if not failed_panels:
+            self._finalize_connection(connected_clients, panel_count)
+            await init_panels(self.client)
+            return
         
-        # Max retries exceeded - check if we have any panels connected
         connected_count = sum(1 for c in connected_clients if c is not None)
-        
         if connected_count > 0:
-            # Partial success - continue with available panels
-            logger.warning(f"Failed to connect to {len(failed_panels)} panel(s) after {self.MAX_RETRIES} retries")
+            logger.warning(f"Failed to connect to {len(failed_panels)} panel(s), continuing with {connected_count}")
             self._finalize_connection(connected_clients, panel_count)
             await init_panels(self.client)
             return
         
         # Complete failure - no panels connected
-        logger.error(f"Failed to connect to all {panel_count} panel(s) after {self.MAX_RETRIES} retries")
+        logger.error(f"Failed to connect to all {panel_count} panel(s)")
         self.panel_clients = []
+        self.client = None
         self._connected = False
-        raise ConnectionError(f"Failed to connect to BLE panels after {self.MAX_RETRIES} retries")
+        raise ConnectionError("Failed to connect to BLE panels")
 
     async def disconnect(self) -> None:
-        """Close BLE connections to all panels."""
+        """Close BLE connections to all panels and clear state for clean reconnect."""
         if self.client:
             await self.client.disconnect()
+        self.panel_clients = []
+        self.client = None
         self._connected = False
         logger.info("Disconnected from panels")
     
@@ -241,8 +228,8 @@ class BLEDisplayAdapter(DisplayAdapter):
         except Exception as e:
             logger.warning(f"Error during disconnect: {e}")
         
-        # Small delay to let BLE resources fully release
-        await asyncio.sleep(1.0)
+        # Delay to let BLE resources fully release and devices become discoverable
+        await asyncio.sleep(4.0)
         
         # Attempt fresh reconnection
         try:

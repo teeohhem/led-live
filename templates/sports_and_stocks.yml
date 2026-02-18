@@ -1,0 +1,31 @@
+# Composite Template: Sports + Stocks
+# 64x40 display - Live scores on top, market movers on bottom
+
+name: "sports_and_stocks"
+canvas_width: 64
+canvas_height: 40
+background_color: [0, 0, 0]
+
+components:
+  # Live sports scores on top
+  - type: "sports_live"
+    x: 0
+    y: 0
+    width: 64
+    height: 20
+    config:
+      leagues: ["NBA", "NFL"]
+      states: ["LIVE", "UPCOMING"]
+      max_games: 2
+  
+  # Stock market gainers on bottom
+  - type: "stocks"
+    x: 0
+    y: 20
+    width: 64
+    height: 20
+    config:
+      screener: "GAINERS"
+      limit: 2
+
+

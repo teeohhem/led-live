@@ -202,6 +202,9 @@ class LayoutTemplate:
     four_items: Optional[Dict[str, Any]] = None
     multi_items: Optional[Dict[str, Any]] = None  # 5+ items
     
+    # Store raw data for custom templates (like forecast_extended)
+    _raw_data: Dict[str, Any] = None
+    
     @classmethod
     def from_dict(cls, mode: str, data: Dict[str, Any], canvas_width: int = 64, canvas_height: int = 40) -> 'LayoutTemplate':
         """
@@ -218,6 +221,7 @@ class LayoutTemplate:
             canvas_width=canvas_width,
             canvas_height=canvas_height,
             logo_enabled=data.get('logo_enabled', True),
+            _raw_data=data,  # Store raw data for custom templates
         )
         
         # Load scenario templates based on mode

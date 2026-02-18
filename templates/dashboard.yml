@@ -1,0 +1,47 @@
+# Composite Template: Information Dashboard
+# 128x40 display - Multiple widgets side-by-side
+
+name: "dashboard"
+canvas_width: 128
+canvas_height: 40
+background_color: [0, 0, 0]
+
+components:
+  # Clock in top-left
+  - type: "clock"
+    x: 0
+    y: 0
+    width: 64
+    height: 20
+    config:
+      theme: "retro"
+      hour24: false
+  
+  # Current weather in top-right
+  - type: "weather_current"
+    x: 64
+    y: 0
+    width: 64
+    height: 20
+    config:
+      show_icon: true
+  
+  # Sports scores bottom-left
+  - type: "sports_live"
+    x: 0
+    y: 20
+    width: 64
+    height: 20
+    config:
+      max_games: 2
+  
+  # Stocks bottom-right
+  - type: "stocks"
+    x: 64
+    y: 20
+    width: 64
+    height: 20
+    config:
+      limit: 2
+
+

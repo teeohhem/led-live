@@ -150,7 +150,8 @@ def render_clock_with_weather_split(current_weather, forecasts, total_width=64, 
     Returns:
         PIL Image (RGB mode)
     """
-    from core.rendering.weather_display_png import render_weather_bottom_panel
+    from core.rendering.templated_renderer import TemplatedWeatherRenderer
+    from core.layout.loader import LayoutLoader
 
     # Calculate panel dimensions (assume dual panels stacked vertically)
     panel_height = total_height // 2
@@ -163,9 +164,21 @@ def render_clock_with_weather_split(current_weather, forecasts, total_width=64, 
     clock_img = render_clock(width=panel_width, height=panel_height, theme=theme, hour24=hour24)
     img.paste(clock_img, (0, 0))
 
-    # Render weather on bottom panel
-    weather_img = render_weather_bottom_panel(current_weather, forecasts, width=panel_width, height=panel_height)
-    img.paste(weather_img, (0, panel_height))
+    # Render weather on bottom panel using template
+    try:
+        from config import get_all_config
+        config_dict = get_all_config()
+        loader = LayoutLoader(config_dict)
+        layout_template = loader.get_template('weather')
+        weather_renderer = TemplatedWeatherRenderer(layout_template)
+        weather_img = weather_renderer.render_forecast_extended(forecasts)
+        #weather_img = weather_renderer.render_weather(current_weather, forecasts)
+        img.paste(weather_img, (0, panel_height))
+    except Exception as e:
+        logger.error(f"Error rendering templated weather: {e}")
+        # Fallback: render blank panel
+        blank_img = Image.new('RGB', (panel_width, panel_height), color=(0, 0, 0))
+        img.paste(blank_img, (0, panel_height))
 
     return img
 

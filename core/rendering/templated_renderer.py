@@ -465,18 +465,24 @@ class TemplatedWeatherRenderer:
         self.width = layout_template.canvas_width
         self.height = layout_template.canvas_height
     
-    def render_weather(self, current_weather: Dict[str, Any], forecasts: List[Dict[str, Any]] = None) -> Image.Image:
+    def render_weather(self, current_weather: Dict[str, Any], forecasts: List[Dict[str, Any]] = None, 
+                      mode: str = 'current') -> Image.Image:
         """
         Render weather display using appropriate template.
         
         Args:
             current_weather: Current weather data dict
             forecasts: Optional list of forecast dicts
+            mode: 'current' for current weather or 'forecast' for extended forecast
         
         Returns:
             PIL Image
         """
         img = Image.new('RGB', (self.width, self.height), color=(0, 0, 0))
+        
+        # Handle extended forecast mode
+        if mode == 'forecast' and forecasts:
+            return self.render_forecast_extended(forecasts)
         
         if not current_weather:
             draw = ImageDraw.Draw(img)
@@ -569,4 +575,102 @@ class TemplatedWeatherRenderer:
         if template.low_temp and 'temp_min' in weather:
             low_text = f"L{weather['temp_min']}°"
             render_element_text(draw, template.low_temp, low_text, context, self.width)
+    
+    def render_forecast_extended(self, forecasts: List[Dict[str, Any]]) -> Image.Image:
+        """
+        Render extended forecast with multiple days.
+        
+        Args:
+            forecasts: List of forecast dicts with temp, condition, day info
+        
+        Returns:
+            PIL Image
+        """
+        img = Image.new('RGB', (self.width, self.height), color=(0, 0, 0))
+        draw = ImageDraw.Draw(img)
+        
+        # Get forecast_extended template from raw template data
+        if not hasattr(self.template, '_raw_data') or 'forecast_extended' not in self.template._raw_data:
+            draw.text((2, 5), "No forecast template", fill=(255, 255, 0), font=load_font(9))
+            draw.text((2, 15), "Add 'forecast_extended'", fill=(180, 180, 180), font=load_font(8))
+            return img
+        
+        forecast_template = self.template._raw_data['forecast_extended']
+        item_width = forecast_template.get('item_width', 16)
+        item_template = forecast_template.get('item_template', {})
+        
+        # Limit to what fits on screen
+        max_items = self.width // item_width
+        forecasts_to_show = forecasts[:max_items]
+        
+        from core.data.weather_data import load_weather_icon
+        from datetime import datetime
+        
+        for idx, forecast in enumerate(forecasts_to_show):
+            x_offset = idx * item_width
+            
+            # Parse day name (abbreviate if needed)
+            day_str = forecast.get('day', '')
+            if isinstance(forecast.get('date'), str):
+                try:
+                    date_obj = datetime.fromisoformat(forecast['date'])
+                    day_str = date_obj.strftime('%a')[:3]  # Mon, Tue, etc.
+                except:
+                    pass
+            elif not day_str:
+                day_str = f"D{idx+1}"
+            
+            # Render day label
+            if 'day' in item_template:
+                spec = self._offset_spec_x(item_template['day'], x_offset, item_width)
+                render_element_text(draw, spec, day_str, {}, self.width)
+            
+            # Render weather icon
+            if 'weather_icon' in item_template:
+                icon_spec = item_template['weather_icon']
+                icon_size = (icon_spec.get('width', 12), icon_spec.get('height', 12))
+                icon = load_weather_icon(forecast.get('condition', 'clear'), size=icon_size)
+                
+                if icon:
+                    # Center icon in item width
+                    icon_x = x_offset + (item_width - icon_size[0]) // 2
+                    icon_y = icon_spec.get('y', 7)
+                    img.paste(icon, (icon_x, icon_y), icon if icon.mode == 'RGBA' else None)
+            
+            # Render high temp
+            if 'high_temp' in item_template:
+                high = forecast.get('high', forecast.get('temp', '--'))
+                temp_text = f"{int(high)}°" if isinstance(high, (int, float)) else str(high)
+                spec = self._offset_spec_x(item_template['high_temp'], x_offset, item_width)
+                render_element_text(draw, spec, temp_text, {}, self.width)
+            
+            # Render low temp
+            if 'low_temp' in item_template:
+                low = forecast.get('low', '--')
+                temp_text = f"{int(low)}°" if isinstance(low, (int, float)) else str(low)
+                spec = self._offset_spec_x(item_template['low_temp'], x_offset, item_width)
+                render_element_text(draw, spec, temp_text, {}, self.width)
+        
+        return img
+    
+    def _offset_spec_x(self, spec_dict: Dict, x_offset: int, item_width: int) -> ElementSpec:
+        """Create ElementSpec from dict and offset x coordinate."""
+        from core.layout.template import ElementSpec
+        
+        # Handle center alignment
+        align = spec_dict.get('align', 'left')
+        base_x = spec_dict.get('x', 0)
+        
+        if align == 'center':
+            actual_x = x_offset + item_width // 2
+        else:
+            actual_x = x_offset + base_x
+        
+        return ElementSpec(
+            x=actual_x,
+            y=spec_dict.get('y', 0),
+            font_size=spec_dict.get('font_size', 8),
+            color=spec_dict.get('color', 'white'),
+            align=align
+        )
 

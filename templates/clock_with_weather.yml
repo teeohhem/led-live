@@ -1,0 +1,29 @@
+# Composite Template: Clock with Weather Forecast
+# 64x40 display - Perfect for dual-panel setup
+
+name: "clock_with_weather"
+canvas_width: 64
+canvas_height: 40
+background_color: [0, 0, 0]  # Black
+
+components:
+  # Clock on top half
+  - type: "clock"
+    x: 0
+    y: 0
+    width: 64
+    height: 20
+    config:
+      theme: "stranger_things"
+      hour24: false
+  
+  # Extended weather forecast on bottom half
+  - type: "weather_extended"
+    x: 0
+    y: 20
+    width: 64
+    height: 20
+    config:
+      days: 4
+
+

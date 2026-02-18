@@ -208,3 +208,4 @@ class DataFetcher(ABC, Generic[T]):
         """Check if cache exists (regardless of validity)."""
         return self._cache is not None
 
+

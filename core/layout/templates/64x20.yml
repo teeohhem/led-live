@@ -107,4 +107,32 @@ weather:
       y: 12
       font_size: 8
       color: "cyan"
+  
+  # Extended forecast: 3-4 day forecast with icons and temps
+  forecast_extended:
+    item_width: 16      # Width per forecast item
+    item_template:
+      day:
+        x: 0          # Relative to item position
+        y: 1
+        font_size: 6
+        color: "cyan"
+        align: "center"
+      weather_icon:
+        x: 0          # Centered in 16px width
+        y: 7
+        width: 12
+        height: 12
+      high_temp:
+        x: 0
+        y: 20
+        font_size: 7
+        color: [255, 100, 0]  # Orange for high
+        align: "center"
+      low_temp:
+        x: 0
+        y: 28
+        font_size: 6
+        color: [100, 150, 255]  # Blue for low
+        align: "center"
 
