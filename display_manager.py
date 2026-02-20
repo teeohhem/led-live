@@ -8,6 +8,7 @@ import asyncio
 from datetime import datetime
 import logging
 from pathlib import Path
+import sys
 from typing import Optional, Dict, List
 
 import logging_config
@@ -42,6 +43,10 @@ from config import (
 )
 
 logger = logging.getLogger('led_panel.display_manager')
+
+# After this many consecutive reconnection failures, exit so a process supervisor can restart
+# the app and get a fresh BLE stack. Set to 0 or None to never exit (previous behavior).
+MAX_RECONNECT_FAILURES_BEFORE_EXIT = 5
 
 # Hot reload support (optional)
 try:
@@ -78,7 +83,8 @@ class DisplayManager:
         self.current_mode: Optional[str] = None
         self.last_mode_switch: datetime = datetime.now()
         self.hot_reloader: Optional[object] = None
-        
+        self._consecutive_reconnect_failures: int = 0
+
         # Build config dict for modes
         self._load_config()
         
@@ -445,21 +451,42 @@ class DisplayManager:
     async def run(self) -> None:
         """
         Main display loop.
-        
+
         Continuously cycles through display modes, updating content and handling
         mode transitions, priority modes, and special ticker handling.
+        After MAX_RECONNECT_FAILURES_BEFORE_EXIT consecutive reconnection failures,
+        exits with code 1 so a process supervisor (e.g. launchd, systemd, or a shell
+        loop) can restart the app and provide a fresh BLE stack.
         """
         try:
             while True:
                 now = datetime.now()
-                
+
                 # Check connection health
                 if not await self._ensure_connection():
-                    logger.warning("Display not connected - please restart to reconnect")
+                    self._consecutive_reconnect_failures += 1
+                    if (
+                        MAX_RECONNECT_FAILURES_BEFORE_EXIT
+                        and self._consecutive_reconnect_failures
+                        >= MAX_RECONNECT_FAILURES_BEFORE_EXIT
+                    ):
+                        logger.error(
+                            "Reconnection failed %d times in a row; exiting so a restart "
+                            "can provide a fresh BLE stack. Run under a process supervisor "
+                            "(e.g. launchd, systemd, or 'while true; do python -m display_manager; sleep 2; done') "
+                            "for automatic recovery.",
+                            self._consecutive_reconnect_failures,
+                        )
+                        sys.exit(1)
+                    logger.warning(
+                        "Display not connected - please restart to reconnect"
+                    )
                     logger.warning("Waiting 60 seconds before checking again...")
                     await asyncio.sleep(60)
                     continue
-                
+
+                self._consecutive_reconnect_failures = 0
+
                 # Determine target mode
                 target_mode_name = self._get_next_mode(now)
                 target_mode = self.modes[target_mode_name]

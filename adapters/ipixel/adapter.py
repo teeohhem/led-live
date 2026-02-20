@@ -52,58 +52,50 @@ class BLEDisplayAdapter(DisplayAdapter):
             logger.warning(f"Failed to load panel dimensions, using defaults (64x20): {e}")
             set_panel_dimensions(64, 20)
 
-    async def _connect_single_panel(self, address: str, panel_idx: int, panel_count: int) -> Optional[BleakClient]:
-        """
-        Connect to a single panel using scan-before-connect (recommended for reliable reconnection).
-        
-        Args:
-            address: BLE address/UUID of the panel
-            panel_idx: Zero-based index of the panel
-            panel_count: Total number of panels
-            
-        Returns:
-            BleakClient if successful, None if failed
-        """
-        try:
-            device = await BleakScanner.find_device_by_address(address, timeout=10.0)
-            if device is None:
-                logger.warning(f"Panel {panel_idx+1}/{panel_count} not found during scan: {address}")
-                return None
-            client = BleakClient(device)
-            await client.connect()
-            logger.info(f"Connected to panel {panel_idx+1}/{panel_count}")
-            return client
-        except Exception as e:
-            logger.warning(f"Panel {panel_idx+1}/{panel_count} connection failed: {e}")
-            return None
-    
+    # Scan timeout in seconds; one discover() is used for all panels to avoid repeated scanner start/stop
+    DISCOVER_TIMEOUT = 15
+
     async def _attempt_panel_connections(
-        self, 
-        addresses: List[str], 
+        self,
+        addresses: List[str],
         panel_indices: List[int],
-        connected_clients: List[Optional[BleakClient]]
+        connected_clients: List[Optional[BleakClient]],
     ) -> List[int]:
         """
-        Attempt to connect to specified panels.
-        
-        Args:
-            addresses: List of all panel addresses
-            panel_indices: Indices of panels to connect to
-            connected_clients: List to update with connected clients
-            
-        Returns:
-            List of panel indices that failed to connect
+        Discover BLE devices once, then connect to each panel from the same result set.
+        Single scan per connect() reduces CoreBluetooth state issues on macOS.
         """
-        failed_indices = []
         panel_count = len(addresses)
-        
+        failed_indices = []
+
+        logger.info(f"Discovering BLE devices ({self.DISCOVER_TIMEOUT}s)...")
+        devices = await BleakScanner.discover(timeout=self.DISCOVER_TIMEOUT)
+        # Case-insensitive address lookup (UUIDs may differ in casing)
+        address_to_device = {}
+        for d in devices:
+            address_to_device[d.address.upper()] = d
+
         for panel_idx in panel_indices:
-            client = await self._connect_single_panel(addresses[panel_idx], panel_idx, panel_count)
-            if client:
-                connected_clients[panel_idx] = client
-            else:
+            address = addresses[panel_idx]
+            key = address.upper()
+            device = address_to_device.get(key)
+            if device is None:
+                logger.warning(
+                    f"Panel {panel_idx+1}/{panel_count} not found during scan: {address}"
+                )
                 failed_indices.append(panel_idx)
-        
+                continue
+            try:
+                client = BleakClient(device)
+                await client.connect()
+                connected_clients[panel_idx] = client
+                logger.info(f"Connected to panel {panel_idx+1}/{panel_count}")
+            except Exception as e:
+                logger.warning(
+                    f"Panel {panel_idx+1}/{panel_count} connection failed: {e}"
+                )
+                failed_indices.append(panel_idx)
+
         return failed_indices
     
     def _finalize_connection(self, connected_clients: List[Optional[BleakClient]], panel_count: int) -> None:
