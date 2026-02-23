@@ -181,6 +181,8 @@ def load_team_logo(team_name, league, max_size=(16, 16)):
     Falls back to logos/NOT_FOUND.png if team logo doesn't exist.
     Returns PIL Image or None if neither logo nor fallback exists.
     """
+    original_name = team_name
+
     # Normalize team abbreviation to match logo filename
     team_name = normalize_team_abbr(team_name, league)
     
@@ -190,10 +192,16 @@ def load_team_logo(team_name, league, max_size=(16, 16)):
     
     # Try team-specific logo first
     if not os.path.exists(logo_path):
-        # Fall back to NOT_FOUND.png
+        normalized_note = f" (normalized from '{original_name}')" if team_name != original_name else ""
+        logger.warning(
+            f"Logo missing: {league}/{team_name}.png{normalized_note} — "
+            f"add it at logos/{league_folder}/{team_name}.png"
+        )
         logo_path = "./logos/NOT_FOUND.png"
         if not os.path.exists(logo_path):
             return None
+    else:
+        logger.debug(f"Logo found: {league}/{team_name}.png")
     
     try:
         logo = Image.open(logo_path).convert("RGBA")

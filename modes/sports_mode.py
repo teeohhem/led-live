@@ -149,7 +149,18 @@ class SportsMode(BaseMode):
         games_to_render = self._get_games_page()
         
         logger.info(f"Rendering {self.display_type} sports ({len(games_to_render)} of {len(self.display_games)} games)")
-        
+        for g in games_to_render:
+            league = g.get('league', 'unknown').upper()
+            home = g.get('home', '?')
+            away = g.get('away', '?')
+            state = g.get('state', '')
+            score = ""
+            if g.get('home_score') is not None and g.get('away_score') is not None:
+                score = f"  {away} {g['away_score']} – {g['home_score']} {home}"
+            elif g.get('time'):
+                score = f"  @ {g['time']}"
+            logger.info(f"  [{league}] {away} vs {home}{score}  (state={state})")
+
         try:
             result = self.layout_renderer.render_games(games_to_render, display_type=self.display_type)
             if result is None:
