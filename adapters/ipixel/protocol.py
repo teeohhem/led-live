@@ -25,7 +25,6 @@ import asyncio
 import binascii
 import io
 import os
-import time
 import zlib
 from pathlib import Path
 from typing import Optional, Tuple, List
@@ -197,6 +196,8 @@ def _get_panel_addresses() -> List[str]:
 SCREEN_ON = bytearray([5, 0, 7, 1, 1])
 SCREEN_OFF = bytearray([5, 0, 7, 1, 0])
 CLEAR_SCREEN = bytearray([5, 0, 8, 1, 1])
+STOP_DRAW = bytearray([0x05, 0x00, 0x04, 0x01, 0x00])
+MEMORY_CLEAR = bytes([4, 0, 3, 0x80])
 
 
 async def write_cmd(client, data: bytes) -> None:
@@ -209,32 +210,34 @@ async def write_cmd(client, data: bytes) -> None:
         data: Command data to send
     """
     if isinstance(client, MultiPanelClient):
-        # Send to top panel with chunking
-        try:
-            chunk_size_top = client.top_client.services.get_characteristic(UUID_WRITE_DATA).max_write_without_response_size
-        except:
-            chunk_size_top = 512  # Default fallback
-        for i in range(0, len(data), chunk_size_top):
-            await client.top_client.write_gatt_char(UUID_WRITE_DATA, data[i:i+chunk_size_top], response=False)
-
-        # Send to bottom panel with chunking
-        try:
-            chunk_size_bottom = client.bottom_client.services.get_characteristic(UUID_WRITE_DATA).max_write_without_response_size
-        except:
-            chunk_size_bottom = 512  # Default fallback
-        for i in range(0, len(data), chunk_size_bottom):
-            await client.bottom_client.write_gatt_char(UUID_WRITE_DATA, data[i:i+chunk_size_bottom], response=False)
+        # Send to every panel that is currently connected, skipping None or
+        # disconnected entries (partial-connection scenario).
+        for i, panel_client in enumerate(client.panel_clients):
+            if panel_client is None:
+                logger.debug(f"Panel {i+1} is None, skipping write_cmd")
+                continue
+            try:
+                if not panel_client.is_connected:
+                    logger.debug(f"Panel {i+1} disconnected, skipping write_cmd")
+                    continue
+                try:
+                    chunk_size = panel_client.services.get_characteristic(UUID_WRITE_DATA).max_write_without_response_size
+                except Exception:
+                    chunk_size = 512
+                for offset in range(0, len(data), chunk_size):
+                    await panel_client.write_gatt_char(UUID_WRITE_DATA, data[offset:offset+chunk_size], response=False)
+            except Exception as e:
+                logger.warning(f"write_cmd failed for panel {i+1}: {e}")
     else:
         # Single client with chunking
         try:
             chunk_size = client.services.get_characteristic(UUID_WRITE_DATA).max_write_without_response_size
-        except:
-            chunk_size = 512  # Default fallback
-        for i in range(0, len(data), chunk_size):
-            await client.write_gatt_char(UUID_WRITE_DATA, data[i:i+chunk_size], response=False)
+        except Exception:
+            chunk_size = 512
+        for offset in range(0, len(data), chunk_size):
+            await client.write_gatt_char(UUID_WRITE_DATA, data[offset:offset+chunk_size], response=False)
 
-    # Small delay like idotmatrix library does
-    time.sleep(0.01)
+    await asyncio.sleep(0.01)
 
 
 # --- Internal helpers for GIF (re)size ---
@@ -623,9 +626,6 @@ async def upload_png(client, image, clear_first=False, panels=None):
         await write_cmd(client, CLEAR_SCREEN)
         await asyncio.sleep(0.1)
 
-    # Send "stop drawing" command (prepares panel for PNG)
-    stop_draw = bytearray([0x05, 0x00, 0x04, 0x01, 0x00])
-
     # Normalize panel indices
     target_panels = _normalize_panel_indices(panels, client.panel_count)
     logger.info(f"Targetpanels:{target_panels},totalpanels:{client.panel_count}")
@@ -654,13 +654,15 @@ async def upload_png(client, image, clear_first=False, panels=None):
             
             try:
                 logger.info(f"Sendingtopanel{panel_idx}...")
-                await panel_client.write_gatt_char(UUID_WRITE_DATA, stop_draw, response=False)
+                await panel_client.write_gatt_char(UUID_WRITE_DATA, STOP_DRAW, response=False)
                 await asyncio.sleep(0.05)
                 packet = create_png_packet(panel_img)
                 logger.info(f"PNGpacketcreated:{len(packet)}bytes")
                 await write_cmd_single(panel_client, packet)
                 logger.info(f"Senttopanel{panel_idx}")
-                await asyncio.sleep(0.2)
+                # Give the panel time to drain its receive buffer, decompress the
+                # PNG, and load it into the render slot before we send SCREEN_ON.
+                await asyncio.sleep(0.4)
             except Exception as e:
                 logger.warning(f"Failed to upload to panel {panel_idx+1}: {e}")
     else:
@@ -678,15 +680,28 @@ async def upload_png(client, image, clear_first=False, panels=None):
             
             try:
                 logger.info(f"Sendingtopanel{panel_idx}...")
-                await panel_client.write_gatt_char(UUID_WRITE_DATA, stop_draw, response=False)
+                await panel_client.write_gatt_char(UUID_WRITE_DATA, STOP_DRAW, response=False)
                 await asyncio.sleep(0.05)
                 packet = create_png_packet(image)
                 logger.info(f"PNGpacketcreated:{len(packet)}bytes")
                 await write_cmd_single(panel_client, packet)
                 logger.info(f"Senttopanel{panel_idx}")
-                await asyncio.sleep(0.2)
+                await asyncio.sleep(0.4)
             except Exception as e:
                 logger.warning(f"Failed to upload to panel {panel_idx+1}: {e}")
+
+    # Re-enable the display now that all panels have their new content loaded.
+    # This pairs with the SCREEN_OFF sent during clear_screen_completely so the
+    # display transitions directly from dark → new image with no intermediate flash.
+    # Send twice with a short gap: write_without_response is fire-and-forget, so
+    # a single lost packet would leave a panel dark with no way to recover until
+    # the next upload cycle.
+    try:
+        await client.write_gatt_char(UUID_WRITE_DATA, SCREEN_ON, response=False)
+        await asyncio.sleep(0.05)
+        await client.write_gatt_char(UUID_WRITE_DATA, SCREEN_ON, response=False)
+    except Exception as e:
+        logger.warning(f"Failed to send SCREEN_ON after upload: {e}")
 
 
 async def write_cmd_single(client, data: bytes):
@@ -698,26 +713,46 @@ async def write_cmd_single(client, data: bytes):
         chunk_size = 512
 
     total_sent = 0
+    num_chunks = (len(data) + chunk_size - 1) // chunk_size
     for i in range(0, len(data), chunk_size):
         chunk = data[i:i+chunk_size]
         try:
             await client.write_gatt_char(UUID_WRITE_DATA, chunk, response=False)
             total_sent += len(chunk)
+            # Small inter-chunk pause so the panel's BLE receive buffer doesn't
+            # overflow when write_without_response packets arrive back-to-back.
+            # Dropped bytes corrupt the PNG silently, leaving the panel blank.
+            await asyncio.sleep(0.01)
         except Exception as e:
             logger.error(f"BLEwriteerror:{e}")
             raise
     
-    logger.info(f"Sent{total_sent}bytesin{(total_sent+chunk_size-1)//chunk_size}chunks")
-    await asyncio.sleep(0.01)
+    logger.info(f"Sent{total_sent}bytesin{num_chunks}chunks")
 
 
 # --- Screen management ---
 async def clear_screen_completely(client):
-    """Clear the screen by sending clear command (dual-panel compatible)"""
+    """
+    Clear the screen and wipe the panel's internal image memory.
+
+    Sends STOP_DRAW first so the panel stops rendering the committed PNG,
+    then MEMORY_CLEAR to evict the stored image, then CLEAR_SCREEN to blank
+    the display.  Without the memory clear the panel can flash back to the
+    previously committed PNG during the gap between a mode-switch clear and
+    the arrival of the next frame.
+    """
     logger.info("Clearing panels...")
     try:
-        await write_cmd(client, CLEAR_SCREEN)
-        await asyncio.sleep(0.3)
+        # Stop any active render so the panel won't re-surface its committed PNG
+        await client.write_gatt_char(UUID_WRITE_DATA, STOP_DRAW, response=False)
+        await asyncio.sleep(0.05)
+        # Wipe the panel's stored image slot so it has nothing to fall back to
+        await client.write_gatt_char(UUID_WRITE_DATA, MEMORY_CLEAR, response=False)
+        await asyncio.sleep(0.1)
+        # Turn the display off (dark) instead of CLEAR_SCREEN, which triggers
+        # the panel's built-in default image and produces an inconsistent flash
+        await client.write_gatt_char(UUID_WRITE_DATA, SCREEN_OFF, response=False)
+        await asyncio.sleep(0.1)
         logger.info("Panels cleared")
     except Exception as e:
         logger.error(f"Clear failed:{e}")
@@ -729,13 +764,7 @@ async def init_panels(client):
     
     # Clear panel memory on startup to ensure clean state
     logger.info("Clearing panel memory...")
-    memory_clear_cmd = bytes([
-        4,     # Command length
-        0,     # Reserved
-        3,     # Command ID
-        0x80,  # Command type ID
-    ])
-    await write_cmd(client, memory_clear_cmd)
+    await write_cmd(client, MEMORY_CLEAR)
     await asyncio.sleep(0.3)
     
     await write_cmd(client, SCREEN_ON)

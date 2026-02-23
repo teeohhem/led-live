@@ -68,3 +68,53 @@
   font-weight: bold;
 }
 
+/* Item height control — shown for multi-item scenarios */
+.item-height-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 1px solid #3a3a3a;
+}
+
+.item-height-label {
+  font-size: 0.8rem;
+  color: #888;
+  white-space: nowrap;
+}
+
+.item-height-input {
+  width: 54px;
+  padding: 4px 6px;
+  background: #1a1a1a;
+  border: 1px solid #4ade80;
+  color: #4ade80;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.item-height-suggest {
+  padding: 3px 8px;
+  background: transparent;
+  border: 1px dashed #4ade80;
+  color: #4ade80;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.item-height-suggest:hover {
+  background: rgba(74, 222, 128, 0.1);
+}
+
+.item-height-hint {
+  font-size: 0.75rem;
+  color: #555;
+  font-style: italic;
+}
+

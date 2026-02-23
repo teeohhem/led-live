@@ -34,7 +34,7 @@ export default function Canvas({
   
   // Preview visibility controls
   const [showPreview, setShowPreview] = useState(true);
-  const [previewOpacity, setPreviewOpacity] = useState(80);
+  const [previewOpacity, setPreviewOpacity] = useState(20);
   
   // Keep ref updated
   useEffect(() => {
@@ -107,14 +107,15 @@ export default function Canvas({
   }, [elements.length, scale, totalWidth, totalHeight]);
 
   return (
-    <div className="canvas-container">
+    <div className="canvas-section">
       <PreviewToggle
         showPreview={showPreview}
         setShowPreview={setShowPreview}
         previewOpacity={previewOpacity}
         setPreviewOpacity={setPreviewOpacity}
       />
-      
+
+      <div className="canvas-container">
       <div 
         ref={canvasRef}
         className="canvas-preview"
@@ -139,9 +140,11 @@ export default function Canvas({
         {/* Item boundary overlay for multi-item scenarios */}
         <ItemBoundaryOverlay
           currentScenario={currentScenario}
+          currentMode={currentMode}
           itemHeight={templates[currentMode][currentScenario]?.item_height || 10}
           scale={scale}
           totalHeight={totalHeight}
+          elements={elements}
         />
         
         {/* Panel dividers */}
@@ -163,6 +166,13 @@ export default function Canvas({
             </div>
           );
         })}
+
+        {/* Empty state guidance */}
+        {elements.length === 0 && (
+          <div className="canvas-empty-hint">
+            <span>👇 Click an element in the palette below to place it on the canvas</span>
+          </div>
+        )}
 
         {/* Elements */}
         {elements.map(element => {
@@ -208,6 +218,7 @@ export default function Canvas({
             </div>
           );
         })}
+      </div>
       </div>
     </div>
   );

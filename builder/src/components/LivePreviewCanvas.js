@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { renderPreview } from '../utils/api';
-import { generateJSON } from '../utils/template';
 
 export default function LivePreviewCanvas({ 
   templates, 
@@ -11,10 +10,12 @@ export default function LivePreviewCanvas({
   opacity = 0.8
 }) {
   const [previewImage, setPreviewImage] = useState(null);
+  const [previewStatus, setPreviewStatus] = useState('idle'); // 'idle' | 'loading' | 'ok' | 'error'
   const canvasRef = useRef(null);
 
   useEffect(() => {
     const updatePreview = async () => {
+      setPreviewStatus('loading');
       try {
         const { panel_width, panel_height, num_panels, orientation } = displayConfig;
         const totalWidth = orientation === 'horizontal' 
@@ -35,8 +36,10 @@ export default function LivePreviewCanvas({
         const blob = await renderPreview(currentMode, templateDict, currentScenario);
         const imageUrl = URL.createObjectURL(blob);
         setPreviewImage(imageUrl);
+        setPreviewStatus('ok');
       } catch (err) {
         setPreviewImage(null);
+        setPreviewStatus('error');
       }
     };
 
@@ -52,44 +55,53 @@ export default function LivePreviewCanvas({
     : panel_height;
 
   return (
-    <div
-      ref={canvasRef}
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: `${totalWidth * scale}px`,
-        height: `${totalHeight * scale}px`,
-        pointerEvents: 'none',
-        zIndex: 1,
-        opacity: opacity,
-        border: '2px solid rgba(74, 222, 128, 0.3)' // Subtle green border to show it's there
-      }}
-    >
-      {previewImage ? (
-        <img
-          src={previewImage}
-          alt="Live Preview"
-          style={{
-            width: '100%',
-            height: '100%',
-            imageRendering: 'pixelated'
-          }}
-        />
-      ) : (
+    <>
+      {/* Error banner shown ABOVE the canvas area (not inside it, so it's always visible) */}
+      {previewStatus === 'error' && (
         <div style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#666',
-          fontSize: '12px'
+          position: 'absolute',
+          top: -26,
+          left: 0,
+          right: 0,
+          background: 'rgba(180, 60, 60, 0.9)',
+          color: '#fff',
+          fontSize: '11px',
+          padding: '3px 8px',
+          borderRadius: '4px 4px 0 0',
+          zIndex: 20,
+          pointerEvents: 'none',
         }}>
-          {/* No preview message - will be hidden by low opacity */}
+          ⚠️ Preview unavailable — restart the builder server (<code>python builder_server.py</code>)
         </div>
       )}
-    </div>
+
+      <div
+        ref={canvasRef}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: `${totalWidth * scale}px`,
+          height: `${totalHeight * scale}px`,
+          pointerEvents: 'none',
+          zIndex: 1,
+          opacity: opacity,
+          border: '2px solid rgba(74, 222, 128, 0.3)',
+        }}
+      >
+        {previewImage ? (
+          <img
+            src={previewImage}
+            alt="Live Preview"
+            style={{
+              width: '100%',
+              height: '100%',
+              imageRendering: 'pixelated'
+            }}
+          />
+        ) : null}
+      </div>
+    </>
   );
 }
 

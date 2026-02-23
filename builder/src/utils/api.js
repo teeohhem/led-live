@@ -79,3 +79,45 @@ export async function getWeatherData() {
     return { weather: {} };
   }
 }
+
+export async function listCompositeTemplates() {
+  try {
+    const response = await fetch("/api/composite_templates");
+    return response.json();
+  } catch {
+    return { templates: [] };
+  }
+}
+
+export async function loadCompositeTemplate(filename) {
+  const response = await fetch(`/api/composite_templates/${filename}`);
+  if (!response.ok) throw new Error(`Failed to load ${filename}`);
+  return response.json();
+}
+
+export async function saveCompositeTemplate(filename, content) {
+  const response = await fetch("/api/composite_templates", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ filename, content }),
+  });
+  if (!response.ok) throw new Error("Failed to save template");
+  return response.json();
+}
+
+export async function previewCompositeTemplate(template) {
+  const response = await fetch("/api/composite_preview", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ template }),
+  });
+  if (!response.ok) {
+    const ct = response.headers.get("content-type") || "";
+    if (ct.includes("application/json")) {
+      const err = await response.json();
+      throw new Error(err.error || "Preview failed");
+    }
+    throw new Error(`Preview failed: ${response.status}`);
+  }
+  return response.blob();
+}

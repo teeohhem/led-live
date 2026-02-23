@@ -4,6 +4,54 @@
   flex-direction: column;
 }
 
+/* Builder type switcher (top of app) */
+.builder-type-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #1a1a2e;
+  border-bottom: 2px solid #333;
+  flex-shrink: 0;
+}
+
+.builder-type-btn {
+  padding: 5px 16px;
+  background: #2a2a3a;
+  border: 1px solid #444;
+  color: #aaa;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+
+.builder-type-btn:hover {
+  background: #33334a;
+  color: #ddd;
+}
+
+.builder-type-btn.active {
+  background: #667eea;
+  border-color: #667eea;
+  color: #fff;
+  font-weight: 600;
+}
+
+.builder-type-hint {
+  font-size: 0.75rem;
+  color: #666;
+  margin-left: 8px;
+}
+
+.composite-view {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 .main-content {
   flex: 1;
   display: flex;

@@ -1,41 +1,51 @@
 import React from 'react';
+import './PreviewToggle.css';
 
 export default function PreviewToggle({ showPreview, setShowPreview, previewOpacity, setPreviewOpacity }) {
   return (
-    <div style={{
-      position: 'absolute',
-      top: '10px',
-      right: '10px',
-      background: '#2a2a2a',
-      padding: '10px',
-      borderRadius: '6px',
-      border: '2px solid #667eea',
-      zIndex: 2000
-    }}>
-      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+    <div className="preview-toggle-bar">
+      <label className="preview-toggle-check">
         <input
           type="checkbox"
           checked={showPreview}
           onChange={(e) => setShowPreview(e.target.checked)}
         />
-        <span style={{ fontSize: '0.9rem' }}>🎬 Show Live Preview</span>
+        <span>🎬 Live preview</span>
       </label>
-      
+
       {showPreview && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '0.85rem', color: '#aaa' }}>Opacity:</span>
+        <>
+          <span className="preview-toggle-sep">|</span>
+          <span className="preview-toggle-label">Opacity</span>
           <input
             type="range"
+            className="preview-toggle-slider"
             min="0"
             max="100"
             value={previewOpacity}
             onChange={(e) => setPreviewOpacity(parseInt(e.target.value))}
-            style={{ width: '100px' }}
           />
-          <span style={{ fontSize: '0.85rem', color: '#aaa' }}>{previewOpacity}%</span>
-        </div>
+          <span className="preview-toggle-pct">{previewOpacity}%</span>
+
+          <div className="preview-toggle-presets">
+            {[0, 20, 50, 80].map(v => (
+              <button
+                key={v}
+                className={`preset-btn${previewOpacity === v ? ' active' : ''}`}
+                onClick={() => setPreviewOpacity(v)}
+              >
+                {v}%
+              </button>
+            ))}
+          </div>
+        </>
       )}
+
+      <span className="preview-toggle-hint">
+        {showPreview
+          ? 'Preview shows actual rendered output behind your elements'
+          : 'Turn on preview to see rendered output behind your elements'}
+      </span>
     </div>
   );
 }
-

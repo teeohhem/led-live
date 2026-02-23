@@ -5,12 +5,35 @@ import Toolbar from "./components/Toolbar";
 import ScenarioBar from "./components/ScenarioBar";
 import Canvas from "./components/Canvas";
 import ElementPalette from "./components/ElementPalette";
-import OutputPanel from "./components/OutputPanel";
 import ContextMenu from "./components/ContextMenu";
+import CompositeBuilder from "./components/CompositeBuilder";
 import { useTemplateState } from "./hooks/useTemplateState";
 import { loadConfigTemplate } from "./utils/api";
 
 function App() {
+  const [builderType, setBuilderType] = useState("element");
+
+  // Maps composite component types to their element-builder mode.
+  const COMPONENT_TO_MODE = {
+    weather_current: "weather",
+    weather_extended: "weather",
+    sports_live: "sports",
+    stocks: "stocks",
+  };
+
+  const handleEditComponent = (componentType) => {
+    const mode = COMPONENT_TO_MODE[componentType];
+    if (!mode) {
+      // Clock has no element-level layout — its look is driven purely by theme.
+      alert(
+        "The Clock component's appearance is controlled by the Theme setting in the Properties panel — there are no individual layout elements to position."
+      );
+      return;
+    }
+    setCurrentMode(mode);
+    setBuilderType("element");
+  };
+
   const {
     templates,
     currentMode,
@@ -20,13 +43,14 @@ function App() {
     setCurrentMode,
     setCurrentScenario,
     addElement,
+    addElements,
     updateElement,
     deleteElement,
     duplicateElement,
     optimizeSpace,
     loadTemplates,
     setDisplayConfig,
-    generateYAML,
+    setItemHeight,
   } = useTemplateState();
 
   const [contextMenu, setContextMenu] = useState({ show: false, x: 0, y: 0 });
@@ -76,6 +100,36 @@ function App() {
 
   return (
     <div className="app" onClick={hideContextMenu}>
+      {/* Top-level builder type switcher */}
+      <div className="builder-type-bar">
+        <button
+          className={`builder-type-btn${builderType === "element" ? " active" : ""}`}
+          onClick={() => setBuilderType("element")}
+        >
+          🧩 Element Builder
+        </button>
+        <button
+          className={`builder-type-btn${builderType === "composite" ? " active" : ""}`}
+          onClick={() => setBuilderType("composite")}
+        >
+          🖼️ Composite Builder
+        </button>
+        <span className="builder-type-hint">
+          {builderType === "element"
+            ? "Place text & icon elements for sports / stocks / weather modes"
+            : "Arrange full-panel widgets (clock, weather, sports…) into a multi-panel layout"}
+        </span>
+      </div>
+
+      {builderType === "composite" ? (
+        <div className="composite-view">
+          <CompositeBuilder
+            displayConfig={displayConfig}
+            onEditComponent={handleEditComponent}
+          />
+        </div>
+      ) : (
+        <>
       <Toolbar
         currentMode={currentMode}
         setCurrentMode={setCurrentMode}
@@ -90,6 +144,7 @@ function App() {
         setCurrentScenario={setCurrentScenario}
         templates={templates}
         displayConfig={displayConfig}
+        setItemHeight={setItemHeight}
       />
 
       <div className="main-content">
@@ -265,7 +320,12 @@ function App() {
             </div>
           </div>
 
-          <ElementPalette currentMode={currentMode} addElement={addElement} />
+          <ElementPalette
+            currentMode={currentMode}
+            currentScenario={currentScenario}
+            addElement={addElement}
+            addElements={addElements}
+          />
         </div>
       </div>
 
@@ -286,6 +346,8 @@ function App() {
             hideContextMenu();
           }}
         />
+      )}
+        </>
       )}
     </div>
   );

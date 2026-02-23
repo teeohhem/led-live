@@ -1,0 +1,81 @@
+.preview-toggle-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 16px;
+  background: #1e1e2e;
+  border-bottom: 1px solid #2a2a3a;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.preview-toggle-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #ccc;
+  user-select: none;
+}
+
+.preview-toggle-check input {
+  cursor: pointer;
+  accent-color: #667eea;
+}
+
+.preview-toggle-sep {
+  color: #444;
+}
+
+.preview-toggle-label {
+  font-size: 0.8rem;
+  color: #888;
+  white-space: nowrap;
+}
+
+.preview-toggle-slider {
+  width: 110px;
+  cursor: pointer;
+  accent-color: #667eea;
+}
+
+.preview-toggle-pct {
+  font-size: 0.8rem;
+  color: #aaa;
+  min-width: 32px;
+}
+
+.preview-toggle-presets {
+  display: flex;
+  gap: 4px;
+}
+
+.preset-btn {
+  padding: 2px 8px;
+  background: #2a2a3a;
+  border: 1px solid #3a3a4a;
+  color: #aaa;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  transition: all 0.1s;
+}
+
+.preset-btn:hover {
+  background: #3a3a4a;
+  color: #fff;
+}
+
+.preset-btn.active {
+  background: #667eea;
+  border-color: #667eea;
+  color: #fff;
+}
+
+.preview-toggle-hint {
+  font-size: 0.75rem;
+  color: #555;
+  margin-left: auto;
+  font-style: italic;
+}

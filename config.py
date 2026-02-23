@@ -85,10 +85,10 @@ CLOCK_24H: bool = _cfg.get_bool("display_modes.clock_24h", False)
 DISPLAY_MODE_CHECK_INTERVAL: int = _cfg.get_int("display_modes.mode_check_interval", 2)
 
 # Display refresh intervals
-DISPLAY_SPORTS_REFRESH_INTERVAL: int = _cfg.get_int("display_modes.sports_refresh_interval", 2)
-DISPLAY_WEATHER_REFRESH_INTERVAL: int = _cfg.get_int("display_modes.weather_refresh_interval", 2)
-DISPLAY_CLOCK_REFRESH_INTERVAL: int = _cfg.get_int("display_modes.clock_refresh_interval", 2)
-DISPLAY_STOCKS_REFRESH_INTERVAL: int = _cfg.get_int("display_modes.stocks_refresh_interval", 2)
+DISPLAY_SPORTS_REFRESH_INTERVAL: int = _cfg.get_int("display_modes.sports_refresh_interval", 30)
+DISPLAY_WEATHER_REFRESH_INTERVAL: int = _cfg.get_int("display_modes.weather_refresh_interval", 300)
+DISPLAY_CLOCK_REFRESH_INTERVAL: int = _cfg.get_int("display_modes.clock_refresh_interval", 60)
+DISPLAY_STOCKS_REFRESH_INTERVAL: int = _cfg.get_int("display_modes.stocks_refresh_interval", 60)
 
 # ============================================================================
 # POWER MANAGEMENT SETTINGS

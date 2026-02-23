@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 
 /**
  * Central state management for template builder
@@ -20,7 +20,7 @@ export function useTemplateState() {
     },
     weather: {
       one_item: { elements: [] },
-      two_items: { elements: [], item_height: 10 },
+      two_items: { elements: [], item_height: 20 }, // one full panel per forecast item
       logo_enabled: false
     }
   });
@@ -35,7 +35,10 @@ export function useTemplateState() {
     orientation: 'vertical' // Changed to match your actual template (64x40)
   });
 
-  const elements = templates[currentMode][currentScenario]?.elements || [];
+  const elements = useMemo(
+    () => templates[currentMode][currentScenario]?.elements || [],
+    [templates, currentMode, currentScenario]
+  );
 
   const addElement = useCallback((type, x, y, width, height) => {
     const newElement = {
@@ -63,6 +66,33 @@ export function useTemplateState() {
     }));
 
     return newElement;
+  }, [currentMode, currentScenario]);
+
+  // Add a whole group of elements at once (one click to place a preset layout)
+  const addElements = useCallback((elementSpecs) => {
+    const newElements = elementSpecs.map((spec, i) => ({
+      id: Date.now() + i,
+      type:     spec.type,
+      x:        spec.x ?? 0,
+      y:        spec.y ?? 0,
+      width:    spec.width ?? 30,
+      height:   spec.height ?? 10,
+      text:     spec.type.replace(/_/g, ' '),
+      color:    spec.color ?? '#ffffff',
+      fontSize: spec.fontSize ?? 10,
+      align:    spec.align ?? 'left',
+    }));
+
+    setTemplates(prev => ({
+      ...prev,
+      [currentMode]: {
+        ...prev[currentMode],
+        [currentScenario]: {
+          ...prev[currentMode][currentScenario],
+          elements: [...prev[currentMode][currentScenario].elements, ...newElements]
+        }
+      }
+    }));
   }, [currentMode, currentScenario]);
 
   const updateElement = useCallback((elementId, updates) => {
@@ -233,6 +263,20 @@ export function useTemplateState() {
     console.log('=== Templates state updated ===');
   }, []); // Remove dependencies to prevent re-creation
 
+  const setItemHeight = useCallback((height) => {
+    if (!height || currentScenario === 'one_item') return;
+    setTemplates(prev => ({
+      ...prev,
+      [currentMode]: {
+        ...prev[currentMode],
+        [currentScenario]: {
+          ...prev[currentMode][currentScenario],
+          item_height: height
+        }
+      }
+    }));
+  }, [currentMode, currentScenario]);
+
   const generateYAML = useCallback(() => {
     // Generate YAML from current template state
     // Implementation similar to existing generateTemplate()
@@ -248,12 +292,14 @@ export function useTemplateState() {
     setCurrentMode,
     setCurrentScenario,
     addElement,
+    addElements,
     updateElement,
     deleteElement,
     duplicateElement,
     optimizeSpace,
     loadTemplates,
     setDisplayConfig,
+    setItemHeight,
     generateYAML
   };
 }
