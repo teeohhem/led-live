@@ -233,6 +233,7 @@ class TemplatedSportsRenderer:
             render_element_text(draw, template.home_name, home_name, context, self.width)
         
         # Render game status
+        is_mlb = game.get('league', '').upper() == 'MLB'
         if display_type == 'live':
             if template.period:
                 period_text = "END" if is_game_over else game.get('period', '')
@@ -240,17 +241,33 @@ class TemplatedSportsRenderer:
                     render_element_text(draw, template.period, period_text, context, self.width)
             
             if template.clock and not is_game_over:
-                is_mlb = game.get('league', '').upper() == 'MLB'
                 if is_mlb:
                     outs = game.get('outs')
-                    if outs is not None:
-                        clock_text = f"{outs}out"
-                    else:
-                        clock_text = ''
+                    clock_text = f"{outs}out" if outs is not None else ''
                 else:
                     clock_text = game.get('clock', '')
                 if clock_text:
                     render_element_text(draw, template.clock, clock_text, context, self.width)
+            
+            # MLB batting indicator: small dot to the right of the batting team's score
+            if is_mlb and not is_game_over:
+                batting_half = game.get('batting_half')
+                if batting_half == 'top':
+                    score_spec = template.away_score
+                    score_val = str(game.get('away_score', 0))
+                elif batting_half == 'bot':
+                    score_spec = template.home_score
+                    score_val = str(game.get('home_score', 0))
+                else:
+                    score_spec = None
+                    score_val = ''
+                if score_spec:
+                    font = load_font(score_spec.font_size)
+                    bbox = font.getbbox(score_val)
+                    text_w = bbox[2] - bbox[0]
+                    dot_x = score_spec.x + text_w + 2
+                    dot_y = score_spec.y + score_spec.font_size // 2
+                    draw.ellipse([dot_x - 1, dot_y - 1, dot_x + 1, dot_y + 1], fill=(255, 255, 255))
         else:  # upcoming
             if template.time:
                 time_text = game.get('time', '')

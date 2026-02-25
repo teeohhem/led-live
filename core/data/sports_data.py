@@ -297,9 +297,19 @@ class SportsFetcher(DataFetcher[List[Dict[str, Any]]]):
         # Format period by league
         period = SportsFetcher._format_period(period_raw, league)
         
-        # Extract outs for MLB
+        # Extract outs and batting half for MLB
         situation = comp.get("situation", {})
-        outs = situation.get("outs") if league == League.MLB else None
+        outs = None
+        batting_half = None
+        if league == League.MLB:
+            outs = situation.get("outs")
+            detail_lower = time_detail.lower()
+            if detail_lower.startswith("top"):
+                batting_half = "top"   # away team batting
+                period = f"T {period}"
+            elif detail_lower.startswith("bot"):
+                batting_half = "bot"   # home team batting
+                period = f"B {period}"
         
         return {
             "home": home_abbr,
@@ -311,7 +321,8 @@ class SportsFetcher(DataFetcher[List[Dict[str, Any]]]):
             "state": state,
             "league": league.value,
             "time": time_detail,
-            "outs": outs
+            "outs": outs,
+            "batting_half": batting_half
         }
     
     @staticmethod
@@ -337,8 +348,10 @@ class SportsFetcher(DataFetcher[List[Dict[str, Any]]]):
             elif league == League.NHL:
                 return f"P{period_num}"
             elif league == League.MLB:
-                suffix = {1: "st", 2: "nd", 3: "rd"}.get(period_num if period_num <= 20 else period_num % 10, "th")
-                return f"{period_num}{suffix}"
+                if period_num >= 10:
+                    return str(period_num)   # "10", "11", etc. — no suffix to keep it compact
+                suffix = {1: "st", 2: "nd", 3: "rd"}.get(period_num, "th")
+                return f"{period_num} {suffix}"
             else:
                 return str(period_num)
                 

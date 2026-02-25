@@ -20,15 +20,15 @@ sports:
       font_size: 14
       color: "away_team"
     period:
-      x: 3
-      y: 2
-      font_size: 8
+      x: 18
+      y: 3
+      font_size: 6
       align: "right"
       color: "time"
     clock:
-      x: 3
+      x: 18
       y: 11
-      font_size: 8
+      font_size: 6
       align: "right"
       color: "time"
   

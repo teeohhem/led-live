@@ -49,21 +49,25 @@ class ElementSpec:
     def get_position(self, parent_width: int = 0) -> Tuple[int, int]:
         """
         Get actual position, accounting for alignment.
-        
+
+        For right-aligned elements, x is the offset from the right edge of the canvas
+        (e.g. x=3 means the text right edge sits 3px from the right side).
+        render_element_text then subtracts text_width to find the left start position.
+
         Args:
-            parent_width: Width of parent container (for right-alignment)
-        
+            parent_width: Width of parent container (canvas width)
+
         Returns:
             (x, y) tuple
         """
         x = self.x
         if self.align == "right" and parent_width > 0:
-            # x is offset from right edge
+            # x is offset from right edge → convert to absolute right-anchor x
             x = parent_width - self.x
         elif self.align == "center" and parent_width > 0:
             # x is offset from center
             x = (parent_width // 2) + self.x
-        
+
         return (x, self.y)
 
 
