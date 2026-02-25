@@ -69,7 +69,23 @@ class BLEDisplayAdapter(DisplayAdapter):
         failed_indices = []
 
         logger.info(f"Discovering BLE devices ({self.DISCOVER_TIMEOUT}s)...")
-        devices = await BleakScanner.discover(timeout=self.DISCOVER_TIMEOUT)
+        try:
+            devices = await BleakScanner.discover(timeout=self.DISCOVER_TIMEOUT)
+        except BleakError as e:
+            if "not authorized" in str(e).lower() or "unauthorized" in str(e).lower():
+                raise PermissionError(
+                    "BLE is not authorized — macOS has denied Bluetooth access to this process.\n"
+                    "\n"
+                    "To fix:\n"
+                    "  1. Open System Settings → Privacy & Security → Bluetooth\n"
+                    "  2. Ensure Terminal (or Python) is listed and toggled ON\n"
+                    "  3. If missing, run the script from Terminal once so macOS prompts for permission\n"
+                    "  4. If running under launchd/a daemon, the daemon user also needs this grant\n"
+                    "\n"
+                    "This permission is sometimes silently revoked after a macOS update, sleep/wake\n"
+                    "cycle, or background privacy-policy refresh. Re-granting it is the only fix."
+                ) from e
+            raise
         # Case-insensitive address lookup (UUIDs may differ in casing)
         address_to_device = {}
         for d in devices:

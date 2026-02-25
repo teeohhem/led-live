@@ -568,6 +568,10 @@ async def main() -> None:
         await manager.run()
     except KeyboardInterrupt:
         logger.info("\nShutting down gracefully...")
+    except PermissionError as e:
+        # BLE authorization was denied by macOS — retrying won't help, exit clearly.
+        logger.error(f"BLE permission denied:\n{e}")
+        sys.exit(1)
     except Exception as e:
         logger.error(f"Fatal error: {e}")
         import traceback
