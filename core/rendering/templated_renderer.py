@@ -240,7 +240,15 @@ class TemplatedSportsRenderer:
                     render_element_text(draw, template.period, period_text, context, self.width)
             
             if template.clock and not is_game_over:
-                clock_text = game.get('clock', '')
+                is_mlb = game.get('league', '').upper() == 'MLB'
+                if is_mlb:
+                    outs = game.get('outs')
+                    if outs is not None:
+                        clock_text = f"{outs}out"
+                    else:
+                        clock_text = ''
+                else:
+                    clock_text = game.get('clock', '')
                 if clock_text:
                     render_element_text(draw, template.clock, clock_text, context, self.width)
         else:  # upcoming
