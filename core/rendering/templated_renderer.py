@@ -243,7 +243,7 @@ class TemplatedSportsRenderer:
             if template.clock and not is_game_over:
                 if is_mlb:
                     outs = game.get('outs')
-                    clock_text = f"{outs}out" if outs is not None else ''
+                    clock_text = f"{outs} out" if outs is not None else ''
                 else:
                     clock_text = game.get('clock', '')
                 if clock_text:

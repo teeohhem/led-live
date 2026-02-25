@@ -351,7 +351,7 @@ class SportsFetcher(DataFetcher[List[Dict[str, Any]]]):
                 if period_num >= 10:
                     return str(period_num)   # "10", "11", etc. — no suffix to keep it compact
                 suffix = {1: "st", 2: "nd", 3: "rd"}.get(period_num, "th")
-                return f"{period_num} {suffix}"
+                return f"{period_num}{suffix}"
             else:
                 return str(period_num)
                 
