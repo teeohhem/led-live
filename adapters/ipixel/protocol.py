@@ -633,75 +633,80 @@ async def upload_png(client, image, clear_first=False, panels=None):
     # Calculate total display dimensions
     total_display_height = PANEL_HEIGHT * client.panel_count
     
+    # Track which panels successfully received their image so we only send
+    # SCREEN_ON to those panels.  A panel that failed its upload must stay in
+    # SCREEN_OFF (set by clear_screen_completely) rather than being woken up
+    # with empty memory, which is what causes the "top screen blank" symptom.
+    successful_panels: list = []
+
+    async def _upload_to_panel(panel_idx: int, panel_img) -> bool:
+        """Upload an image to a single panel with one retry. Returns True on success."""
+        panel_client = client.get_panel_client(panel_idx)
+        if panel_client is None:
+            logger.warning(f"Panel {panel_idx+1} not connected, skipping upload")
+            return False
+        if not panel_client.is_connected:
+            logger.warning(f"Panel {panel_idx+1} disconnected, skipping upload")
+            return False
+
+        packet = create_png_packet(panel_img)
+        logger.info(f"PNG packet created: {len(packet)} bytes for panel {panel_idx+1}")
+
+        for attempt in range(2):
+            try:
+                logger.info(f"Sending to panel {panel_idx+1} (attempt {attempt+1})...")
+                await panel_client.write_gatt_char(UUID_WRITE_DATA, STOP_DRAW, response=False)
+                await asyncio.sleep(0.05)
+                await write_cmd_single(panel_client, packet)
+                # Give the panel time to drain its receive buffer, decompress the
+                # PNG, and load it into the render slot before we send SCREEN_ON.
+                await asyncio.sleep(0.4)
+                logger.info(f"Sent to panel {panel_idx+1}")
+                return True
+            except Exception as e:
+                if attempt == 0:
+                    logger.warning(f"Failed to upload to panel {panel_idx+1}: {e}, retrying...")
+                    await asyncio.sleep(0.2)
+                else:
+                    logger.error(f"Failed to upload to panel {panel_idx+1} after retry: {e}")
+        return False
+
     # If image height matches full display, split it across panels
     if image.height == total_display_height and len(target_panels) > 1:
         # Split image: each panel gets PANEL_HEIGHT pixels
         for panel_idx in target_panels:
             y_start = panel_idx * PANEL_HEIGHT
             y_end = y_start + PANEL_HEIGHT
-            
-            # Crop image for this panel
             panel_img = image.crop((0, y_start, PANEL_WIDTH, y_end))
-            
-            # Send to this panel
-            panel_client = client.get_panel_client(panel_idx)
-            if panel_client is None:
-                logger.warning(f"Panel {panel_idx+1} not connected, skipping upload")
-                continue
-            if not panel_client.is_connected:
-                logger.warning(f"Panel {panel_idx+1} disconnected, skipping upload")
-                continue
-            
-            try:
-                logger.info(f"Sendingtopanel{panel_idx}...")
-                await panel_client.write_gatt_char(UUID_WRITE_DATA, STOP_DRAW, response=False)
-                await asyncio.sleep(0.05)
-                packet = create_png_packet(panel_img)
-                logger.info(f"PNGpacketcreated:{len(packet)}bytes")
-                await write_cmd_single(panel_client, packet)
-                logger.info(f"Senttopanel{panel_idx}")
-                # Give the panel time to drain its receive buffer, decompress the
-                # PNG, and load it into the render slot before we send SCREEN_ON.
-                await asyncio.sleep(0.4)
-            except Exception as e:
-                logger.warning(f"Failed to upload to panel {panel_idx+1}: {e}")
+            if await _upload_to_panel(panel_idx, panel_img):
+                successful_panels.append(panel_idx)
     else:
-        # Single panel image or single target panel
-        # Send same image to all target panels
-        logger.info(f"Singleimagemode-sendingto{len(target_panels)}panel(s)")
+        # Single panel image or single target panel — send same image to all targets
+        logger.info(f"Single image mode - sending to {len(target_panels)} panel(s)")
         for panel_idx in target_panels:
-            panel_client = client.get_panel_client(panel_idx)
-            if panel_client is None:
-                logger.warning(f"Panel {panel_idx+1} not connected, skipping upload")
-                continue
-            if not panel_client.is_connected:
-                logger.warning(f"Panel {panel_idx+1} disconnected, skipping upload")
-                continue
-            
-            try:
-                logger.info(f"Sendingtopanel{panel_idx}...")
-                await panel_client.write_gatt_char(UUID_WRITE_DATA, STOP_DRAW, response=False)
-                await asyncio.sleep(0.05)
-                packet = create_png_packet(image)
-                logger.info(f"PNGpacketcreated:{len(packet)}bytes")
-                await write_cmd_single(panel_client, packet)
-                logger.info(f"Senttopanel{panel_idx}")
-                await asyncio.sleep(0.4)
-            except Exception as e:
-                logger.warning(f"Failed to upload to panel {panel_idx+1}: {e}")
+            if await _upload_to_panel(panel_idx, image):
+                successful_panels.append(panel_idx)
 
-    # Re-enable the display now that all panels have their new content loaded.
-    # This pairs with the SCREEN_OFF sent during clear_screen_completely so the
-    # display transitions directly from dark → new image with no intermediate flash.
-    # Send twice with a short gap: write_without_response is fire-and-forget, so
-    # a single lost packet would leave a panel dark with no way to recover until
-    # the next upload cycle.
-    try:
-        await client.write_gatt_char(UUID_WRITE_DATA, SCREEN_ON, response=False)
-        await asyncio.sleep(0.05)
-        await client.write_gatt_char(UUID_WRITE_DATA, SCREEN_ON, response=False)
-    except Exception as e:
-        logger.warning(f"Failed to send SCREEN_ON after upload: {e}")
+    if len(successful_panels) < len(target_panels):
+        failed = [i + 1 for i in target_panels if i not in successful_panels]
+        logger.error(
+            f"Panel(s) {failed} did not receive content and remain in SCREEN_OFF state. "
+            "They will retry on the next display cycle."
+        )
+
+    # Re-enable only the panels that successfully received their new content.
+    # Sending SCREEN_ON per-panel (rather than as a broadcast) prevents a panel
+    # with empty memory from waking up blank.  Send twice per panel since
+    # write_without_response is fire-and-forget and a single lost packet would
+    # leave a panel dark with no way to recover until the next upload cycle.
+    for panel_idx in successful_panels:
+        panel_client = client.get_panel_client(panel_idx)
+        try:
+            await panel_client.write_gatt_char(UUID_WRITE_DATA, SCREEN_ON, response=False)
+            await asyncio.sleep(0.05)
+            await panel_client.write_gatt_char(UUID_WRITE_DATA, SCREEN_ON, response=False)
+        except Exception as e:
+            logger.warning(f"Failed to send SCREEN_ON to panel {panel_idx+1}: {e}")
 
 
 async def write_cmd_single(client, data: bytes):
