@@ -1,0 +1,1266 @@
+{
+  "_meta": {
+    "league": "MLB",
+    "fetched_at": "2026-02-26T19:54:30.796639+00:00",
+    "total_events": 16,
+    "live_game_selected": true
+  },
+  "events": [
+    {
+      "id": "401832973",
+      "uid": "s:1~l:10~e:401832973",
+      "date": "2026-02-26T18:05Z",
+      "name": "Detroit Tigers at Baltimore Orioles",
+      "shortName": "DET @ BAL",
+      "season": {
+        "year": 2026,
+        "type": 1,
+        "slug": "preseason"
+      },
+      "competitions": [
+        {
+          "id": "401832973",
+          "uid": "s:1~l:10~e:401832973~c:401832973",
+          "date": "2026-02-26T18:05Z",
+          "attendance": 0,
+          "type": {
+            "id": "18",
+            "abbreviation": "EXH"
+          },
+          "timeValid": true,
+          "neutralSite": false,
+          "conferenceCompetition": false,
+          "playByPlayAvailable": true,
+          "recent": true,
+          "wasSuspended": false,
+          "venue": {
+            "id": "62",
+            "fullName": "Ed Smith Stadium",
+            "address": {
+              "city": "Sarasota",
+              "state": "Florida"
+            },
+            "indoor": false
+          },
+          "competitors": [
+            {
+              "id": "1",
+              "uid": "s:1~l:10~t:1",
+              "type": "team",
+              "order": 0,
+              "homeAway": "home",
+              "team": {
+                "id": "1",
+                "uid": "s:1~l:10~t:1",
+                "location": "Baltimore",
+                "name": "Orioles",
+                "abbreviation": "BAL",
+                "displayName": "Baltimore Orioles",
+                "shortDisplayName": "Orioles",
+                "color": "df4601",
+                "alternateColor": "000000",
+                "isActive": true,
+                "links": [
+                  {
+                    "rel": [
+                      "clubhouse",
+                      "desktop",
+                      "team"
+                    ],
+                    "href": "https://www.espn.com/mlb/team/_/name/bal/baltimore-orioles",
+                    "text": "Clubhouse",
+                    "isExternal": false,
+                    "isPremium": false
+                  },
+                  {
+                    "rel": [
+                      "roster",
+                      "desktop",
+                      "team"
+                    ],
+                    "href": "https://www.espn.com/mlb/team/roster/_/name/bal/baltimore-orioles",
+                    "text": "Roster",
+                    "isExternal": false,
+                    "isPremium": false
+                  },
+                  {
+                    "rel": [
+                      "stats",
+                      "desktop",
+                      "team"
+                    ],
+                    "href": "https://www.espn.com/mlb/team/stats/_/name/bal/baltimore-orioles",
+                    "text": "Statistics",
+                    "isExternal": false,
+                    "isPremium": false
+                  },
+                  {
+                    "rel": [
+                      "schedule",
+                      "desktop",
+                      "team"
+                    ],
+                    "href": "https://www.espn.com/mlb/team/schedule/_/name/bal",
+                    "text": "Schedule",
+                    "isExternal": false,
+                    "isPremium": false
+                  }
+                ],
+                "logo": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/bal.png"
+              },
+              "score": "5",
+              "linescores": [
+                {
+                  "value": 1.0,
+                  "displayValue": "1",
+                  "period": 1
+                },
+                {
+                  "value": 1.0,
+                  "displayValue": "1",
+                  "period": 2
+                },
+                {
+                  "value": 0.0,
+                  "displayValue": "0",
+                  "period": 3
+                },
+                {
+                  "value": 2.0,
+                  "displayValue": "2",
+                  "period": 4
+                },
+                {
+                  "value": 1.0,
+                  "displayValue": "1",
+                  "period": 5
+                }
+              ],
+              "statistics": [
+                {
+                  "name": "hits",
+                  "abbreviation": "H",
+                  "displayValue": "11"
+                },
+                {
+                  "name": "runs",
+                  "abbreviation": "R",
+                  "displayValue": "5"
+                },
+                {
+                  "name": "avg",
+                  "abbreviation": "AVG",
+                  "displayValue": ".500"
+                },
+                {
+                  "name": "saves",
+                  "abbreviation": "SV",
+                  "displayValue": "0"
+                },
+                {
+                  "name": "losses",
+                  "abbreviation": "L",
+                  "displayValue": "0"
+                },
+                {
+                  "name": "wins",
+                  "abbreviation": "W",
+                  "displayValue": "0"
+                },
+                {
+                  "name": "ERA",
+                  "abbreviation": "ERA",
+                  "displayValue": "6.35"
+                },
+                {
+                  "name": "errors",
+                  "abbreviation": "E",
+                  "displayValue": "1"
+                }
+              ],
+              "leaders": [
+                {
+                  "name": "avg",
+                  "displayName": "Batting Average",
+                  "shortDisplayName": "BA",
+                  "abbreviation": "AVG",
+                  "leaders": [
+                    {
+                      "displayValue": "3-3, HR, RBI, R",
+                      "value": 1.0,
+                      "athlete": {
+                        "id": "34168",
+                        "fullName": "Tyler O'Neill",
+                        "displayName": "Tyler O'Neill",
+                        "shortName": "T. O'Neill",
+                        "links": [
+                          {
+                            "rel": [
+                              "playercard",
+                              "desktop",
+                              "athlete"
+                            ],
+                            "href": "https://www.espn.com/mlb/player/_/id/34168"
+                          }
+                        ],
+                        "headshot": "https://a.espncdn.com/i/headshots/mlb/players/full/34168.png",
+                        "jersey": "9",
+                        "position": {
+                          "abbreviation": "RF"
+                        },
+                        "team": {
+                          "id": "1"
+                        },
+                        "active": true
+                      },
+                      "team": {
+                        "id": "1"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "name": "homeRuns",
+                  "displayName": "Home Runs",
+                  "shortDisplayName": "HR",
+                  "abbreviation": "HR",
+                  "leaders": [
+                    {
+                      "displayValue": "3-3, HR, RBI, R",
+                      "value": 1.0,
+                      "athlete": {
+                        "id": "34168",
+                        "fullName": "Tyler O'Neill",
+                        "displayName": "Tyler O'Neill",
+                        "shortName": "T. O'Neill",
+                        "links": [
+                          {
+                            "rel": [
+                              "playercard",
+                              "desktop",
+                              "athlete"
+                            ],
+                            "href": "https://www.espn.com/mlb/player/_/id/34168"
+                          }
+                        ],
+                        "headshot": "https://a.espncdn.com/i/headshots/mlb/players/full/34168.png",
+                        "jersey": "9",
+                        "position": {
+                          "abbreviation": "RF"
+                        },
+                        "team": {
+                          "id": "1"
+                        },
+                        "active": true
+                      },
+                      "team": {
+                        "id": "1"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "name": "RBIs",
+                  "displayName": "Runs Batted In",
+                  "shortDisplayName": "RBI",
+                  "abbreviation": "RBI",
+                  "leaders": [
+                    {
+                      "displayValue": "1-1, 2 RBI",
+                      "value": 2.0,
+                      "athlete": {
+                        "id": "4683371",
+                        "fullName": "Coby Mayo",
+                        "displayName": "Coby Mayo",
+                        "shortName": "C. Mayo",
+                        "links": [
+                          {
+                            "rel": [
+                              "playercard",
+                              "desktop",
+                              "athlete"
+                            ],
+                            "href": "https://www.espn.com/mlb/player/_/id/4683371"
+                          }
+                        ],
+                        "headshot": "https://a.espncdn.com/i/headshots/mlb/players/full/4683371.png",
+                        "jersey": "16",
+                        "position": {
+                          "abbreviation": "1B"
+                        },
+                        "team": {
+                          "id": "1"
+                        },
+                        "active": true
+                      },
+                      "team": {
+                        "id": "1"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "name": "MLBRating",
+                  "displayName": "MLB Rating",
+                  "shortDisplayName": "RAT",
+                  "abbreviation": "RAT",
+                  "leaders": [
+                    {
+                      "displayValue": "3-3, HR, RBI, R",
+                      "value": 70.0,
+                      "athlete": {
+                        "id": "34168",
+                        "fullName": "Tyler O'Neill",
+                        "displayName": "Tyler O'Neill",
+                        "shortName": "T. O'Neill",
+                        "links": [
+                          {
+                            "rel": [
+                              "playercard",
+                              "desktop",
+                              "athlete"
+                            ],
+                            "href": "https://www.espn.com/mlb/player/_/id/34168"
+                          }
+                        ],
+                        "headshot": "https://a.espncdn.com/i/headshots/mlb/players/full/34168.png",
+                        "jersey": "9",
+                        "position": {
+                          "abbreviation": "RF"
+                        },
+                        "team": {
+                          "id": "1"
+                        },
+                        "active": true
+                      },
+                      "team": {
+                        "id": "1"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "name": "MLBRating",
+                  "displayName": "MLB Rating",
+                  "shortDisplayName": "MLB",
+                  "abbreviation": "MLB",
+                  "leaders": [
+                    {
+                      "displayValue": "3-3, HR, RBI, R",
+                      "value": 70.0,
+                      "athlete": {
+                        "id": "34168",
+                        "fullName": "Tyler O'Neill",
+                        "displayName": "Tyler O'Neill",
+                        "shortName": "T. O'Neill",
+                        "links": [
+                          {
+                            "rel": [
+                              "playercard",
+                              "desktop",
+                              "athlete"
+                            ],
+                            "href": "https://www.espn.com/mlb/player/_/id/34168"
+                          }
+                        ],
+                        "headshot": "https://a.espncdn.com/i/headshots/mlb/players/full/34168.png",
+                        "jersey": "9",
+                        "position": {
+                          "abbreviation": "RF"
+                        },
+                        "team": {
+                          "id": "1"
+                        },
+                        "active": true
+                      },
+                      "team": {
+                        "id": "1"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "probables": [
+                {
+                  "name": "probableStartingPitcher",
+                  "displayName": "Probable Starting Pitcher",
+                  "shortDisplayName": "Starter",
+                  "abbreviation": "SP",
+                  "playerId": 38295,
+                  "athlete": {
+                    "id": "38295",
+                    "fullName": "Dean Kremer",
+                    "displayName": "Dean Kremer",
+                    "shortName": "D. Kremer",
+                    "links": [
+                      {
+                        "rel": [
+                          "playercard",
+                          "desktop",
+                          "athlete"
+                        ],
+                        "href": "https://www.espn.com/mlb/player/_/id/38295"
+                      }
+                    ],
+                    "headshot": "https://a.espncdn.com/i/headshots/mlb/players/full/38295.png",
+                    "jersey": "64",
+                    "position": "SP",
+                    "team": {
+                      "id": "1"
+                    }
+                  },
+                  "statistics": [
+                    {
+                      "name": "hits",
+                      "abbreviation": "H",
+                      "displayValue": "0",
+                      "rankDisplayValue": "Tied-737th"
+                    },
+                    {
+                      "name": "runs",
+                      "abbreviation": "R",
+                      "displayValue": "0",
+                      "rankDisplayValue": "Tied-582nd"
+                    },
+                    {
+                      "name": "avg",
+                      "abbreviation": "AVG",
+                      "displayValue": ".000"
+                    },
+                    {
+                      "name": "saves",
+                      "abbreviation": "SV",
+                      "displayValue": "0",
+                      "rankDisplayValue": "Tied-36th"
+                    },
+                    {
+                      "name": "losses",
+                      "abbreviation": "L",
+                      "displayValue": "1",
+                      "rankDisplayValue": "Tied-2nd"
+                    },
+                    {
+                      "name": "wins",
+                      "abbreviation": "W",
+                      "displayValue": "0",
+                      "rankDisplayValue": "Tied-78th"
+                    },
+                    {
+                      "name": "ERA",
+                      "abbreviation": "ERA",
+                      "displayValue": "9.00"
+                    },
+                    {
+                      "name": "errors",
+                      "abbreviation": "E",
+                      "displayValue": "0",
+                      "rankDisplayValue": "Tied-117th"
+                    }
+                  ],
+                  "record": "(0-1, 9.00)"
+                }
+              ],
+              "hits": 11,
+              "errors": 1,
+              "records": [
+                {
+                  "name": "overall",
+                  "abbreviation": "Total",
+                  "type": "total",
+                  "summary": "3-2-1"
+                },
+                {
+                  "name": "Home",
+                  "abbreviation": "Home",
+                  "type": "home",
+                  "summary": "2-2"
+                },
+                {
+                  "name": "Road",
+                  "abbreviation": "AWAY",
+                  "type": "road",
+                  "summary": "1-0-1"
+                }
+              ]
+            },
+            {
+              "id": "6",
+              "uid": "s:1~l:10~t:6",
+              "type": "team",
+              "order": 1,
+              "homeAway": "away",
+              "team": {
+                "id": "6",
+                "uid": "s:1~l:10~t:6",
+                "location": "Detroit",
+                "name": "Tigers",
+                "abbreviation": "DET",
+                "displayName": "Detroit Tigers",
+                "shortDisplayName": "Tigers",
+                "color": "0a2240",
+                "alternateColor": "ff4713",
+                "isActive": true,
+                "links": [
+                  {
+                    "rel": [
+                      "clubhouse",
+                      "desktop",
+                      "team"
+                    ],
+                    "href": "https://www.espn.com/mlb/team/_/name/det/detroit-tigers",
+                    "text": "Clubhouse",
+                    "isExternal": false,
+                    "isPremium": false
+                  },
+                  {
+                    "rel": [
+                      "roster",
+                      "desktop",
+                      "team"
+                    ],
+                    "href": "https://www.espn.com/mlb/team/roster/_/name/det/detroit-tigers",
+                    "text": "Roster",
+                    "isExternal": false,
+                    "isPremium": false
+                  },
+                  {
+                    "rel": [
+                      "stats",
+                      "desktop",
+                      "team"
+                    ],
+                    "href": "https://www.espn.com/mlb/team/stats/_/name/det/detroit-tigers",
+                    "text": "Statistics",
+                    "isExternal": false,
+                    "isPremium": false
+                  },
+                  {
+                    "rel": [
+                      "schedule",
+                      "desktop",
+                      "team"
+                    ],
+                    "href": "https://www.espn.com/mlb/team/schedule/_/name/det",
+                    "text": "Schedule",
+                    "isExternal": false,
+                    "isPremium": false
+                  }
+                ],
+                "logo": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/det.png"
+              },
+              "score": "4",
+              "linescores": [
+                {
+                  "value": 0.0,
+                  "displayValue": "0",
+                  "period": 1
+                },
+                {
+                  "value": 1.0,
+                  "displayValue": "1",
+                  "period": 2
+                },
+                {
+                  "value": 1.0,
+                  "displayValue": "1",
+                  "period": 3
+                },
+                {
+                  "value": 0.0,
+                  "displayValue": "0",
+                  "period": 4
+                },
+                {
+                  "value": 0.0,
+                  "displayValue": "0",
+                  "period": 5
+                },
+                {
+                  "value": 2.0,
+                  "displayValue": "2",
+                  "period": 6
+                }
+              ],
+              "statistics": [
+                {
+                  "name": "hits",
+                  "abbreviation": "H",
+                  "displayValue": "7"
+                },
+                {
+                  "name": "runs",
+                  "abbreviation": "R",
+                  "displayValue": "4"
+                },
+                {
+                  "name": "avg",
+                  "abbreviation": "AVG",
+                  "displayValue": ".292"
+                },
+                {
+                  "name": "saves",
+                  "abbreviation": "SV",
+                  "displayValue": "0"
+                },
+                {
+                  "name": "losses",
+                  "abbreviation": "L",
+                  "displayValue": "0"
+                },
+                {
+                  "name": "wins",
+                  "abbreviation": "W",
+                  "displayValue": "0"
+                },
+                {
+                  "name": "ERA",
+                  "abbreviation": "ERA",
+                  "displayValue": "9.00"
+                },
+                {
+                  "name": "errors",
+                  "abbreviation": "E",
+                  "displayValue": "0"
+                }
+              ],
+              "leaders": [
+                {
+                  "name": "avg",
+                  "displayName": "Batting Average",
+                  "shortDisplayName": "BA",
+                  "abbreviation": "AVG",
+                  "leaders": [
+                    {
+                      "displayValue": "2-3",
+                      "value": 0.6666666865348816,
+                      "athlete": {
+                        "id": "41636",
+                        "fullName": "Matt Vierling",
+                        "displayName": "Matt Vierling",
+                        "shortName": "M. Vierling",
+                        "links": [
+                          {
+                            "rel": [
+                              "playercard",
+                              "desktop",
+                              "athlete"
+                            ],
+                            "href": "https://www.espn.com/mlb/player/_/id/41636"
+                          }
+                        ],
+                        "headshot": "https://a.espncdn.com/i/headshots/mlb/players/full/41636.png",
+                        "jersey": "8",
+                        "position": {
+                          "abbreviation": "CF"
+                        },
+                        "team": {
+                          "id": "6"
+                        },
+                        "active": true
+                      },
+                      "team": {
+                        "id": "6"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "name": "homeRuns",
+                  "displayName": "Home Runs",
+                  "shortDisplayName": "HR",
+                  "abbreviation": "HR",
+                  "leaders": [
+                    {
+                      "displayValue": "1-2, HR, 2 RBI, R, BB",
+                      "value": 1.0,
+                      "athlete": {
+                        "id": "5133392",
+                        "fullName": "Eduardo Valencia",
+                        "displayName": "Eduardo Valencia",
+                        "shortName": "E. Valencia",
+                        "links": [
+                          {
+                            "rel": [
+                              "playercard",
+                              "desktop",
+                              "athlete"
+                            ],
+                            "href": "https://www.espn.com/mlb/player/_/id/5133392"
+                          }
+                        ],
+                        "jersey": "32",
+                        "position": {
+                          "abbreviation": "C"
+                        },
+                        "team": {
+                          "id": "6"
+                        },
+                        "active": true
+                      },
+                      "team": {
+                        "id": "6"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "name": "RBIs",
+                  "displayName": "Runs Batted In",
+                  "shortDisplayName": "RBI",
+                  "abbreviation": "RBI",
+                  "leaders": [
+                    {
+                      "displayValue": "1-2, HR, 2 RBI, R, BB",
+                      "value": 2.0,
+                      "athlete": {
+                        "id": "5133392",
+                        "fullName": "Eduardo Valencia",
+                        "displayName": "Eduardo Valencia",
+                        "shortName": "E. Valencia",
+                        "links": [
+                          {
+                            "rel": [
+                              "playercard",
+                              "desktop",
+                              "athlete"
+                            ],
+                            "href": "https://www.espn.com/mlb/player/_/id/5133392"
+                          }
+                        ],
+                        "jersey": "32",
+                        "position": {
+                          "abbreviation": "C"
+                        },
+                        "team": {
+                          "id": "6"
+                        },
+                        "active": true
+                      },
+                      "team": {
+                        "id": "6"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "name": "MLBRating",
+                  "displayName": "MLB Rating",
+                  "shortDisplayName": "RAT",
+                  "abbreviation": "RAT",
+                  "leaders": [
+                    {
+                      "displayValue": "1-2, HR, 2 RBI, R, BB",
+                      "value": 67.0,
+                      "athlete": {
+                        "id": "5133392",
+                        "fullName": "Eduardo Valencia",
+                        "displayName": "Eduardo Valencia",
+                        "shortName": "E. Valencia",
+                        "links": [
+                          {
+                            "rel": [
+                              "playercard",
+                              "desktop",
+                              "athlete"
+                            ],
+                            "href": "https://www.espn.com/mlb/player/_/id/5133392"
+                          }
+                        ],
+                        "jersey": "32",
+                        "position": {
+                          "abbreviation": "C"
+                        },
+                        "team": {
+                          "id": "6"
+                        },
+                        "active": true
+                      },
+                      "team": {
+                        "id": "6"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "name": "MLBRating",
+                  "displayName": "MLB Rating",
+                  "shortDisplayName": "MLB",
+                  "abbreviation": "MLB",
+                  "leaders": [
+                    {
+                      "displayValue": "1-2, HR, 2 RBI, R, BB",
+                      "value": 67.0,
+                      "athlete": {
+                        "id": "5133392",
+                        "fullName": "Eduardo Valencia",
+                        "displayName": "Eduardo Valencia",
+                        "shortName": "E. Valencia",
+                        "links": [
+                          {
+                            "rel": [
+                              "playercard",
+                              "desktop",
+                              "athlete"
+                            ],
+                            "href": "https://www.espn.com/mlb/player/_/id/5133392"
+                          }
+                        ],
+                        "jersey": "32",
+                        "position": {
+                          "abbreviation": "C"
+                        },
+                        "team": {
+                          "id": "6"
+                        },
+                        "active": true
+                      },
+                      "team": {
+                        "id": "6"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "name": "MLBRating",
+                  "displayName": "MLB Rating",
+                  "shortDisplayName": "MLB",
+                  "abbreviation": "MLB",
+                  "leaders": [
+                    {
+                      "displayValue": "1-2, HR, 2 RBI, R, BB",
+                      "value": 67.0,
+                      "athlete": {
+                        "id": "5133392",
+                        "fullName": "Eduardo Valencia",
+                        "displayName": "Eduardo Valencia",
+                        "shortName": "E. Valencia",
+                        "links": [
+                          {
+                            "rel": [
+                              "playercard",
+                              "desktop",
+                              "athlete"
+                            ],
+                            "href": "https://www.espn.com/mlb/player/_/id/5133392"
+                          }
+                        ],
+                        "jersey": "32",
+                        "position": {
+                          "abbreviation": "C"
+                        },
+                        "team": {
+                          "id": "6"
+                        },
+                        "active": true
+                      },
+                      "team": {
+                        "id": "6"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "probables": [
+                {
+                  "name": "probableStartingPitcher",
+                  "displayName": "Probable Starting Pitcher",
+                  "shortDisplayName": "Starter",
+                  "abbreviation": "SP",
+                  "playerId": 5182933,
+                  "athlete": {
+                    "id": "5182933",
+                    "fullName": "Keider Montero",
+                    "displayName": "Keider Montero",
+                    "shortName": "K. Montero",
+                    "links": [
+                      {
+                        "rel": [
+                          "playercard",
+                          "desktop",
+                          "athlete"
+                        ],
+                        "href": "https://www.espn.com/mlb/player/_/id/5182933"
+                      }
+                    ],
+                    "headshot": "https://a.espncdn.com/i/headshots/mlb/players/full/5182933.png",
+                    "jersey": "54",
+                    "position": "SP",
+                    "team": {
+                      "id": "6"
+                    }
+                  },
+                  "statistics": [
+                    {
+                      "name": "hits",
+                      "abbreviation": "H",
+                      "displayValue": "0",
+                      "rankDisplayValue": "Tied-737th"
+                    },
+                    {
+                      "name": "runs",
+                      "abbreviation": "R",
+                      "displayValue": "0",
+                      "rankDisplayValue": "Tied-582nd"
+                    },
+                    {
+                      "name": "avg",
+                      "abbreviation": "AVG",
+                      "displayValue": ".000"
+                    },
+                    {
+                      "name": "saves",
+                      "abbreviation": "SV",
+                      "displayValue": "0",
+                      "rankDisplayValue": "Tied-36th"
+                    },
+                    {
+                      "name": "losses",
+                      "abbreviation": "L",
+                      "displayValue": "1",
+                      "rankDisplayValue": "Tied-2nd"
+                    },
+                    {
+                      "name": "wins",
+                      "abbreviation": "W",
+                      "displayValue": "0",
+                      "rankDisplayValue": "Tied-78th"
+                    },
+                    {
+                      "name": "ERA",
+                      "abbreviation": "ERA",
+                      "displayValue": "13.50"
+                    },
+                    {
+                      "name": "errors",
+                      "abbreviation": "E",
+                      "displayValue": "0",
+                      "rankDisplayValue": "Tied-117th"
+                    }
+                  ],
+                  "record": "(0-1, 13.50)"
+                }
+              ],
+              "hits": 7,
+              "errors": 0,
+              "records": [
+                {
+                  "name": "overall",
+                  "abbreviation": "Total",
+                  "type": "total",
+                  "summary": "0-4-2"
+                },
+                {
+                  "name": "Home",
+                  "abbreviation": "Home",
+                  "type": "home",
+                  "summary": "0-1-2"
+                },
+                {
+                  "name": "Road",
+                  "abbreviation": "AWAY",
+                  "type": "road",
+                  "summary": "0-3"
+                }
+              ]
+            }
+          ],
+          "notes": [],
+          "situation": {
+            "lastPlay": {
+              "id": "4018329731007010001",
+              "type": {
+                "id": "1",
+                "text": "Start Batter/Pitcher",
+                "alternativeText": "Now at bat",
+                "type": "start-batterpitcher"
+              },
+              "text": "Yaqui Rivera pitches to Corey Julks",
+              "scoreValue": 0,
+              "team": {
+                "id": "6"
+              },
+              "atBatId": "4018329731007",
+              "summaryType": "A",
+              "athletesInvolved": []
+            },
+            "balls": 0,
+            "strikes": 0,
+            "outs": 2,
+            "onFirst": true,
+            "onSecond": true,
+            "pitcher": {
+              "playerId": 5075309,
+              "period": 6,
+              "athlete": {
+                "id": "5075309",
+                "fullName": "Yaqui Rivera",
+                "displayName": "Yaqui Rivera",
+                "shortName": "Y. Rivera",
+                "links": [
+                  {
+                    "rel": [
+                      "playercard",
+                      "desktop",
+                      "athlete"
+                    ],
+                    "href": "https://www.espn.com/mlb/player/_/id/5075309"
+                  }
+                ],
+                "jersey": "81",
+                "position": "RP",
+                "team": {
+                  "id": "1"
+                }
+              },
+              "summary": "0.0 IP, 0 ER, 0 H, 0 BB"
+            },
+            "batter": {
+              "playerId": 41526,
+              "period": 6,
+              "athlete": {
+                "id": "41526",
+                "fullName": "Corey Julks",
+                "displayName": "Corey Julks",
+                "shortName": "C. Julks",
+                "links": [
+                  {
+                    "rel": [
+                      "playercard",
+                      "desktop",
+                      "athlete"
+                    ],
+                    "href": "https://www.espn.com/mlb/player/_/id/41526"
+                  }
+                ],
+                "headshot": "https://a.espncdn.com/i/headshots/mlb/players/full/41526.png",
+                "jersey": "44",
+                "position": "LF",
+                "team": {
+                  "id": "6"
+                }
+              },
+              "summary": "0-0"
+            },
+            "onThird": false
+          },
+          "status": {
+            "clock": 0.0,
+            "displayClock": "0:00",
+            "period": 6,
+            "type": {
+              "id": "2",
+              "name": "STATUS_IN_PROGRESS",
+              "state": "in",
+              "completed": false,
+              "description": "In Progress",
+              "detail": "Top 6th",
+              "shortDetail": "Top 6th"
+            }
+          },
+          "broadcasts": [
+            {
+              "market": "national",
+              "names": [
+                "MLB.TV"
+              ]
+            },
+            {
+              "market": "home",
+              "names": [
+                "MASN"
+              ]
+            }
+          ],
+          "leaders": [
+            {
+              "name": "MLBRating",
+              "displayName": "MLB Rating",
+              "shortDisplayName": "RAT",
+              "abbreviation": "RAT",
+              "leaders": [
+                {
+                  "displayValue": "3-3, HR, RBI, R",
+                  "value": 70.0,
+                  "athlete": {
+                    "id": "34168",
+                    "fullName": "Tyler O'Neill",
+                    "displayName": "Tyler O'Neill",
+                    "shortName": "T. O'Neill",
+                    "links": [
+                      {
+                        "rel": [
+                          "playercard",
+                          "desktop",
+                          "athlete"
+                        ],
+                        "href": "https://www.espn.com/mlb/player/_/id/34168"
+                      }
+                    ],
+                    "headshot": "https://a.espncdn.com/i/headshots/mlb/players/full/34168.png",
+                    "jersey": "9",
+                    "position": {
+                      "abbreviation": "RF"
+                    },
+                    "team": {
+                      "id": "1"
+                    },
+                    "active": true
+                  },
+                  "team": {
+                    "id": "1"
+                  }
+                },
+                {
+                  "displayValue": "1-2, HR, 2 RBI, R, BB",
+                  "value": 67.0,
+                  "athlete": {
+                    "id": "5133392",
+                    "fullName": "Eduardo Valencia",
+                    "displayName": "Eduardo Valencia",
+                    "shortName": "E. Valencia",
+                    "links": [
+                      {
+                        "rel": [
+                          "playercard",
+                          "desktop",
+                          "athlete"
+                        ],
+                        "href": "https://www.espn.com/mlb/player/_/id/5133392"
+                      }
+                    ],
+                    "jersey": "32",
+                    "position": {
+                      "abbreviation": "C"
+                    },
+                    "team": {
+                      "id": "6"
+                    },
+                    "active": true
+                  },
+                  "team": {
+                    "id": "6"
+                  }
+                }
+              ]
+            }
+          ],
+          "format": {
+            "regulation": {
+              "periods": 9
+            }
+          },
+          "startDate": "2026-02-26T18:05Z",
+          "outsText": "2 Outs",
+          "broadcast": "MLB.TV",
+          "geoBroadcasts": [
+            {
+              "type": {
+                "id": "4",
+                "shortName": "Streaming"
+              },
+              "market": {
+                "id": "1",
+                "type": "National"
+              },
+              "media": {
+                "shortName": "MLB.TV",
+                "logo": "https://a.espncdn.com/guid/0db644c3-9f87-37e7-9884-858c2ed45218/logos/default.png",
+                "darkLogo": ""
+              },
+              "lang": "en",
+              "region": "us"
+            },
+            {
+              "type": {
+                "id": "1",
+                "shortName": "TV"
+              },
+              "market": {
+                "id": "2",
+                "type": "Home"
+              },
+              "media": {
+                "shortName": "MASN"
+              },
+              "lang": "en",
+              "region": "us"
+            }
+          ],
+          "highlights": []
+        }
+      ],
+      "links": [
+        {
+          "language": "en-US",
+          "rel": [
+            "live",
+            "desktop",
+            "event"
+          ],
+          "href": "https://www.espn.com/mlb/game/_/gameId/401832973",
+          "text": "Gamecast",
+          "shortText": "Gamecast",
+          "isExternal": false,
+          "isPremium": false
+        },
+        {
+          "language": "en-US",
+          "rel": [
+            "boxscore",
+            "desktop",
+            "event"
+          ],
+          "href": "https://www.espn.com/mlb/boxscore/_/gameId/401832973",
+          "text": "Box Score",
+          "shortText": "Box Score",
+          "isExternal": false,
+          "isPremium": false
+        },
+        {
+          "language": "en-US",
+          "rel": [
+            "pbp",
+            "desktop",
+            "event"
+          ],
+          "href": "https://www.espn.com/mlb/playbyplay/_/gameId/401832973",
+          "text": "Play-by-Play",
+          "shortText": "Play-by-Play",
+          "isExternal": false,
+          "isPremium": false
+        }
+      ],
+      "weather": {
+        "displayValue": "2",
+        "temperature": 75,
+        "highTemperature": 75,
+        "conditionId": "Mostly sunny",
+        "link": {
+          "language": "en-US",
+          "rel": [
+            "34278"
+          ],
+          "href": "http://www.accuweather.com/en/us/ed-smith-stadium-fl/34237/current-weather/209232_poi?lang=en-us",
+          "text": "Weather",
+          "shortText": "Weather",
+          "isExternal": true,
+          "isPremium": false
+        }
+      },
+      "status": {
+        "clock": 0.0,
+        "displayClock": "0:00",
+        "period": 6,
+        "type": {
+          "id": "2",
+          "name": "STATUS_IN_PROGRESS",
+          "state": "in",
+          "completed": false,
+          "description": "In Progress",
+          "detail": "Top 6th",
+          "shortDetail": "Top 6th"
+        }
+      }
+    }
+  ]
+}

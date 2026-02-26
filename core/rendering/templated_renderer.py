@@ -271,13 +271,48 @@ class TemplatedSportsRenderer:
 
             if template.clock and not is_game_over:
                 if is_mlb:
+                    balls = game.get('balls')
+                    strikes = game.get('strikes')
                     outs = game.get('outs')
-                    clock_text = f"{outs} out" if outs is not None else ''
+                    if balls is not None and strikes is not None and outs is not None:
+                        clock_text = f"{balls}-{strikes}-{outs}"
+                    elif outs is not None:
+                        clock_text = f"{outs} out"
+                    else:
+                        clock_text = ''
                 else:
                     clock_text = game.get('clock', '')
                 if clock_text:
                     render_element_text(draw, template.clock, clock_text, context, self.width)
-            
+
+            # MLB batter / pitcher last names
+            if is_mlb and not is_game_over:
+                batting_half = game.get('batting_half')
+                batter_name = game.get('batter_name')
+                pitcher_name = game.get('pitcher_name')
+
+                if batter_name and template.batter:
+                    # Color follows the batting team; swap when home is batting
+                    spec = template.batter
+                    if batting_half == 'bot':
+                        spec = ElementSpec(
+                            x=spec.x, y=spec.y, font_size=spec.font_size,
+                            align=spec.align, color='home_team',
+                        )
+                    render_element_text(draw, spec, batter_name, context, self.width)
+
+                if pitcher_name and template.pitcher:
+                    # Color follows the pitching team (opposite of batting).
+                    # Default color is home_team (pitcher when away bats, top half).
+                    # When home bats (bot), away team pitches → swap to away_team.
+                    spec = template.pitcher
+                    if batting_half == 'bot':
+                        spec = ElementSpec(
+                            x=spec.x, y=spec.y, font_size=spec.font_size,
+                            align=spec.align, color='away_team',
+                        )
+                    render_element_text(draw, spec, pitcher_name, context, self.width)
+
             # MLB batting indicator: small dot to the right of the batting team's score
             if is_mlb and not is_game_over:
                 batting_half = game.get('batting_half')
