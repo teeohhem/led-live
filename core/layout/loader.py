@@ -228,14 +228,20 @@ class LayoutLoader:
             logo_enabled=True
         )
         
-        # One game - full screen with logos
+        # One game - full screen with logos.
+        # Right column of the display holds all live MLB state:
+        #   Top panel:    inning number + ▲/▼ half-inning triangle (period)
+        #   Bottom panel: B-S-O count at top (clock, y=20), then batter (y=30)
+        #                 and pitcher (y=35) stacked below it.
         template.one_item = GameLayoutTemplate(
             away_logo=ElementSpec(x=2, y=2, width=16, height=16),
             away_score=ElementSpec(x=22, y=2, font_size=14, color='away_team'),
             home_logo=ElementSpec(x=2, y=22, width=16, height=16),
             home_score=ElementSpec(x=22, y=22, font_size=14, color='home_team'),
-            period=ElementSpec(x=3, y=2, font_size=8, align='right', color='time'),
-            clock=ElementSpec(x=3, y=11, font_size=8, align='right', color='time'),
+            period=ElementSpec(x=3, y=2,  font_size=8, align='right', color='time'),
+            clock=ElementSpec(x=3,  y=20, font_size=8, align='right', color='time'),
+            pitcher=ElementSpec(x=3, y=11, font_size=8, align='right', color='home_team'),
+            batter=ElementSpec(x=3,  y=30, font_size=8, align='right', color='away_team'),
         )
         
         # Two games - expanded format (20px each)

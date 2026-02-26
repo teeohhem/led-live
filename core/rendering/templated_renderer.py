@@ -250,24 +250,27 @@ class TemplatedSportsRenderer:
                 if period_text:
                     render_element_text(draw, template.period, period_text, context, self.width)
                 
-                # MLB: draw ▲/▼ pixel triangle above/below the inning number,
-                # like a real scoreboard — no horizontal space needed.
+                # MLB: draw ▲/▼ pixel triangle to the LEFT of the inning number,
+                # vertically centered on the actual visible glyphs.
                 if is_mlb and not is_game_over and period_text:
                     batting_half = game.get('batting_half')
                     if batting_half in ('top', 'bot'):
                         tx, ty, tw, th = get_rendered_bounds(template.period, period_text, self.width)
-                        tri_cx = tx + tw // 2   # horizontally centered over the text
+                        # Font bbox[1] is the ascent offset (pixels below draw-y to
+                        # first visible pixel). Use it so the triangle tracks the
+                        # actual glyph rather than the font's ascent space.
+                        _fb = load_font(template.period.font_size).getbbox(period_text)
+                        tri_cx = tx - 4
+                        tri_cy = ty + (_fb[1] + _fb[3]) // 2 - 1   # visual glyph center
                         c = (255, 255, 0)
                         if batting_half == 'top':
-                            # ▲ just above the text (clamped so it never goes off the top)
-                            tri_y = max(0, ty - 3)
-                            draw.point([(tri_cx,     tri_y + 1)], fill=c)
-                            draw.point([(tri_cx - 1, tri_y + 2), (tri_cx, tri_y + 2), (tri_cx + 1, tri_y + 2)], fill=c)
+                            # ▲ tip up, base down
+                            draw.point([(tri_cx,     tri_cy)],     fill=c)
+                            draw.point([(tri_cx - 1, tri_cy + 1), (tri_cx, tri_cy + 1), (tri_cx + 1, tri_cy + 1)], fill=c)
                         else:
-                            # ▼ just below the text
-                            tri_y = ty + th + 5
-                            draw.point([(tri_cx - 1, tri_y),     (tri_cx, tri_y),     (tri_cx + 1, tri_y)], fill=c)
-                            draw.point([(tri_cx,     tri_y + 1)], fill=c)
+                            # ▼ base up, tip down
+                            draw.point([(tri_cx - 1, tri_cy),     (tri_cx, tri_cy),     (tri_cx + 1, tri_cy)], fill=c)
+                            draw.point([(tri_cx,     tri_cy + 1)], fill=c)
 
             if template.clock and not is_game_over:
                 if is_mlb:
@@ -696,15 +699,16 @@ class TemplatedWeatherRenderer:
         for idx, forecast in enumerate(forecasts_to_show):
             x_offset = idx * item_width
             
-            # Parse day name (abbreviate if needed)
-            day_str = forecast.get('day', '')
-            if isinstance(forecast.get('date'), str):
-                try:
-                    date_obj = datetime.fromisoformat(forecast['date'])
-                    day_str = date_obj.strftime('%a')[:3]  # Mon, Tue, etc.
-                except:
-                    pass
-            elif not day_str:
+            # Parse day name — check 'day', then 'time', then 'date', then fallback
+            day_str = forecast.get('day', '') or forecast.get('time', '')
+            if not day_str:
+                if isinstance(forecast.get('date'), str):
+                    try:
+                        date_obj = datetime.fromisoformat(forecast['date'])
+                        day_str = date_obj.strftime('%a')[:3]  # Mon, Tue, etc.
+                    except Exception:
+                        pass
+            if not day_str:
                 day_str = f"D{idx+1}"
             
             # Render day label
@@ -744,12 +748,14 @@ class TemplatedWeatherRenderer:
         """Create ElementSpec from dict and offset x coordinate."""
         from core.layout.template import ElementSpec
         
-        # Handle center alignment
         align = spec_dict.get('align', 'left')
         base_x = spec_dict.get('x', 0)
         
         if align == 'center':
-            actual_x = x_offset + item_width // 2
+            # get_position() for center-aligned adds (canvas_width // 2) to spec.x.
+            # We want the final anchor to be the center of this item's slot, so we
+            # subtract the canvas half-width back out here to avoid double-centering.
+            actual_x = (x_offset + item_width // 2 + base_x) - (self.width // 2)
         else:
             actual_x = x_offset + base_x
         

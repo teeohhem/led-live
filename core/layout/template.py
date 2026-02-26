@@ -95,6 +95,10 @@ class GameLayoutTemplate:
     clock: Optional[ElementSpec] = None
     time: Optional[ElementSpec] = None  # For upcoming games
     separator: Optional[ElementSpec] = None  # Visual separator (e.g., "@")
+
+    # MLB at-bat elements (only rendered for live MLB games)
+    batter: Optional[ElementSpec] = None   # Current batter last name
+    pitcher: Optional[ElementSpec] = None  # Current pitcher last name
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'GameLayoutTemplate':
@@ -115,6 +119,8 @@ class GameLayoutTemplate:
             clock=make_spec('clock'),
             time=make_spec('time'),
             separator=make_spec('separator'),
+            batter=make_spec('batter'),
+            pitcher=make_spec('pitcher'),
         )
 
 

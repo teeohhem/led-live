@@ -171,8 +171,9 @@ def render_clock_with_weather_split(current_weather, forecasts, total_width=64, 
         loader = LayoutLoader(config_dict)
         layout_template = loader.get_template('weather')
         weather_renderer = TemplatedWeatherRenderer(layout_template)
+        # Override height so the rendered image matches the actual panel height
+        weather_renderer.height = panel_height
         weather_img = weather_renderer.render_forecast_extended(forecasts)
-        #weather_img = weather_renderer.render_weather(current_weather, forecasts)
         img.paste(weather_img, (0, panel_height))
     except Exception as e:
         logger.error(f"Error rendering templated weather: {e}")

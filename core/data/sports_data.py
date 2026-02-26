@@ -297,18 +297,34 @@ class SportsFetcher(DataFetcher[List[Dict[str, Any]]]):
         # Format period by league
         period = SportsFetcher._format_period(period_raw, league)
         
-        # Extract outs and batting half for MLB
+        # Extract MLB-specific live at-bat data from the situation block
         situation = comp.get("situation", {})
         outs = None
         batting_half = None
+        balls = None
+        strikes = None
+        batter_name = None
+        pitcher_name = None
         if league == League.MLB:
             outs = situation.get("outs")
+            balls = situation.get("balls")
+            strikes = situation.get("strikes")
+
             detail_lower = time_detail.lower()
             if detail_lower.startswith("top"):
                 batting_half = "top"   # away team batting
             elif detail_lower.startswith("bot"):
                 batting_half = "bot"   # home team batting
-        
+
+            batter_info = situation.get("batter", {}).get("athlete", {})
+            pitcher_info = situation.get("pitcher", {}).get("athlete", {})
+            if batter_info:
+                full = batter_info.get("displayName", "")
+                batter_name = full.split()[-1] if full else None
+            if pitcher_info:
+                full = pitcher_info.get("displayName", "")
+                pitcher_name = full.split()[-1] if full else None
+
         return {
             "home": home_abbr,
             "away": away_abbr,
@@ -320,7 +336,11 @@ class SportsFetcher(DataFetcher[List[Dict[str, Any]]]):
             "league": league.value,
             "time": time_detail,
             "outs": outs,
-            "batting_half": batting_half
+            "balls": balls,
+            "strikes": strikes,
+            "batting_half": batting_half,
+            "batter_name": batter_name,
+            "pitcher_name": pitcher_name,
         }
     
     @staticmethod

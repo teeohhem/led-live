@@ -325,15 +325,19 @@ class WeatherFetcher(DataFetcher[Dict[str, Any]]):
             if day_key == today:
                 continue
             
-            # Get high temp for the day
+            # Get high/low temps for the day
             high_temp = round(max(day_info["temps"]))
+            low_temp = round(min(day_info["temps"]))
             
             # Most common condition
             condition = max(set(day_info["conditions"]), key=day_info["conditions"].count)
             
             forecasts.append({
-                "time": day_key,  # Day name
-                "temp": high_temp,
+                "day": day_key,          # "Mon", "Tue" — used by forecast renderer
+                "time": day_key,         # backward compat
+                "high": high_temp,
+                "low": low_temp,
+                "temp": high_temp,       # backward compat
                 "condition": condition,
                 "description": condition.title()
             })

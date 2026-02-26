@@ -105,6 +105,16 @@ class EmulatorAdapter(DisplayAdapter):
             await self.web_runner.cleanup()
         self._is_connected = False
         logger.info("Emulator stopped")
+
+    async def ensure_connected(self) -> bool:
+        """Emulator is always connected once started — no reconnection needed."""
+        if not self._is_connected:
+            try:
+                await self.connect()
+            except Exception as e:
+                logger.error(f"Emulator reconnect failed: {e}")
+                return False
+        return self._is_connected
     
     async def power_on(self):
         """Virtual power on (no-op)."""
