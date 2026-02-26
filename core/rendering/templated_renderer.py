@@ -68,6 +68,27 @@ def load_font(size: int, font_path: str = "./fonts/PixelOperator.ttf") -> ImageF
         return ImageFont.load_default()
 
 
+def get_rendered_bounds(spec: ElementSpec, text: str, canvas_width: int) -> Tuple[int, int, int, int]:
+    """
+    Return the actual screen bounding box (x, y, w, h) where text would be drawn.
+
+    Uses the same logic as render_element_text so callers never have to
+    re-implement alignment math when positioning things relative to text.
+    """
+    font = load_font(spec.font_size)
+    bbox = font.getbbox(text)
+    text_w = bbox[2] - bbox[0]
+    text_h = bbox[3] - bbox[1]
+
+    x, y = spec.get_position(canvas_width)
+    if spec.align == 'right':
+        x = x - text_w
+    elif spec.align == 'center':
+        x = x - text_w // 2
+
+    return (x, y, text_w, text_h)
+
+
 def render_element_text(draw: ImageDraw, spec: ElementSpec, text: str, context: Dict[str, Any], canvas_width: int):
     """
     Render a text element using its spec.
@@ -84,18 +105,7 @@ def render_element_text(draw: ImageDraw, spec: ElementSpec, text: str, context: 
     
     font = load_font(spec.font_size)
     color = resolve_color(spec.color, context)
-    x, y = spec.get_position(canvas_width)
-    
-    # Handle right alignment
-    if spec.align == 'right':
-        bbox = font.getbbox(text)
-        text_width = bbox[2] - bbox[0]
-        x = x - text_width
-    elif spec.align == 'center':
-        bbox = font.getbbox(text)
-        text_width = bbox[2] - bbox[0]
-        x = x - (text_width // 2)
-    
+    x, y, _, _ = get_rendered_bounds(spec, text, canvas_width)
     draw.text((x, y), text, fill=color, font=font)
 
 
@@ -239,7 +249,26 @@ class TemplatedSportsRenderer:
                 period_text = "END" if is_game_over else game.get('period', '')
                 if period_text:
                     render_element_text(draw, template.period, period_text, context, self.width)
-            
+                
+                # MLB: draw ▲/▼ pixel triangle above/below the inning number,
+                # like a real scoreboard — no horizontal space needed.
+                if is_mlb and not is_game_over and period_text:
+                    batting_half = game.get('batting_half')
+                    if batting_half in ('top', 'bot'):
+                        tx, ty, tw, th = get_rendered_bounds(template.period, period_text, self.width)
+                        tri_cx = tx + tw // 2   # horizontally centered over the text
+                        c = (255, 255, 0)
+                        if batting_half == 'top':
+                            # ▲ just above the text (clamped so it never goes off the top)
+                            tri_y = max(0, ty - 3)
+                            draw.point([(tri_cx,     tri_y + 1)], fill=c)
+                            draw.point([(tri_cx - 1, tri_y + 2), (tri_cx, tri_y + 2), (tri_cx + 1, tri_y + 2)], fill=c)
+                        else:
+                            # ▼ just below the text
+                            tri_y = ty + th + 1
+                            draw.point([(tri_cx - 1, tri_y),     (tri_cx, tri_y),     (tri_cx + 1, tri_y)], fill=c)
+                            draw.point([(tri_cx,     tri_y + 1)], fill=c)
+
             if template.clock and not is_game_over:
                 if is_mlb:
                     outs = game.get('outs')
@@ -262,11 +291,9 @@ class TemplatedSportsRenderer:
                     score_spec = None
                     score_val = ''
                 if score_spec:
-                    font = load_font(score_spec.font_size)
-                    bbox = font.getbbox(score_val)
-                    text_w = bbox[2] - bbox[0]
-                    dot_x = score_spec.x + text_w + 2
-                    dot_y = score_spec.y + score_spec.font_size // 2
+                    sx, sy, sw, sh = get_rendered_bounds(score_spec, score_val, self.width)
+                    dot_x = sx + sw + 2
+                    dot_y = sy + sh // 2
                     draw.ellipse([dot_x - 1, dot_y - 1, dot_x + 1, dot_y + 1], fill=(255, 255, 255))
         else:  # upcoming
             if template.time:

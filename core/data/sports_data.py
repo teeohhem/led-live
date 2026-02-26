@@ -306,10 +306,8 @@ class SportsFetcher(DataFetcher[List[Dict[str, Any]]]):
             detail_lower = time_detail.lower()
             if detail_lower.startswith("top"):
                 batting_half = "top"   # away team batting
-                period = f"T {period}"
             elif detail_lower.startswith("bot"):
                 batting_half = "bot"   # home team batting
-                period = f"B {period}"
         
         return {
             "home": home_abbr,
