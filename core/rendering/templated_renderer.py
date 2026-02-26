@@ -265,7 +265,7 @@ class TemplatedSportsRenderer:
                             draw.point([(tri_cx - 1, tri_y + 2), (tri_cx, tri_y + 2), (tri_cx + 1, tri_y + 2)], fill=c)
                         else:
                             # ▼ just below the text
-                            tri_y = ty + th + 1
+                            tri_y = ty + th + 5
                             draw.point([(tri_cx - 1, tri_y),     (tri_cx, tri_y),     (tri_cx + 1, tri_y)], fill=c)
                             draw.point([(tri_cx,     tri_y + 1)], fill=c)
 
