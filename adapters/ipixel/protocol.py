@@ -671,20 +671,28 @@ async def upload_png(client, image, clear_first=False, panels=None):
                     logger.error(f"Failed to upload to panel {panel_idx+1} after retry: {e}")
         return False
 
-    # Upload to all target panels concurrently so they finish at roughly the same
-    # time and can be activated together.  Each panel has its own BLE connection,
-    # so concurrent asyncio tasks genuinely run in parallel at the OS/radio level.
+    # Upload to panels SEQUENTIALLY to avoid BLE radio contention.
+    # Concurrent uploads interleave chunks from both panels on the same macOS
+    # CoreBluetooth radio, which can corrupt one panel's PNG stream and leave it
+    # blank.  Sequential upload is slower but reliable.  SCREEN_ON is sent
+    # concurrently at the end so both panels light up at the same time.
     if image.height == total_display_height and len(target_panels) > 1:
         # Split image: each panel gets PANEL_HEIGHT pixels
         crops = {
             panel_idx: image.crop((0, panel_idx * PANEL_HEIGHT, PANEL_WIDTH, (panel_idx + 1) * PANEL_HEIGHT))
             for panel_idx in target_panels
         }
-        results = await asyncio.gather(*[_upload_to_panel(idx, crops[idx]) for idx in target_panels])
+        results = []
+        for idx in target_panels:
+            ok = await _upload_to_panel(idx, crops[idx])
+            results.append(ok)
     else:
-        # Single panel image or single target panel — send same image to all targets
+        # Single panel image or single target panel
         logger.info(f"Single image mode - sending to {len(target_panels)} panel(s)")
-        results = await asyncio.gather(*[_upload_to_panel(idx, image) for idx in target_panels])
+        results = []
+        for idx in target_panels:
+            ok = await _upload_to_panel(idx, image)
+            results.append(ok)
 
     successful_panels = [panel_idx for panel_idx, ok in zip(target_panels, results) if ok]
 
@@ -698,11 +706,13 @@ async def upload_png(client, image, clear_first=False, panels=None):
     # Re-enable all successful panels concurrently so they flip to their new
     # content at the same time.  Sending SCREEN_ON per-panel (rather than as a
     # broadcast) prevents a panel with empty memory from waking up blank.
-    # Send twice per panel since write_without_response is fire-and-forget and a
-    # single lost packet would leave a panel dark until the next upload cycle.
+    # Send three times per panel — write_without_response is fire-and-forget and
+    # a dropped packet would leave a panel dark until the next upload cycle.
     async def _send_screen_on(panel_idx: int) -> None:
         panel_client = client.get_panel_client(panel_idx)
         try:
+            await panel_client.write_gatt_char(UUID_WRITE_DATA, SCREEN_ON, response=False)
+            await asyncio.sleep(0.05)
             await panel_client.write_gatt_char(UUID_WRITE_DATA, SCREEN_ON, response=False)
             await asyncio.sleep(0.05)
             await panel_client.write_gatt_char(UUID_WRITE_DATA, SCREEN_ON, response=False)

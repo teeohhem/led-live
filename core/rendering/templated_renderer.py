@@ -659,11 +659,11 @@ class TemplatedWeatherRenderer:
         
         # Render high/low temps
         if template.high_temp and 'temp_max' in weather:
-            high_text = f"H{weather['temp_max']}°"
+            high_text = f"H {weather['temp_max']}°"
             render_element_text(draw, template.high_temp, high_text, context, self.width)
         
         if template.low_temp and 'temp_min' in weather:
-            low_text = f"L{weather['temp_min']}°"
+            low_text = f"L {weather['temp_min']}°"
             render_element_text(draw, template.low_temp, low_text, context, self.width)
     
     def render_forecast_extended(self, forecasts: List[Dict[str, Any]]) -> Image.Image:
